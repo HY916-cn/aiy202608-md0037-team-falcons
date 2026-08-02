@@ -26,7 +26,7 @@
 我是海豚云开发者 A，负责 Expo 客户端、六端导航、共享 UI、课件、作业和成绩。
 
 请使用当前已登录的 GitHub 身份获取这个私密仓库。在开始修改前：
-1. 完整阅读 README.md、START_HERE.md、AGENTS.md、docs/00 至 docs/06，以及当前 GitHub Issue。
+1. 完整阅读 README.md、START_HERE.md、AGENTS.md、docs/00 至 docs/08，以及当前 GitHub Issue。
 2. 检查仓库默认分支、git status、最近提交和 GitHub Issues。
 3. 领取或确认第一个 Ready 任务 F-001：Monorepo、pnpm、Expo 与共享配置。如果 F-001 已完成，则选择分配给 A 的下一个无阻塞 Issue。
 4. 从最新 origin/main 创建符合规范的 feat/<issue>-<short-name> 分支。
@@ -37,6 +37,7 @@
 - 不覆盖其他成员修改，不做全仓库无关重构。
 - 使用 TypeScript strict、pnpm workspace 和 feature-first 结构。
 - 普通功能不得依赖 Coze 可用性。
+- 页面名称、按钮文案、状态、颜色和图标必须复用 docs/07；代码、API、数据库和资源命名必须复用 docs/08。
 - 完成前运行相关 lint、typecheck、测试和目标角色路径。
 
 先给出你读取到的当前状态、目标 Issue、拟修改文件和验证计划，然后直接开始安全明确的实现。暂不 commit、push、merge或发布；完成后提供 diff 摘要、验证结果、风险和 PR 草稿，等待我授权提交。
@@ -52,7 +53,7 @@
 我是海豚云开发者 B，负责 Supabase、权限、学生分、班级分、海豚币、罚款、指定撤销和 AI 网关。
 
 请使用当前已登录的 GitHub 身份获取这个私密仓库。在开始修改前：
-1. 完整阅读 README.md、START_HERE.md、AGENTS.md、docs/00 至 docs/06，以及当前 GitHub Issue。
+1. 完整阅读 README.md、START_HERE.md、AGENTS.md、docs/00 至 docs/08，以及当前 GitHub Issue。
 2. 检查仓库默认分支、git status、最近提交和 GitHub Issues。
 3. 领取或确认第一个 Ready 任务 F-002：核心身份表、角色范围与 RLS 基线。如果 F-002 已完成，则选择分配给 B 的下一个无阻塞 Issue。
 4. 从最新 origin/main 创建符合规范的 feat/<issue>-<short-name> 分支。
@@ -65,6 +66,7 @@
 - 币账写入必须原子且余额不得为负；关键写操作必须幂等和可审计。
 - 撤销新增反向流水并保留原记录，必须防止并发重复撤销。
 - 新增迁移，不编辑已经合并的迁移；权限变化必须有 RLS 正反测试。
+- 业务实体、状态、错误码、表和字段必须使用 docs/08 的固定命名，不创建同义字段。
 
 先给出当前状态、目标 Issue、数据与权限影响、拟修改文件和验证计划，再开始实现。暂不 commit、push、merge或发布；完成后提供迁移/API说明、验证结果、风险和 PR 草稿，等待我授权提交。
 ```
@@ -79,12 +81,14 @@
 我是海豚云质量与构建负责人 C，负责 Review A/B 的代码、执行测试、修复集成与构建缺陷，并完成 Web、APK、iOS 本地测试版和 Windows EXE 构建。
 
 请使用当前已登录的 GitHub 身份获取这个私密仓库。首先：
-1. 完整阅读 README.md、START_HERE.md、AGENTS.md、docs/00 至 docs/06 和 prompts/CODEX提示词库.md。
+1. 完整阅读 README.md、START_HERE.md、AGENTS.md、docs/00 至 docs/08 和 prompts/CODEX提示词库.md。
 2. 检查 main、打开的 Issues、Pull Requests、CI 和当前里程碑。
 3. 如果已有 A/B 的 PR，按质量负责人 Review 提示词先做只读审查和实际验证。
 4. 如果尚无 PR，领取 F-003：CI、PR 门禁、测试命令和秘密扫描；等待工程骨架后实现。
 
 审查优先级：越权或密钥、余额与数据损坏、幂等和并发撤销、核心流程、Coze 故障降级、跨端回归。
+
+同时检查新代码是否擅自改变固定名称、图标、颜色、状态或数据库命名。
 
 工作规则：
 - 开发、Review、测试和构建过程禁止调用 Coze 或 Coze CLI；运行时 Coze 只能作为被测外部服务。
@@ -125,4 +129,3 @@
 ```text
 我已确认当前 diff 和验证结果。现在授权你只暂存本 Issue 的明确文件，检查 staged diff 和密钥，然后使用 Conventional Commit 创建提交并推送当前功能分支。禁止 force push、禁止推送 main、禁止合并、禁止创建 tag 或发布。推送后返回 commit SHA 和 GitHub 分支地址，并准备 Pull Request 草稿。
 ```
-
