@@ -6,11 +6,11 @@
 
 ## 开发团队
 
-| 成员 | 职责 |
-| --- | --- |
-| 开发者 A | Expo 客户端、六端导航、课件、作业、成绩和共享 UI |
-| 开发者 B | Supabase、学生分、班级分、银行、罚款、撤销和 AI 网关 |
-| 负责人 C | 代码 Review、测试、缺陷修复、CI 和 Web/APK/iOS/EXE 构建 |
+| 成员 | GitHub | 职责 |
+| --- | --- | --- |
+| 开发者 A | `@cskunkuncskk` | Expo 客户端、六端导航、课件、作业、成绩和共享 UI |
+| 开发者 B | 待提供 | Supabase、学生分、班级分、银行、罚款、撤销和 AI 网关 |
+| 负责人 C | `@HY916-cn` | 代码 Review、测试、缺陷修复、CI 和 Web/APK/iOS/EXE 构建 |
 
 A、B 的功能 PR 由 C 主审；C 提交的修复或构建 PR 必须由 A 或 B Review，禁止自审自合并。
 

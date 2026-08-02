@@ -23,7 +23,7 @@
 ```text
 项目地址：https://github.com/HY916-cn/dolphin-cloud
 
-我是海豚云开发者 A，负责 Expo 客户端、六端导航、共享 UI、课件、作业和成绩。
+我是海豚云开发者 A，GitHub 账号是 cskunkuncskk，负责 Expo 客户端、六端导航、共享 UI、课件、作业和成绩。
 
 请使用当前已登录的 GitHub 身份获取这个私密仓库。在开始修改前：
 1. 完整阅读 README.md、START_HERE.md、AGENTS.md、docs/00 至 docs/09，以及当前 GitHub Issue。
