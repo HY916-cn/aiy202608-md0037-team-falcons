@@ -50,6 +50,7 @@ A、B 的功能 PR 由 C 主审；C 提交的修复或构建 PR 必须由 A 或 
 | [06-测试发布与应急](./docs/06-测试发布与应急.md) | CI、QA、四端构建、RC 和演示应急 |
 | [07-产品语言与视觉规范](./docs/07-产品语言与视觉规范.md) | 固定名称、导航、颜色、图标、状态和界面文案 |
 | [08-代码与资源命名规范](./docs/08-代码与资源命名规范.md) | TypeScript、API、数据库、文件、测试和资源命名 |
+| [09-实时协作与测试反馈规范](./docs/09-实时协作与测试反馈规范.md) | A/B 持续推送、Draft PR 和 C 按 SHA 测试的流程 |
 | [ADR 模板](./docs/ADR模板.md) | 跨模块技术决策记录模板 |
 | [GitHub 所有权模板](./docs/CODEOWNERS模板.md) | A、B、C 的路径所有权参考 |
 
@@ -68,6 +69,8 @@ A、B 的功能 PR 由 C 主审；C 提交的修复或构建 PR 必须由 A 或 
 ## 仓库管理
 
 - 一项 GitHub Issue 对应一个短生命周期分支和一个 Pull Request。
+- A、B 开工后建立 Draft PR，每完成一个可验证小步骤或最长 90 分钟提交并推送一次。
+- C 对 Draft PR 持续测试，所有测试结论必须标明 commit SHA。
 - 分支从最新 `main` 创建，格式为 `feat/<issue>-<name>` 等。
 - 提交遵循 Conventional Commits。
 - PR 必须通过 lint、typecheck、测试和负责人 Review。

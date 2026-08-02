@@ -69,9 +69,11 @@ Codex 必须：
 - 提交遵循 Conventional Commits，例如 `feat(score): add class ranking`。
 - 不改写其他开发者已推送分支的历史。
 - 不提交 `.env`、构建产物、个人 IDE 配置、真实数据或临时调试文件。
-- Codex 只有在开发者明确要求时才执行 commit、push、merge、tag 或发布。
+- Codex 只有在开发者明确要求时才执行 commit、push、merge、tag 或发布。`START_HERE.md` 的 A/B 实时协作提示词可以作为对当前功能分支持续 commit 和 push 的明确授权。
+- 获得实时协作授权后，只能推送 Issue 对应功能分支，必须按 `docs/09-实时协作与测试反馈规范.md` 建立和维护 Draft PR；授权不包含推送 `main`、force push、merge、tag 或发布。
 - 发生冲突时先理解双方意图，不使用破坏性命令覆盖他人修改。
 - A、B 的功能 PR 由 C 负责主审；C 提交的测试或修复 PR 必须由 A 或 B 复核，禁止自审自合并。
+- C 每次测试必须记录被测 commit SHA；A/B 在 C 开始测试后不得改写该分支历史。
 
 ## 7. 完成条件
 

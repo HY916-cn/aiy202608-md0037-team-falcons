@@ -13,7 +13,7 @@
 - 必须运行的验证。
 - 是否允许 commit、push、创建 PR、tag 或构建。
 
-默认不授权 Codex commit、push、merge、tag、发布和外部部署。需要这些动作时单独明确授权。
+默认不授权 Codex commit、push、merge、tag、发布和外部部署。`START_HERE.md` 的实时协作提示词是例外：它明确授权当前 Issue 功能分支的 checkpoint commit、push 和 Draft PR，但不授权 main、force push、merge、tag、发布或部署。
 
 任何提示词都继承以下硬规则：
 

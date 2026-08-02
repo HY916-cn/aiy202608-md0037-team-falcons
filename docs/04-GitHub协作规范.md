@@ -8,7 +8,7 @@
 flowchart LR
     I["Issue + 验收标准"] --> B["从 main 建短分支"]
     B --> C["Codex 实现与本地验证"]
-    C --> P["Draft PR"]
+    C --> P["持续推送 + Draft PR"]
     P --> R["负责人 C Review + 测试"]
     R -->|需修改| C
     R -->|通过| M["Squash Merge"]
@@ -177,6 +177,8 @@ git merge origin/main
 ## 8. Pull Request 规则
 
 - 开始工作后尽早创建 Draft PR，让依赖和接口变化可见。
+- 首个有效 checkpoint 推送后立即创建 Draft PR；后续每个可验证步骤或最长 90 分钟推送一次，供 C 持续测试。
+- 每次请求 QA 时，在 PR 评论 `[READY_FOR_QA] <commit SHA>`，不得只写“最新代码”。
 - 标题使用与提交相同的 Conventional Commit 格式。
 - 关联并自动关闭 Issue，例如 `Closes #42`。
 - 使用 PR 模板填写变更、验证、截图、迁移和风险。
@@ -196,6 +198,8 @@ git merge origin/main
 3. 拉取 PR 分支运行测试和目标角色操作路径。
 4. 在对应代码行提出可复现的审查意见。
 5. 将 PR 标记为通过、需修改或阻塞。
+
+C 的每次测试评论必须包含实际 commit SHA。A/B 新推送后，旧 SHA 的通过结论仍作为历史证据，但不能自动代表新 SHA 已通过。
 
 正常业务缺陷由原作者修复，C 复测并重新 Review。
 
@@ -243,4 +247,3 @@ C 的任何修复 PR 必须由 A 或 B Review 并批准；C 不得自审自合�
 - 标签由 C 从通过 QA 的 `main` commit 创建。
 - 构建物必须能追溯到 Git tag 和 commit SHA。
 - 发布说明列出功能、已知问题、迁移和四端构建状态。
-
