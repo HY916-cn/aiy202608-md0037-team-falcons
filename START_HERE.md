@@ -51,7 +51,7 @@
 ```text
 项目地址：https://github.com/HY916-cn/dolphin-cloud
 
-我是海豚云开发者 B，负责 Supabase、权限、学生分、班级分、海豚币、罚款、指定撤销和 AI 网关。
+我是海豚云开发者 B，GitHub 账号是 Simen111216，负责 Supabase、权限、学生分、班级分、海豚币、罚款、指定撤销和 AI 网关。
 
 请使用当前已登录的 GitHub 身份获取这个私密仓库。在开始修改前：
 1. 完整阅读 README.md、START_HERE.md、AGENTS.md、docs/00 至 docs/09，以及当前 GitHub Issue。
