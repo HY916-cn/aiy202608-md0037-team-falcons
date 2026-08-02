@@ -107,7 +107,26 @@ importers:
         version: 6.0.3
 
   packages/ui:
+    dependencies:
+      '@dolphincloud/auth':
+        specifier: workspace:*
+        version: link:../auth
+      lucide-react-native:
+        specifier: 1.28.0
+        version: 1.28.0(react-native-svg@15.15.4(react-native@0.86.2(@babel/core@7.29.7)(@react-native/metro-config@0.86.2(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3))(react-native@0.86.2(@babel/core@7.29.7)(@react-native/metro-config@0.86.2(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)
+      react:
+        specifier: 19.2.3
+        version: 19.2.3
+      react-native:
+        specifier: 0.86.2
+        version: 0.86.2(@babel/core@7.29.7)(@react-native/metro-config@0.86.2(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3)
+      react-native-svg:
+        specifier: 15.15.4
+        version: 15.15.4(react-native@0.86.2(@babel/core@7.29.7)(@react-native/metro-config@0.86.2(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)
     devDependencies:
+      '@types/react':
+        specifier: ~19.2.2
+        version: 19.2.18
       typescript:
         specifier: ~6.0.3
         version: 6.0.3

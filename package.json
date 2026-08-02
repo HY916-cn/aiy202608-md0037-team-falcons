@@ -9,6 +9,7 @@
   "scripts": {
     "start": "pnpm --filter @dolphincloud/client start",
     "android": "pnpm --filter @dolphincloud/client android",
+    "android:export": "pnpm --filter @dolphincloud/client android:export",
     "web": "pnpm --filter @dolphincloud/client web",
     "web:export": "pnpm --filter @dolphincloud/client web:export",
     "lint": "eslint apps packages",

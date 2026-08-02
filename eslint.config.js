@@ -11,6 +11,13 @@ module.exports = defineConfig([
   expoConfig,
   {
     files: ['apps/**/*.{ts,tsx}', 'packages/**/*.{ts,tsx}'],
+    settings: {
+      'import/resolver': {
+        typescript: {
+          project: ['apps/client/tsconfig.json'],
+        },
+      },
+    },
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
     },

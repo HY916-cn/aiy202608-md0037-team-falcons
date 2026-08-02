@@ -18,6 +18,12 @@ export const ROLE_LABELS = {
   admin: '管理端',
 } as const satisfies Record<RoleCode, string>;
 
+export const DEFAULT_ROLE = 'teacher' satisfies RoleCode;
+
 export function isRoleCode(value: string): value is RoleCode {
   return ROLE_CODES.some((role) => role === value);
+}
+
+export function resolveMockRole(value: string | undefined): RoleCode {
+  return value !== undefined && isRoleCode(value) ? value : DEFAULT_ROLE;
 }

@@ -77,4 +77,16 @@ A、B 的功能 PR 由 C 主审；C 提交的修复或构建 PR 必须由 A 或 
 - 新页面、字段、状态、图标和颜色必须遵守 `docs/07` 与 `docs/08`，不得自行创建同义名称。
 - 四端构建只能来自已验收的干净 tag，不从本地脏工作区构建。
 
+## 工程启动
+
+```bash
+pnpm install --frozen-lockfile
+pnpm web
+# 可选的跨端 bundle 验证
+pnpm web:export
+pnpm android:export
+```
+
+开发阶段可在 `apps/client/.env` 设置 `EXPO_PUBLIC_MOCK_ROLE` 为 `teacher`、`class_terminal`、`family`、`bank_operator`、`council` 或 `admin`，验证对应角色路由壳。该变量只控制客户端 Mock 入口，不作为服务端授权依据。
+
 工程能力与可运行端点会随对应 Issue 和 Pull Request 持续更新。

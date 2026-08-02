@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { isRoleCode, ROLE_CODES, ROLE_LABELS } from '../roles';
+import {
+  isRoleCode,
+  resolveMockRole,
+  ROLE_CODES,
+  ROLE_LABELS,
+} from '../roles';
 
 describe('role definitions', () => {
   it('固定提供六种角色及界面名称', () => {
@@ -12,5 +17,11 @@ describe('role definitions', () => {
   it('拒绝规范之外的角色名称', () => {
     expect(isRoleCode('teacher')).toBe(true);
     expect(isRoleCode('student')).toBe(false);
+  });
+
+  it('mock 角色缺失或非法时进入教师端', () => {
+    expect(resolveMockRole(undefined)).toBe('teacher');
+    expect(resolveMockRole('student')).toBe('teacher');
+    expect(resolveMockRole('bank_operator')).toBe('bank_operator');
   });
 });

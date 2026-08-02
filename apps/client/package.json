@@ -6,6 +6,7 @@
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
+    "android:export": "expo export --platform android",
     "web": "expo start --web",
     "web:export": "expo export --platform web",
     "typecheck": "tsc --noEmit"
