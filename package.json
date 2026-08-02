@@ -1,0 +1,24 @@
+{
+  "name": "dolphin-cloud",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "start": "pnpm --filter @dolphincloud/client start",
+    "android": "pnpm --filter @dolphincloud/client android",
+    "web": "pnpm --filter @dolphincloud/client web",
+    "web:export": "pnpm --filter @dolphincloud/client web:export",
+    "lint": "eslint apps packages",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "eslint": "9.39.5",
+    "eslint-config-expo": "~57.0.1",
+    "typescript": "~6.0.3",
+    "vitest": "4.1.10"
+  }
+}
