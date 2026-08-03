@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Scan repository history
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  quality:
+    name: Quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          run_install: false
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Prepare reports
+        run: mkdir -p reports/unit
+      - name: Verify dependency alignment
+        run: pnpm verify:deps 2>&1 | tee reports/dependencies.txt
+      - name: Check formatting baseline
+        run: pnpm format:check 2>&1 | tee reports/format.txt
+      - name: Lint
+        run: pnpm lint 2>&1 | tee reports/lint.txt
+      - name: Typecheck
+        run: pnpm typecheck 2>&1 | tee reports/typecheck.txt
+      - name: Unit tests
+        run: pnpm test:ci
+      - name: Upload quality reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: quality-reports-${{ github.run_id }}
+          path: reports
+          if-no-files-found: warn
+          retention-days: 14
+
+  database-tests:
+    name: Database and RLS tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Detect database workspace
+        id: database
+        shell: bash
+        run: |
+          if [[ -f supabase/config.toml ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "### Database tests pending" >> "$GITHUB_STEP_SUMMARY"
+            echo "The Supabase workspace is not present on this commit. The job becomes mandatory automatically when supabase/config.toml is added." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Install pnpm
+        if: steps.database.outputs.enabled == 'true'
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          run_install: false
+      - name: Set up Node.js
+        if: steps.database.outputs.enabled == 'true'
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install frozen dependencies
+        if: steps.database.outputs.enabled == 'true'
+        run: pnpm install --frozen-lockfile
+      - name: Run database and RLS tests
+        if: steps.database.outputs.enabled == 'true'
+        run: pnpm database:test
+
+  exports:
+    name: Expo export smoke
+    needs:
+      - quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          run_install: false
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Export and verify Web
+        run: pnpm smoke:web
+      - name: Export and verify Android
+        run: pnpm smoke:android

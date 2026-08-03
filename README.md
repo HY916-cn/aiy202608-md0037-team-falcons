@@ -51,6 +51,7 @@ A、B 的功能 PR 由 C 主审；C 提交的修复或构建 PR 必须由 A 或 
 | [07-产品语言与视觉规范](./docs/07-产品语言与视觉规范.md) | 固定名称、导航、颜色、图标、状态和界面文案 |
 | [08-代码与资源命名规范](./docs/08-代码与资源命名规范.md) | TypeScript、API、数据库、文件、测试和资源命名 |
 | [09-实时协作与测试反馈规范](./docs/09-实时协作与测试反馈规范.md) | A/B 持续推送、Draft PR 和 C 按 SHA 测试的流程 |
+| [QA-M0首轮冒烟清单](./docs/QA-M0首轮冒烟清单.md) | C 的自动门禁、六端冒烟和 SHA 记录模板 |
 | [ADR 模板](./docs/ADR模板.md) | 跨模块技术决策记录模板 |
 | [GitHub 所有权模板](./docs/CODEOWNERS模板.md) | A、B、C 的路径所有权参考 |
 
@@ -82,9 +83,14 @@ A、B 的功能 PR 由 C 主审；C 提交的修复或构建 PR 必须由 A 或 
 ```bash
 pnpm install --frozen-lockfile
 pnpm web
-# 可选的跨端 bundle 验证
-pnpm web:export
-pnpm android:export
+# 提交前的自动质量与跨端 bundle 验证
+pnpm verify:deps
+pnpm format:check
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm smoke:web
+pnpm smoke:android
 ```
 
 开发阶段可在 `apps/client/.env` 设置 `EXPO_PUBLIC_MOCK_ROLE` 为 `teacher`、`class_terminal`、`family`、`bank_operator`、`council` 或 `admin`，验证对应角色路由壳。该变量只控制客户端 Mock 入口，不作为服务端授权依据。

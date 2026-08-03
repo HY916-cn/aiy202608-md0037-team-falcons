@@ -6,9 +6,9 @@
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
-    "android:export": "expo export --platform android",
+    "android:export": "expo export --platform android --output-dir dist/android",
     "web": "expo start --web",
-    "web:export": "expo export --platform web",
+    "web:export": "expo export --platform web --output-dir dist/web",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

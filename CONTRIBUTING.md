@@ -24,13 +24,16 @@
 
 ```bash
 pnpm install --frozen-lockfile
+pnpm verify:deps
+pnpm format:check
 pnpm lint
 pnpm typecheck
 pnpm test
-pnpm web:export
+pnpm smoke:web
+pnpm smoke:android
 ```
 
-涉及数据库时额外执行项目定义的 Supabase 本地启动、重置和数据库测试命令。涉及 UI 时完成目标角色的真实路径验证。
+涉及数据库时额外执行 `pnpm database:test`。涉及 UI 时完成目标角色的真实路径验证。完整 M0 基线见 `docs/QA-M0首轮冒烟清单.md`。
 
 ## PR
 
