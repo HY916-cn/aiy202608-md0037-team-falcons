@@ -1,5 +1,5 @@
-import { RoleHomeScreen } from '@dolphincloud/ui';
+import { AuthenticatedRoleHomeScreen } from '@/features/auth';
 
 export default function AdminHomeRoute() {
-  return <RoleHomeScreen role="admin" />;
+  return <AuthenticatedRoleHomeScreen role="admin" />;
 }

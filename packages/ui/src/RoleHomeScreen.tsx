@@ -1,18 +1,20 @@
 import type { RoleCode } from '@dolphincloud/auth';
 import { ROLE_LABELS } from '@dolphincloud/auth';
 import { CircleCheck } from 'lucide-react-native';
-import { StyleSheet, Text, View } from 'react-native';
+import type { ReactNode } from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { RoleIcon } from './RoleIcon';
 import { theme } from './theme';
 
 type RoleHomeScreenProps = {
+  children?: ReactNode;
   role: RoleCode;
 };
 
-export function RoleHomeScreen({ role }: RoleHomeScreenProps) {
+export function RoleHomeScreen({ children, role }: RoleHomeScreenProps) {
   return (
-    <View style={styles.page}>
+    <ScrollView contentContainerStyle={styles.page}>
       <View style={styles.content}>
         <View style={styles.brandRow}>
           <View style={styles.iconFrame}>
@@ -40,11 +42,13 @@ export function RoleHomeScreen({ role }: RoleHomeScreenProps) {
           </View>
         </View>
 
+        {children}
+
         <Text style={styles.helper}>
-          当前使用 Mock 角色进入，后续由登录会话替换。
+          当前页面已由登录会话和角色路由守卫保护。
         </Text>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -52,7 +56,7 @@ const styles = StyleSheet.create({
   page: {
     alignItems: 'center',
     backgroundColor: theme.color.surface.page,
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: theme.space.md,
     paddingVertical: theme.space.xl,
   },

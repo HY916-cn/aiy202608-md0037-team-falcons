@@ -87,6 +87,22 @@ pnpm web:export
 pnpm android:export
 ```
 
-开发阶段可在 `apps/client/.env` 设置 `EXPO_PUBLIC_MOCK_ROLE` 为 `teacher`、`class_terminal`、`family`、`bank_operator`、`council` 或 `admin`，验证对应角色路由壳。该变量只控制客户端 Mock 入口，不作为服务端授权依据。
+默认启动后会进入 Mock 登录页，可依次选择教师端、班级端、家庭端、银行端、自治会端和管理端，验证角色切换、退出与路由守卫：
+
+```bash
+pnpm web
+```
+
+开发阶段也可在 `apps/client/.env` 设置 `EXPO_PUBLIC_MOCK_ROLE` 为 `teacher`、`class_terminal`、`family`、`bank_operator`、`council` 或 `admin`，自动进入对应角色首页。该变量只控制客户端 Mock 演示入口，不作为服务端授权依据；删除该变量即可恢复未登录入口。
+
+认证与跨端导出验证命令：
+
+```bash
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm web:export
+pnpm android:export
+```
 
 工程能力与可运行端点会随对应 Issue 和 Pull Request 持续更新。

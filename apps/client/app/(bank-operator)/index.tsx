@@ -1,5 +1,5 @@
-import { RoleHomeScreen } from '@dolphincloud/ui';
+import { AuthenticatedRoleHomeScreen } from '@/features/auth';
 
 export default function BankOperatorHomeRoute() {
-  return <RoleHomeScreen role="bank_operator" />;
+  return <AuthenticatedRoleHomeScreen role="bank_operator" />;
 }

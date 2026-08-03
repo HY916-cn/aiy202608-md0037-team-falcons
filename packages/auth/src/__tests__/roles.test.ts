@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   isRoleCode,
+  parseMockRole,
   resolveMockRole,
   ROLE_CODES,
   ROLE_LABELS,
@@ -23,5 +24,11 @@ describe('role definitions', () => {
     expect(resolveMockRole(undefined)).toBe('teacher');
     expect(resolveMockRole('student')).toBe('teacher');
     expect(resolveMockRole('bank_operator')).toBe('bank_operator');
+  });
+
+  it('仅在环境变量包含固定角色时启用自动演示入口', () => {
+    expect(parseMockRole(undefined)).toBeNull();
+    expect(parseMockRole('student')).toBeNull();
+    expect(parseMockRole('family')).toBe('family');
   });
 });

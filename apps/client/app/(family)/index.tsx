@@ -1,5 +1,5 @@
-import { RoleHomeScreen } from '@dolphincloud/ui';
+import { AuthenticatedRoleHomeScreen } from '@/features/auth';
 
 export default function FamilyHomeRoute() {
-  return <RoleHomeScreen role="family" />;
+  return <AuthenticatedRoleHomeScreen role="family" />;
 }
