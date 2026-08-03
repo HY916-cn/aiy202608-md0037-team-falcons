@@ -10,11 +10,17 @@
     "start": "pnpm --filter @dolphincloud/client start",
     "android": "pnpm --filter @dolphincloud/client android",
     "android:export": "pnpm --filter @dolphincloud/client android:export",
+    "database:test": "pnpm --filter @dolphincloud/database --fail-if-no-match test",
+    "format:check": "node scripts/ci/check-format.mjs",
     "web": "pnpm --filter @dolphincloud/client web",
     "web:export": "pnpm --filter @dolphincloud/client web:export",
-    "lint": "eslint apps packages",
+    "lint": "eslint apps packages scripts",
+    "smoke:android": "pnpm android:export && node scripts/ci/verify-export.mjs android",
+    "smoke:web": "pnpm web:export && node scripts/ci/verify-export.mjs web",
     "typecheck": "pnpm -r --if-present typecheck",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:ci": "vitest run --reporter=default --reporter=junit --outputFile.junit=reports/unit/junit.xml",
+    "verify:deps": "pnpm peers check && pnpm --filter @dolphincloud/client exec expo install --check"
   },
   "devDependencies": {
     "eslint": "9.39.5",
