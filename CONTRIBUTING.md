@@ -27,7 +27,7 @@ pnpm install --frozen-lockfile
 pnpm lint
 pnpm typecheck
 pnpm test
-pnpm --filter client export:web
+pnpm web:export
 ```
 
 涉及数据库时额外执行项目定义的 Supabase 本地启动、重置和数据库测试命令。涉及 UI 时完成目标角色的真实路径验证。

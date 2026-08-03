@@ -2,7 +2,7 @@
 
 海豚云是一套使用 React Native、Expo、Supabase 和 Electron 构建的校园协作应用，计划交付 Web、Android APK、iOS 本地测试版和 Windows EXE。
 
-当前仓库处于“规范与开发启动”阶段：首个提交只包含 Markdown 产品文档、工程规范、GitHub 模板和 Codex 提示词，不包含生成代码、DOCX、PDF、图片或二进制文件。
+当前仓库已进入工程实现阶段：使用 pnpm workspace 管理 Expo 客户端与共享 package，工程规范和 GitHub 协作约束继续作为实现边界。
 
 ## 开发团队
 
@@ -77,4 +77,16 @@ A、B 的功能 PR 由 C 主审；C 提交的修复或构建 PR 必须由 A 或 
 - 新页面、字段、状态、图标和颜色必须遵守 `docs/07` 与 `docs/08`，不得自行创建同义名称。
 - 四端构建只能来自已验收的干净 tag，不从本地脏工作区构建。
 
-项目代码建立后，README 的“当前阶段”将随着第一个工程 PR 更新。
+## 工程启动
+
+```bash
+pnpm install --frozen-lockfile
+pnpm web
+# 可选的跨端 bundle 验证
+pnpm web:export
+pnpm android:export
+```
+
+开发阶段可在 `apps/client/.env` 设置 `EXPO_PUBLIC_MOCK_ROLE` 为 `teacher`、`class_terminal`、`family`、`bank_operator`、`council` 或 `admin`，验证对应角色路由壳。该变量只控制客户端 Mock 入口，不作为服务端授权依据。
+
+工程能力与可运行端点会随对应 Issue 和 Pull Request 持续更新。

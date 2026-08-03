@@ -1,0 +1,21 @@
+{
+  "expo": {
+    "name": "DolphinCloud",
+    "slug": "dolphin-cloud",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "dolphincloud",
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "android": {
+      "package": "cn.hy916.dolphincloud"
+    }
+  }
+}
