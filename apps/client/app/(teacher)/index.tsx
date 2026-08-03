@@ -1,5 +1,5 @@
-import { RoleHomeScreen } from '@dolphincloud/ui';
+import { AuthenticatedRoleHomeScreen } from '@/features/auth';
 
 export default function TeacherHomeRoute() {
-  return <RoleHomeScreen role="teacher" />;
+  return <AuthenticatedRoleHomeScreen role="teacher" />;
 }

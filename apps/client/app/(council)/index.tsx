@@ -1,5 +1,5 @@
-import { RoleHomeScreen } from '@dolphincloud/ui';
+import { AuthenticatedRoleHomeScreen } from '@/features/auth';
 
 export default function CouncilHomeRoute() {
-  return <RoleHomeScreen role="council" />;
+  return <AuthenticatedRoleHomeScreen role="council" />;
 }

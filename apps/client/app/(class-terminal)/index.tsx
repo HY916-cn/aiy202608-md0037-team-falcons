@@ -1,5 +1,5 @@
-import { RoleHomeScreen } from '@dolphincloud/ui';
+import { AuthenticatedRoleHomeScreen } from '@/features/auth';
 
 export default function ClassTerminalHomeRoute() {
-  return <RoleHomeScreen role="class_terminal" />;
+  return <AuthenticatedRoleHomeScreen role="class_terminal" />;
 }
