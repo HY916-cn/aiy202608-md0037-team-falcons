@@ -27,3 +27,7 @@ export function isRoleCode(value: string): value is RoleCode {
 export function resolveMockRole(value: string | undefined): RoleCode {
   return value !== undefined && isRoleCode(value) ? value : DEFAULT_ROLE;
 }
+
+export function parseMockRole(value: string | undefined): RoleCode | null {
+  return value !== undefined && isRoleCode(value) ? value : null;
+}
