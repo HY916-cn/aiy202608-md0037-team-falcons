@@ -327,3 +327,69 @@ values
 on conflict (bucket_id, name) do update set
   owner_id = excluded.owner_id,
   metadata = excluded.metadata;
+
+insert into public.assignments (
+  id,
+  teacher_id,
+  class_id,
+  subject,
+  title,
+  content,
+  due_at,
+  status,
+  published_at
+)
+values
+  (
+    '70000000-0000-0000-0000-000000000001',
+    '30000000-0000-0000-0000-000000000001',
+    '20000000-0000-0000-0000-000000000001',
+    '数学',
+    '合成演示数学作业',
+    '完成合成练习册第 1 至 3 题。',
+    now() + interval '2 days',
+    'published',
+    now() - interval '1 hour'
+  ),
+  (
+    '70000000-0000-0000-0000-000000000002',
+    '30000000-0000-0000-0000-000000000001',
+    '20000000-0000-0000-0000-000000000001',
+    '数学',
+    '合成演示未发布草稿',
+    '本内容仅供 RLS 草稿隔离测试。',
+    now() + interval '3 days',
+    'draft',
+    null
+  ),
+  (
+    '70000000-0000-0000-0000-000000000003',
+    '30000000-0000-0000-0000-000000000001',
+    '20000000-0000-0000-0000-000000000002',
+    '数学',
+    '合成演示二班作业',
+    '完成合成练习册第 4 至 6 题。',
+    now() + interval '4 days',
+    'published',
+    now() - interval '2 hours'
+  ),
+  (
+    '70000000-0000-0000-0000-000000000004',
+    '30000000-0000-0000-0000-000000000002',
+    '20000000-0000-0000-0000-000000000003',
+    '语文',
+    '合成演示三班草稿',
+    '本内容仅供另一教师草稿隔离测试。',
+    now() + interval '5 days',
+    'draft',
+    null
+  )
+on conflict (id) do update set
+  teacher_id = excluded.teacher_id,
+  class_id = excluded.class_id,
+  subject = excluded.subject,
+  title = excluded.title,
+  content = excluded.content,
+  due_at = excluded.due_at,
+  status = excluded.status,
+  published_at = excluded.published_at;

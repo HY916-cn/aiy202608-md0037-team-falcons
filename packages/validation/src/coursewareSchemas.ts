@@ -6,6 +6,8 @@ import {
 } from '@dolphincloud/domain';
 import { z } from 'zod';
 
+import { databaseIdSchema } from './databaseIdSchema';
+
 const filenameSchema = z
   .string()
   .min(1)
@@ -65,13 +67,13 @@ export const createCoursewareSchema = z.object({
 });
 
 export const sendCoursewareSchema = z.object({
-  classIds: z.array(z.uuid()).min(1).max(20),
-  coursewareId: z.uuid(),
+  classIds: z.array(databaseIdSchema).min(1).max(20),
+  coursewareId: databaseIdSchema,
 });
 
 export const createCoursewareReturnSchema = z.object({
-  classId: z.uuid(),
+  classId: databaseIdSchema,
   file: coursewareFileMetadataSchema,
-  teacherId: z.uuid(),
+  teacherId: databaseIdSchema,
   title: z.string().trim().min(1).max(120),
 });
