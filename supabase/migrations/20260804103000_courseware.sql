@@ -438,7 +438,25 @@ create policy objects__select__courseware_authorized
 on storage.objects for select to authenticated
 using (
   bucket_id = 'courseware-private'
-  and public.can_read_courseware_object(name)
+  and (
+    public.can_read_courseware_object(name)
+    or (
+      name like 'courseware/' || (select auth.uid())::text || '/%'
+      and public.has_role('teacher', 'school')
+    )
+    or (
+      split_part(name, '/', 1) = 'returns'
+      and public.has_role(
+        'class_terminal',
+        'class',
+        split_part(name, '/', 2)::uuid
+      )
+      and public.is_teacher_assigned_to_class(
+        split_part(name, '/', 3)::uuid,
+        split_part(name, '/', 2)::uuid
+      )
+    )
+  )
 );
 
 create policy objects__insert__courseware_teacher
@@ -462,6 +480,30 @@ with check (
   and public.is_teacher_assigned_to_class(
     split_part(name, '/', 3)::uuid,
     split_part(name, '/', 2)::uuid
+  )
+);
+
+create policy objects__delete__courseware_uploader
+on storage.objects for delete to authenticated
+using (
+  bucket_id = 'courseware-private'
+  and (
+    (
+      name like 'courseware/' || (select auth.uid())::text || '/%'
+      and public.has_role('teacher', 'school')
+    )
+    or (
+      split_part(name, '/', 1) = 'returns'
+      and public.has_role(
+        'class_terminal',
+        'class',
+        split_part(name, '/', 2)::uuid
+      )
+      and public.is_teacher_assigned_to_class(
+        split_part(name, '/', 3)::uuid,
+        split_part(name, '/', 2)::uuid
+      )
+    )
   )
 );
 

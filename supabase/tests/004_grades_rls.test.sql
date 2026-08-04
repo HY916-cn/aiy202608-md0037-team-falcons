@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(30);
+select plan(35);
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000001', true);
@@ -52,6 +52,28 @@ select lives_ok(
     )
   $$,
   '教师可以为任教班级创建测验草稿'
+);
+select throws_ok(
+  $$
+    select public.publish_assessment(
+      '83000000-0000-0000-0000-000000000001'
+    )
+  $$,
+  'P0001',
+  'VALIDATION_ERROR',
+  '没有成绩的测验不能通过发布 RPC 发布'
+);
+select throws_ok(
+  $$
+    update public.assessments
+    set
+      status = 'published',
+      published_at = now()
+    where id = '83000000-0000-0000-0000-000000000001'
+  $$,
+  '42501',
+  'new row violates row-level security policy for table "assessments"',
+  '教师不能绕过发布 RPC 直接发布测验'
 );
 select throws_ok(
   $$
@@ -145,6 +167,36 @@ select throws_ok(
   'P0001',
   'MISSING_REVISION_REASON',
   '已发布成绩不能绕过修订原因直接修改'
+);
+select throws_ok(
+  $$
+    update public.grade_records
+    set id = '81000000-0000-0000-0000-000000000099'
+    where id = '81000000-0000-0000-0000-000000000001'
+  $$,
+  '42501',
+  'permission denied for table grade_records',
+  '成绩记录 id 不可修改'
+);
+select throws_ok(
+  $$
+    update public.grade_records
+    set student_id = '50000000-0000-0000-0000-000000000004'
+    where id = '81000000-0000-0000-0000-000000000001'
+  $$,
+  '42501',
+  'permission denied for table grade_records',
+  '已发布成绩不能换学生'
+);
+select throws_ok(
+  $$
+    update public.grade_records
+    set assessment_id = '80000000-0000-0000-0000-000000000002'
+    where id = '81000000-0000-0000-0000-000000000001'
+  $$,
+  '42501',
+  'permission denied for table grade_records',
+  '已发布成绩不能跨测验移动'
 );
 
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000002', true);

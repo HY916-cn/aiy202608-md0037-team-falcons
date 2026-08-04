@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(37);
+select plan(41);
 
 select is(
   (select public from storage.buckets where id = 'courseware-private'),
@@ -180,6 +180,50 @@ select lives_ok(
   $$,
   '教师可以创建属于自己的课件记录'
 );
+select lives_ok(
+  $$
+    insert into public.courseware_items (
+      title,
+      subject,
+      original_filename,
+      storage_path,
+      mime_type,
+      size_bytes
+    )
+    values (
+      '50 MiB 边界课件',
+      '数学',
+      '50 MiB 边界课件.pdf',
+      'courseware/30000000-0000-0000-0000-000000000001/63000000-0000-0000-0000-000000000005',
+      'application/pdf',
+      52428800
+    )
+  $$,
+  '数据库接受恰好 50 MiB 的课件记录'
+);
+select throws_ok(
+  $$
+    insert into public.courseware_items (
+      title,
+      subject,
+      original_filename,
+      storage_path,
+      mime_type,
+      size_bytes
+    )
+    values (
+      '超限课件',
+      '数学',
+      '超限课件.pdf',
+      'courseware/30000000-0000-0000-0000-000000000001/63000000-0000-0000-0000-000000000006',
+      'application/pdf',
+      52428801
+    )
+  $$,
+  '23514',
+  null,
+  '数据库拒绝超过 50 MiB 的课件记录'
+);
 select throws_ok(
   $$
     insert into public.courseware_items (
@@ -324,6 +368,30 @@ select throws_ok(
   '42501',
   'new row violates row-level security policy for table "objects"',
   '教师不能向其他教师对象路径上传'
+);
+select is(
+  (
+    select cmd
+    from pg_policies
+    where schemaname = 'storage'
+      and tablename = 'objects'
+      and policyname = 'objects__delete__courseware_uploader'
+  ),
+  'DELETE',
+  '课件对象补偿清理由专用 DELETE RLS 策略控制'
+);
+select ok(
+  (
+    select
+      'authenticated' = any(roles)
+      and qual like '%courseware-private%'
+      and qual like '%has_role%'
+    from pg_policies
+    where schemaname = 'storage'
+      and tablename = 'objects'
+      and policyname = 'objects__delete__courseware_uploader'
+  ),
+  '补偿删除策略只授权 authenticated 且校验私有桶与角色路径'
 );
 
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000011', true);

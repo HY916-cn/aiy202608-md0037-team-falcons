@@ -75,10 +75,16 @@ declare
   assessment_status public.content_status;
   revision_reason text;
 begin
+  if old.id is distinct from new.id
+    or old.assessment_id is distinct from new.assessment_id
+    or old.student_id is distinct from new.student_id then
+    raise exception 'IMMUTABLE_GRADE_IDENTITY';
+  end if;
+
   select assessment.status
   into assessment_status
   from public.assessments as assessment
-  where assessment.id = new.assessment_id;
+  where assessment.id = old.assessment_id;
 
   if assessment_status = 'published'
     and (old.score, old.comment) is distinct from (new.score, new.comment) then
@@ -137,6 +143,12 @@ begin
     raise exception 'VALIDATION_ERROR';
   end if;
 
+  perform set_config(
+    'app.assessment_publish_id',
+    target_assessment_id::text,
+    true
+  );
+
   update public.assessments
   set
     status = 'published',
@@ -150,6 +162,7 @@ begin
     raise exception 'NOT_FOUND';
   end if;
 
+  perform set_config('app.assessment_publish_id', '', true);
   return result;
 end;
 $$;
@@ -242,7 +255,11 @@ with check (
   and public.is_teacher_assigned_to_class((select auth.uid()), class_id)
   and (
     (status = 'draft' and published_at is null)
-    or (status = 'published' and published_at is not null)
+    or (
+      status = 'published'
+      and published_at is not null
+      and current_setting('app.assessment_publish_id', true) = id::text
+    )
   )
 );
 
@@ -301,7 +318,8 @@ revoke all on public.grade_records from anon;
 revoke all on public.grade_revisions from anon;
 
 grant select, insert, update on public.assessments to authenticated;
-grant select, insert, update on public.grade_records to authenticated;
+grant select, insert on public.grade_records to authenticated;
+grant update (score, comment) on public.grade_records to authenticated;
 grant select on public.grade_revisions to authenticated;
 
 revoke all on function public.is_assessment_owner(uuid) from public;

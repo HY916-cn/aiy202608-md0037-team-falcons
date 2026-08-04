@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(21);
+select plan(22);
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000001', true);
@@ -151,6 +151,18 @@ select lives_ok(
     where id = '70000000-0000-0000-0000-000000000002'
   $$,
   '教师可以编辑自己的作业草稿'
+);
+select throws_ok(
+  $$
+    update public.assignments
+    set
+      status = 'published',
+      published_at = now()
+    where id = '70000000-0000-0000-0000-000000000002'
+  $$,
+  '42501',
+  'new row violates row-level security policy for table "assignments"',
+  '教师不能绕过发布 RPC 直接发布作业'
 );
 update public.assignments
 set title = '不应成功的已发布修改'
