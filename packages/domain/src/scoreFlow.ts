@@ -6,7 +6,15 @@ import {
   type AuthorizedOperationCommand,
   type OperationRecord,
 } from './operation';
-import type { LedgerKind, OperationKind, Timestamp, Uuid } from './index';
+import {
+  SCORE_DELTA_MAX,
+  SCORE_DELTA_MIN,
+  type LedgerKind,
+  type OperationKind,
+  type OperationTargetType,
+  type Timestamp,
+  type Uuid,
+} from './index';
 
 /**
  * 学生分/班级分流水都遵循同一形态：
@@ -40,12 +48,15 @@ export interface ScoreAdjustmentResult {
 /**
  * 学生分：kind 必须为 student_score_adjust，subject 为 studentId，
  * ledger kind 为 student_score。
+ * 授权目标必须 (targetType='student', targetId===studentId)，防止
+ * 授权目标与实际写入的流水对象错位。
  */
 export function applyStudentScoreAdjustment(
   input: StudentScoreAdjustmentInput,
 ): ScoreAdjustmentResult {
   return buildScoreAdjustment({
     expectedKind: 'student_score_adjust',
+    expectedTargetType: 'student',
     ledgerKind: 'student_score',
     subjectId: input.studentId,
     operationId: input.operationId,
@@ -59,12 +70,14 @@ export function applyStudentScoreAdjustment(
 /**
  * 班级分：kind 必须为 class_score_adjust，subject 为 classId，
  * ledger kind 为 class_score。
+ * 授权目标必须 (targetType='class', targetId===classId)。
  */
 export function applyClassScoreAdjustment(
   input: ClassScoreAdjustmentInput,
 ): ScoreAdjustmentResult {
   return buildScoreAdjustment({
     expectedKind: 'class_score_adjust',
+    expectedTargetType: 'class',
     ledgerKind: 'class_score',
     subjectId: input.classId,
     operationId: input.operationId,
@@ -77,6 +90,7 @@ export function applyClassScoreAdjustment(
 
 interface InternalAdjustmentInput {
   readonly expectedKind: OperationKind;
+  readonly expectedTargetType: OperationTargetType;
   readonly ledgerKind: LedgerKind;
   readonly subjectId: Uuid;
   readonly operationId: Uuid;
@@ -95,6 +109,18 @@ function buildScoreAdjustment(
       `command kind ${input.command.kind} does not match ${input.expectedKind}`,
     );
   }
+  if (input.command.targetType !== input.expectedTargetType) {
+    throw new DomainError(
+      'E_UNKNOWN_TARGET_TYPE',
+      `command targetType ${input.command.targetType} does not match ${input.expectedTargetType}`,
+    );
+  }
+  if (input.command.targetId !== input.subjectId) {
+    throw new DomainError(
+      'E_UNAUTHORIZED',
+      `command targetId does not match adjustment subject; authorised target and ledger subject must be identical`,
+    );
+  }
   if (!Number.isInteger(input.delta)) {
     throw new DomainError(
       'E_INTEGER_REQUIRED',
@@ -105,6 +131,12 @@ function buildScoreAdjustment(
     throw new DomainError(
       'E_DELTA_ZERO_NOT_ALLOWED',
       'score delta must not be zero',
+    );
+  }
+  if (input.delta < SCORE_DELTA_MIN || input.delta > SCORE_DELTA_MAX) {
+    throw new DomainError(
+      'E_DELTA_OUT_OF_RANGE',
+      `score delta ${input.delta} outside [${SCORE_DELTA_MIN}, ${SCORE_DELTA_MAX}]`,
     );
   }
 

@@ -1,0 +1,31 @@
+# Gitleaks configuration.
+#
+# We extend the upstream default ruleset (which includes generic-api-key and
+# every provider rule) and only append a minimal, exact-string allowlist for
+# nine historical test fixture idempotency keys that were committed before the
+# fixtures were renamed to `test-idempotency-*-fixture`.
+#
+# Scope of this allowlist:
+#   * It matches ONLY the exact literal strings listed below.
+#   * It DOES NOT disable the generic-api-key rule, any other rule, or any
+#     directory / path. Every new secret and every other occurrence of a
+#     high-entropy token is still detected.
+
+title = "dolphin-cloud gitleaks configuration"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Legacy test-fixture idempotency keys present in historical commits only"
+regexes = [
+  '''\bck-2026-idem-a-XYZ\b''',
+  '''\bck-2026-rev-1st-XYZ\b''',
+  '''\bck-2026-rev-2nd-XYZ\b''',
+  '''\bck-2026-rev-fail-XYZ\b''',
+  '''\bck-2026-rev-mism-XYZ\b''',
+  '''\bck-2026-rev-nested-XYZ\b''',
+  '''\bck-2026-rev-ok-XYZ\b''',
+  '''\bck-2026-rev-op-XYZ\b''',
+  '''\bck-2026-rev-orig-XYZ\b''',
+]

@@ -284,6 +284,96 @@ describe('computeRanking timestamp validation', () => {
   });
 });
 
+describe('computeRanking timezone-aware epoch comparison', () => {
+  // 2026-08-04T12:00:00Z equals 2026-08-04T20:00:00+08:00 equals
+  // 2026-08-04T04:00:00-08:00 → all should be treated as the same instant.
+  const AT_UTC = '2026-08-04T12:00:00Z' as Timestamp;
+  const AT_PLUS8 = '2026-08-04T20:00:00+08:00' as Timestamp;
+  const AT_MINUS8 = '2026-08-04T04:00:00-08:00' as Timestamp;
+
+  it('treats +HH:MM, -HH:MM and Z anchors that denote the same instant as equivalent', () => {
+    // Entry timestamped exactly 3 days before the anchor — must be inside the
+    // 7-day window regardless of which timezone-encoded anchor we use.
+    const entryAt = '2026-08-01T12:00:00Z' as Timestamp;
+    const entries: LedgerEntry[] = [
+      makeEntry({
+        subjectId: SUBJECT_A,
+        direction: 'credit',
+        amount: 5,
+        createdAt: entryAt,
+      }),
+    ];
+
+    for (const at of [AT_UTC, AT_PLUS8, AT_MINUS8]) {
+      const ranking = computeRanking({
+        entries,
+        kind: 'student_score',
+        window: 'weekly',
+        at,
+      });
+      expect(ranking).toHaveLength(1);
+      expect(ranking[0]?.subjectId).toBe(SUBJECT_A);
+      expect(ranking[0]?.score).toBe(5);
+    }
+  });
+
+  it('compares entry.createdAt by epoch, so lexical order of ISO strings cannot flip the window', () => {
+    // Entry uses +14:00 offset; its lexical string starts with 2026-08-01
+    // but its epoch equals 2026-07-31T22:00:00Z, which is > 7 days before
+    // the AT_UTC anchor and must therefore be excluded.
+    const lexicallyRecentButEpochOld =
+      '2026-08-01T12:00:00+14:00' as Timestamp;
+    const at = '2026-08-08T12:00:00Z' as Timestamp;
+    const entries: LedgerEntry[] = [
+      makeEntry({
+        subjectId: SUBJECT_A,
+        direction: 'credit',
+        amount: 5,
+        createdAt: lexicallyRecentButEpochOld,
+      }),
+    ];
+    const ranking = computeRanking({
+      entries,
+      kind: 'student_score',
+      window: 'weekly',
+      at,
+    });
+    // Purely lexical string compare of the ISO representations would keep it
+    // (b/c '2026-08-01…+14:00' > '2026-08-01T12:00:00Z'-window-string), but
+    // epoch comparison correctly filters it out.
+    expect(ranking).toHaveLength(0);
+  });
+
+  it('accepts equivalent epoch anchors that differ only in timezone offset', () => {
+    // Entry recorded 6 days before the anchor instant. Using a -12:00-encoded
+    // anchor whose actual instant is identical to AT_UTC must keep the entry.
+    const entryAt = '2026-08-02T12:00:00Z' as Timestamp;
+    const AT_MINUS12 = '2026-08-04T00:00:00-12:00' as Timestamp;
+    const entries: LedgerEntry[] = [
+      makeEntry({
+        subjectId: SUBJECT_A,
+        direction: 'credit',
+        amount: 3,
+        createdAt: entryAt,
+      }),
+    ];
+    const utc = computeRanking({
+      entries,
+      kind: 'student_score',
+      window: 'weekly',
+      at: AT_UTC,
+    });
+    const minus12 = computeRanking({
+      entries,
+      kind: 'student_score',
+      window: 'weekly',
+      at: AT_MINUS12,
+    });
+    expect(utc).toEqual(minus12);
+    expect(utc).toHaveLength(1);
+  });
+});
+
 describe('computeRanking supports class_score kind and monthly window together', () => {
   it('aggregates class ledger entries independently from student ledger', () => {
     const entries: LedgerEntry[] = [

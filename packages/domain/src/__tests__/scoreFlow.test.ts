@@ -139,6 +139,99 @@ describe('applyStudentScoreAdjustment', () => {
     expect(caught?.code).toBe('E_UNKNOWN_OPERATION_KIND');
   });
 
+  it('rejects command whose targetType is not student with E_UNKNOWN_TARGET_TYPE', () => {
+    let caught: DomainError | undefined;
+    try {
+      applyStudentScoreAdjustment({
+        operationId: OP_ID,
+        entryId: ENTRY_ID,
+        command: studentCommand({ targetType: 'class', targetId: CLASS_ID }),
+        delta: 2,
+        studentId: STUDENT_ID,
+        now: NOW,
+      });
+    } catch (error) {
+      caught = error as DomainError;
+    }
+    expect(caught?.code).toBe('E_UNKNOWN_TARGET_TYPE');
+  });
+
+  it('rejects command whose targetId does not match studentId with E_UNAUTHORIZED', () => {
+    const otherStudent = 'st-99999999-9999-4999-8999-999999999999' as Uuid;
+    let caught: DomainError | undefined;
+    try {
+      applyStudentScoreAdjustment({
+        operationId: OP_ID,
+        entryId: ENTRY_ID,
+        command: studentCommand({ targetId: otherStudent }),
+        delta: 2,
+        studentId: STUDENT_ID,
+        now: NOW,
+      });
+    } catch (error) {
+      caught = error as DomainError;
+    }
+    expect(caught?.code).toBe('E_UNAUTHORIZED');
+  });
+
+  it('accepts delta equal to SCORE_DELTA_MIN and SCORE_DELTA_MAX (inclusive boundaries)', () => {
+    const min = applyStudentScoreAdjustment({
+      operationId: OP_ID,
+      entryId: ENTRY_ID,
+      command: studentCommand(),
+      delta: -1000,
+      studentId: STUDENT_ID,
+      now: NOW,
+    });
+    expect(min.entry.direction).toBe('debit');
+    expect(min.entry.amount).toBe(1000);
+
+    const max = applyStudentScoreAdjustment({
+      operationId: OP_ID,
+      entryId: ENTRY_ID,
+      command: studentCommand(),
+      delta: 1000,
+      studentId: STUDENT_ID,
+      now: NOW,
+    });
+    expect(max.entry.direction).toBe('credit');
+    expect(max.entry.amount).toBe(1000);
+  });
+
+  it('rejects delta just above SCORE_DELTA_MAX with E_DELTA_OUT_OF_RANGE', () => {
+    let caught: DomainError | undefined;
+    try {
+      applyStudentScoreAdjustment({
+        operationId: OP_ID,
+        entryId: ENTRY_ID,
+        command: studentCommand(),
+        delta: 1001,
+        studentId: STUDENT_ID,
+        now: NOW,
+      });
+    } catch (error) {
+      caught = error as DomainError;
+    }
+    expect(caught?.code).toBe('E_DELTA_OUT_OF_RANGE');
+  });
+
+  it('rejects delta just below SCORE_DELTA_MIN with E_DELTA_OUT_OF_RANGE', () => {
+    let caught: DomainError | undefined;
+    try {
+      applyStudentScoreAdjustment({
+        operationId: OP_ID,
+        entryId: ENTRY_ID,
+        command: studentCommand(),
+        delta: -1001,
+        studentId: STUDENT_ID,
+        now: NOW,
+      });
+    } catch (error) {
+      caught = error as DomainError;
+    }
+    expect(caught?.code).toBe('E_DELTA_OUT_OF_RANGE');
+  });
+
   it('the produced entry can be reversed through buildReversal and original stays untouched', () => {
     const { operation, entry } = applyStudentScoreAdjustment({
       operationId: OP_ID,
@@ -218,5 +311,57 @@ describe('applyClassScoreAdjustment', () => {
       caught = error as DomainError;
     }
     expect(caught?.code).toBe('E_UNKNOWN_OPERATION_KIND');
+  });
+
+  it('rejects command whose targetType is not class with E_UNKNOWN_TARGET_TYPE', () => {
+    let caught: DomainError | undefined;
+    try {
+      applyClassScoreAdjustment({
+        operationId: OP_ID,
+        entryId: ENTRY_ID,
+        command: classCommand({ targetType: 'student', targetId: STUDENT_ID }),
+        delta: 1,
+        classId: CLASS_ID,
+        now: NOW,
+      });
+    } catch (error) {
+      caught = error as DomainError;
+    }
+    expect(caught?.code).toBe('E_UNKNOWN_TARGET_TYPE');
+  });
+
+  it('rejects command whose targetId does not match classId with E_UNAUTHORIZED', () => {
+    const otherClass = 'cl-88888888-8888-4888-8888-888888888888' as Uuid;
+    let caught: DomainError | undefined;
+    try {
+      applyClassScoreAdjustment({
+        operationId: OP_ID,
+        entryId: ENTRY_ID,
+        command: classCommand({ targetId: otherClass }),
+        delta: 1,
+        classId: CLASS_ID,
+        now: NOW,
+      });
+    } catch (error) {
+      caught = error as DomainError;
+    }
+    expect(caught?.code).toBe('E_UNAUTHORIZED');
+  });
+
+  it('rejects class delta out of range with E_DELTA_OUT_OF_RANGE', () => {
+    let caught: DomainError | undefined;
+    try {
+      applyClassScoreAdjustment({
+        operationId: OP_ID,
+        entryId: ENTRY_ID,
+        command: classCommand(),
+        delta: 1001,
+        classId: CLASS_ID,
+        now: NOW,
+      });
+    } catch (error) {
+      caught = error as DomainError;
+    }
+    expect(caught?.code).toBe('E_DELTA_OUT_OF_RANGE');
   });
 });

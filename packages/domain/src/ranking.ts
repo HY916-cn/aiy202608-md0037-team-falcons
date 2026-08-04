@@ -29,7 +29,8 @@ const WINDOW_DURATION_MS: Readonly<Record<RankingWindow, number | null>> = {
 /**
  * 计算排行榜（不查库、不落库，纯值）。
  *  - 只统计 ledger kind 匹配的条目。
- *  - 根据 window 过滤 createdAt >= at - duration。
+ *  - 根据 window 过滤 createdAt >= at - duration；比较全部使用 epoch 毫秒，
+ *    避免直接对带时区偏移的 ISO 字符串做字典序比较造成的错序。
  *  - 按 subjectId 聚合 net；正负流水都参与，反向流水天然抵消原流水。
  *  - 若 subjectIds 提供，则最终榜单会显式包含这些 subject（缺席时 score=0）。
  *  - 排序：score 降序；同分按 subjectId 字典升序稳定输出。
@@ -38,15 +39,24 @@ const WINDOW_DURATION_MS: Readonly<Record<RankingWindow, number | null>> = {
 export function computeRanking(
   input: RankingComputationInput,
 ): readonly RankingEntry[] {
-  const threshold = resolveWindowThreshold(input.window, input.at);
+  const thresholdMs = resolveWindowThresholdMs(input.window, input.at);
 
   const totals = new Map<Uuid, number>();
   for (const entry of input.entries) {
     if (entry.kind !== input.kind) {
       continue;
     }
-    if (threshold !== null && entry.createdAt < threshold) {
-      continue;
+    if (thresholdMs !== null) {
+      const entryMs = Date.parse(entry.createdAt);
+      if (Number.isNaN(entryMs)) {
+        throw new DomainError(
+          'E_INVALID_TIMESTAMP',
+          `ledger entry ${entry.id} has unparseable createdAt`,
+        );
+      }
+      if (entryMs < thresholdMs) {
+        continue;
+      }
     }
     const signed = entry.direction === 'credit' ? entry.amount : -entry.amount;
     totals.set(entry.subjectId, (totals.get(entry.subjectId) ?? 0) + signed);
@@ -87,10 +97,10 @@ export function computeRanking(
   return ranked;
 }
 
-function resolveWindowThreshold(
+function resolveWindowThresholdMs(
   window: RankingWindow,
   at: Timestamp,
-): Timestamp | null {
+): number | null {
   const durationMs = WINDOW_DURATION_MS[window];
   if (durationMs === null) {
     return null;
@@ -102,6 +112,5 @@ function resolveWindowThreshold(
       `ranking anchor timestamp ${at} is not parseable`,
     );
   }
-  const threshold = new Date(parsed - durationMs).toISOString();
-  return threshold as Timestamp;
+  return parsed - durationMs;
 }
