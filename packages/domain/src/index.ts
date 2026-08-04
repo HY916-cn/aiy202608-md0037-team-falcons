@@ -9,8 +9,8 @@ export type Timestamp = Brand<string, 'Timestamp'>;
 export type IdempotencyKey = Brand<string, 'IdempotencyKey'>;
 
 export const OPERATION_KINDS = [
-  'student_score_grant',
-  'class_score_grant',
+  'student_score_adjust',
+  'class_score_adjust',
   'coin_grant',
   'coin_deduct',
   'fine_issue',
@@ -27,14 +27,40 @@ export const OPERATION_STATUSES = [
 ] as const;
 export type OperationStatus = (typeof OPERATION_STATUSES)[number];
 
+export const OPERATION_TARGET_TYPES = [
+  'student',
+  'class',
+  'fine_order',
+  'operation',
+] as const;
+export type OperationTargetType = (typeof OPERATION_TARGET_TYPES)[number];
+
 export const LEDGER_DIRECTIONS = ['credit', 'debit'] as const;
 export type LedgerDirection = (typeof LEDGER_DIRECTIONS)[number];
+
+export const LEDGER_KINDS = [
+  'student_score',
+  'class_score',
+  'coin',
+  'fine',
+] as const;
+export type LedgerKind = (typeof LEDGER_KINDS)[number];
 
 export const RANKING_WINDOWS = ['weekly', 'monthly', 'all_time'] as const;
 export type RankingWindow = (typeof RANKING_WINDOWS)[number];
 
 export const FINE_STATUSES = ['pending', 'settled', 'cancelled'] as const;
 export type FineStatus = (typeof FINE_STATUSES)[number];
+
+export const ROLE_CODES_FOR_AUTHZ = [
+  'teacher',
+  'class_terminal',
+  'family',
+  'bank_operator',
+  'council',
+  'admin',
+] as const;
+export type AuthorizedRoleCode = (typeof ROLE_CODES_FOR_AUTHZ)[number];
 
 export const MIN_BALANCE = 0;
 export const MAX_REASON_LENGTH = 200;
@@ -47,48 +73,6 @@ export const COIN_AMOUNT_MAX = 1_000_000;
 export const FINE_AMOUNT_MIN = 1;
 export const FINE_AMOUNT_MAX = 1_000_000;
 
-export const DOMAIN_ERROR_CODES = [
-  'E_INTEGER_REQUIRED',
-  'E_BALANCE_NEGATIVE',
-  'E_IDEMPOTENCY_CONFLICT',
-  'E_UNAUTHORIZED',
-  'E_INVALID_REVOKE_TARGET',
-  'E_OPERATION_ALREADY_REVOKED',
-  'E_UNKNOWN_OPERATION_KIND',
-  'E_REASON_TOO_LONG',
-  'E_INVALID_UUID',
-  'E_INVALID_TIMESTAMP',
-  'E_INVALID_IDEMPOTENCY_KEY',
-  'E_DELTA_OUT_OF_RANGE',
-  'E_AMOUNT_OUT_OF_RANGE',
-  'E_INVALID_INPUT',
-] as const;
-export type DomainErrorCode = (typeof DOMAIN_ERROR_CODES)[number];
-
-export interface DomainErrorOptions {
-  readonly cause?: unknown;
-  readonly path?: string;
-}
-
-export class DomainError extends Error {
-  readonly code: DomainErrorCode;
-  readonly path: string | undefined;
-
-  constructor(code: DomainErrorCode, message: string, options?: DomainErrorOptions) {
-    super(
-      message,
-      options?.cause !== undefined ? { cause: options.cause } : undefined,
-    );
-    this.name = 'DomainError';
-    this.code = code;
-    this.path = options?.path;
-  }
-}
-
-export function isDomainErrorCode(value: string): value is DomainErrorCode {
-  return DOMAIN_ERROR_CODES.some((code) => code === value);
-}
-
 export function isOperationKind(value: string): value is OperationKind {
   return OPERATION_KINDS.some((kind) => kind === value);
 }
@@ -97,8 +81,18 @@ export function isOperationStatus(value: string): value is OperationStatus {
   return OPERATION_STATUSES.some((status) => status === value);
 }
 
+export function isOperationTargetType(
+  value: string,
+): value is OperationTargetType {
+  return OPERATION_TARGET_TYPES.some((type) => type === value);
+}
+
 export function isLedgerDirection(value: string): value is LedgerDirection {
   return LEDGER_DIRECTIONS.some((direction) => direction === value);
+}
+
+export function isLedgerKind(value: string): value is LedgerKind {
+  return LEDGER_KINDS.some((kind) => kind === value);
 }
 
 export function isRankingWindow(value: string): value is RankingWindow {
@@ -109,15 +103,19 @@ export function isFineStatus(value: string): value is FineStatus {
   return FINE_STATUSES.some((status) => status === value);
 }
 
+export function isAuthorizedRoleCode(
+  value: string,
+): value is AuthorizedRoleCode {
+  return ROLE_CODES_FOR_AUTHZ.some((role) => role === value);
+}
+
 export function isIntegerValue(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value);
 }
 
-export function assertIntegerBalance(next: number): void {
-  if (!Number.isInteger(next)) {
-    throw new DomainError('E_INTEGER_REQUIRED', '余额必须为整数');
-  }
-  if (next < MIN_BALANCE) {
-    throw new DomainError('E_BALANCE_NEGATIVE', '余额不能为负');
-  }
-}
+export * from './errors';
+export * from './operation';
+export * from './audit';
+export * from './idempotency';
+export * from './ledger';
+export * from './reversal';

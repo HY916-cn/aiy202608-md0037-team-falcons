@@ -6,48 +6,71 @@ import {
   FINE_STATUSES,
   IDEMPOTENCY_KEY_MIN_LENGTH,
   LEDGER_DIRECTIONS,
+  LEDGER_KINDS,
   MAX_REASON_LENGTH,
   MIN_BALANCE,
   OPERATION_KINDS,
   OPERATION_STATUSES,
+  OPERATION_TARGET_TYPES,
   RANKING_WINDOWS,
+  ROLE_CODES_FOR_AUTHZ,
   SCORE_DELTA_MAX,
   SCORE_DELTA_MIN,
   assertIntegerBalance,
+  isAuthorizedRoleCode,
   isDomainErrorCode,
   isFineStatus,
   isIntegerValue,
   isLedgerDirection,
+  isLedgerKind,
   isOperationKind,
   isOperationStatus,
+  isOperationTargetType,
   isRankingWindow,
 } from '../index';
 
 describe('domain enums', () => {
-  it('operations, statuses, ledger directions, ranking windows, fine statuses are frozen sets', () => {
-    expect(OPERATION_KINDS).toContain('student_score_grant');
+  it('operation kinds use adjust naming that permits negative deltas', () => {
+    expect(OPERATION_KINDS).toContain('student_score_adjust');
+    expect(OPERATION_KINDS).toContain('class_score_adjust');
+    expect(OPERATION_KINDS).not.toContain('student_score_grant');
+    expect(OPERATION_KINDS).not.toContain('class_score_grant');
     expect(OPERATION_KINDS).toContain('reversal');
+  });
+
+  it('operation statuses, target types, ledger kinds and ranking windows are frozen sets', () => {
     expect(OPERATION_STATUSES).toEqual(['pending', 'applied', 'reversed', 'failed']);
+    expect(OPERATION_TARGET_TYPES).toEqual([
+      'student',
+      'class',
+      'fine_order',
+      'operation',
+    ]);
     expect(LEDGER_DIRECTIONS).toEqual(['credit', 'debit']);
+    expect(LEDGER_KINDS).toEqual(['student_score', 'class_score', 'coin', 'fine']);
     expect(RANKING_WINDOWS).toEqual(['weekly', 'monthly', 'all_time']);
     expect(FINE_STATUSES).toEqual(['pending', 'settled', 'cancelled']);
+    expect(ROLE_CODES_FOR_AUTHZ).toContain('teacher');
+    expect(ROLE_CODES_FOR_AUTHZ).toContain('admin');
   });
 
   it('guards reject non-members without leaking through', () => {
-    expect(isOperationKind('student_score_grant')).toBe(true);
-    expect(isOperationKind('unknown_kind')).toBe(false);
-
+    expect(isOperationKind('student_score_adjust')).toBe(true);
+    expect(isOperationKind('student_score_grant')).toBe(false);
     expect(isOperationStatus('applied')).toBe(true);
     expect(isOperationStatus('done')).toBe(false);
-
+    expect(isOperationTargetType('student')).toBe(true);
+    expect(isOperationTargetType('teacher')).toBe(false);
     expect(isLedgerDirection('credit')).toBe(true);
     expect(isLedgerDirection('income')).toBe(false);
-
+    expect(isLedgerKind('coin')).toBe(true);
+    expect(isLedgerKind('crypto')).toBe(false);
     expect(isRankingWindow('weekly')).toBe(true);
     expect(isRankingWindow('daily')).toBe(false);
-
     expect(isFineStatus('settled')).toBe(true);
     expect(isFineStatus('paid')).toBe(false);
+    expect(isAuthorizedRoleCode('teacher')).toBe(true);
+    expect(isAuthorizedRoleCode('root')).toBe(false);
   });
 });
 
@@ -71,7 +94,13 @@ describe('domain error catalog', () => {
     expect(DOMAIN_ERROR_CODES).toContain('E_INTEGER_REQUIRED');
     expect(DOMAIN_ERROR_CODES).toContain('E_BALANCE_NEGATIVE');
     expect(DOMAIN_ERROR_CODES).toContain('E_IDEMPOTENCY_CONFLICT');
-    expect(DOMAIN_ERROR_CODES).toContain('E_OPERATION_ALREADY_REVOKED');
+    expect(DOMAIN_ERROR_CODES).toContain('E_OPERATION_ALREADY_REVERSED');
+    expect(DOMAIN_ERROR_CODES).toContain('E_OPERATION_NOT_APPLIED');
+    expect(DOMAIN_ERROR_CODES).toContain('E_REASON_REQUIRED');
+    expect(DOMAIN_ERROR_CODES).toContain('E_REASON_TOO_LONG');
+    expect(DOMAIN_ERROR_CODES).toContain('E_UNKNOWN_OPERATION_KIND');
+    expect(DOMAIN_ERROR_CODES).toContain('E_INVALID_STATE_TRANSITION');
+    expect(DOMAIN_ERROR_CODES).toContain('E_REVERSAL_MISMATCH');
   });
 
   it('guards unknown codes', () => {
@@ -105,15 +134,23 @@ describe('integer and balance invariants', () => {
   });
 
   it('assertIntegerBalance rejects fractional balances', () => {
-    expect(() => assertIntegerBalance(1.5)).toThrowError(
-      expect.objectContaining({ code: 'E_INTEGER_REQUIRED' }),
-    );
+    let caught: DomainError | undefined;
+    try {
+      assertIntegerBalance(1.5);
+    } catch (error) {
+      caught = error as DomainError;
+    }
+    expect(caught?.code).toBe('E_INTEGER_REQUIRED');
   });
 
   it('assertIntegerBalance rejects negative balances', () => {
-    expect(() => assertIntegerBalance(-1)).toThrowError(
-      expect.objectContaining({ code: 'E_BALANCE_NEGATIVE' }),
-    );
+    let caught: DomainError | undefined;
+    try {
+      assertIntegerBalance(-1);
+    } catch (error) {
+      caught = error as DomainError;
+    }
+    expect(caught?.code).toBe('E_BALANCE_NEGATIVE');
   });
 
   it('assertIntegerBalance accepts zero and positive integers', () => {
