@@ -133,6 +133,9 @@ importers:
 
   packages/validation:
     dependencies:
+      '@dolphincloud/domain':
+        specifier: workspace:*
+        version: link:../domain
       zod:
         specifier: 4.4.3
         version: 4.4.3
