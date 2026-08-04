@@ -16,7 +16,7 @@ import {
 const OP_ID = 'op-88888888-8888-4888-8888-888888888888' as Uuid;
 const ACTOR_ID = 'ac-99999999-9999-4999-8999-999999999999' as Uuid;
 const TARGET_ID = 'tg-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' as Uuid;
-const KEY_A = 'ck-2026-idem-a-XYZ' as IdempotencyKey;
+const KEY_A = 'test-idempotency-store-fixture' as IdempotencyKey;
 const NOW = '2026-08-04T02:00:00Z' as Timestamp;
 const LATER = '2026-08-04T02:05:00Z' as Timestamp;
 

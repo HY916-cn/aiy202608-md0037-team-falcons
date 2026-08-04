@@ -18,7 +18,9 @@ import {
 
 const VALID_UUID = '3f6b1b2a-1c2a-4d3b-9e4f-5a6b7c8d9e0f';
 const VALID_UUID_ALT = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d';
-const VALID_IDEMPOTENCY_KEY = 'ck-2026-abc-0001-XYZ';
+// 使用明显的非密钥测试字符串：全小写 + 描述性单词 + fixture 标记，
+// 避免 gitleaks generic-api-key 规则对高熵字符串的误判。
+const VALID_IDEMPOTENCY_KEY = 'test-idempotency-fixture-abc';
 
 function expectDomainErrorCode(fn: () => unknown, expectedCode: string): void {
   let caught: DomainError | undefined;

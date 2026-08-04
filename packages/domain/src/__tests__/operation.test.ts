@@ -24,7 +24,7 @@ const command: AuthorizedOperationCommand = {
   kind: 'student_score_adjust',
   actorId: ACTOR_ID,
   actorRole: 'teacher',
-  idempotencyKey: 'ck-2026-op-0001-XYZ' as IdempotencyKey,
+  idempotencyKey: 'test-idempotency-operation-fixture' as IdempotencyKey,
   reason: '值日出勤',
   targetType: 'student',
   targetId: TARGET_ID,

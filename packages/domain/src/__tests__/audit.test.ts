@@ -21,7 +21,7 @@ const command: AuthorizedOperationCommand = {
   kind: 'coin_grant',
   actorId: ACTOR_ID,
   actorRole: 'bank_operator',
-  idempotencyKey: 'ck-2026-audit-0001-XYZ' as IdempotencyKey,
+  idempotencyKey: 'test-idempotency-audit-fixture' as IdempotencyKey,
   reason: '奖励',
   targetType: 'student',
   targetId: TARGET_ID,

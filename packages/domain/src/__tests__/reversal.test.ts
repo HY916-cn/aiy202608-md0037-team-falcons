@@ -32,7 +32,7 @@ const origCommand: AuthorizedOperationCommand = {
   kind: 'student_score_adjust',
   actorId: ACTOR_ID,
   actorRole: 'teacher',
-  idempotencyKey: 'ck-2026-rev-orig-XYZ' as IdempotencyKey,
+  idempotencyKey: 'test-idempotency-reversal-orig' as IdempotencyKey,
   reason: '值日出勤',
   targetType: 'student',
   targetId: TARGET_ID,
@@ -119,7 +119,7 @@ describe('buildReversal preconditions', () => {
         reversalOperationId: REV_OP_ID,
         reversalLinkId: LINK_ID,
         plannedEntryIds: [],
-        idempotencyKey: 'ck-2026-rev-op-XYZ' as IdempotencyKey,
+        idempotencyKey: 'test-idempotency-reversal-pending' as IdempotencyKey,
         requestId: 'req-rev',
         now: LATER,
       });
@@ -147,7 +147,7 @@ describe('buildReversal preconditions', () => {
         reversalOperationId: REV_OP_ID,
         reversalLinkId: LINK_ID,
         plannedEntryIds: [],
-        idempotencyKey: 'ck-2026-rev-fail-XYZ' as IdempotencyKey,
+        idempotencyKey: 'test-idempotency-reversal-failed' as IdempotencyKey,
         requestId: 'req-rev',
         now: LATER,
       });
@@ -180,7 +180,7 @@ describe('buildReversal preconditions', () => {
         reversalOperationId: REV_OP_ID,
         reversalLinkId: LINK_ID,
         plannedEntryIds: [REV_ENTRY_ID],
-        idempotencyKey: 'ck-2026-rev-mism-XYZ' as IdempotencyKey,
+        idempotencyKey: 'test-idempotency-reversal-mismatch' as IdempotencyKey,
         requestId: 'req-rev',
         now: LATER,
       });
@@ -208,7 +208,7 @@ describe('buildReversal preconditions', () => {
         reversalOperationId: REV_OP_ID,
         reversalLinkId: LINK_ID,
         plannedEntryIds: [],
-        idempotencyKey: 'ck-2026-rev-nested-XYZ' as IdempotencyKey,
+        idempotencyKey: 'test-idempotency-reversal-nested' as IdempotencyKey,
         requestId: 'req-rev',
         now: LATER,
       });
@@ -231,7 +231,7 @@ describe('buildReversal happy path and idempotency of intent', () => {
       reversalOperationId: REV_OP_ID,
       reversalLinkId: LINK_ID,
       plannedEntryIds: [REV_ENTRY_ID],
-      idempotencyKey: 'ck-2026-rev-ok-XYZ' as IdempotencyKey,
+      idempotencyKey: 'test-idempotency-reversal-happy' as IdempotencyKey,
       requestId: 'req-rev',
       now: LATER,
     });
@@ -276,7 +276,7 @@ describe('buildReversal happy path and idempotency of intent', () => {
       reversalOperationId: REV_OP_ID,
       reversalLinkId: LINK_ID,
       plannedEntryIds: [REV_ENTRY_ID],
-      idempotencyKey: 'ck-2026-rev-1st-XYZ' as IdempotencyKey,
+      idempotencyKey: 'test-idempotency-reversal-first' as IdempotencyKey,
       requestId: 'req-rev-1',
       now: LATER,
     });
@@ -292,7 +292,7 @@ describe('buildReversal happy path and idempotency of intent', () => {
         reversalOperationId: 'op-second-rev-4111-8111-111111111111' as Uuid,
         reversalLinkId: 'rl-second-link-4222-8222-222222222222' as Uuid,
         plannedEntryIds: ['le-second-4333-4333-8333-333333333333' as Uuid],
-        idempotencyKey: 'ck-2026-rev-2nd-XYZ' as IdempotencyKey,
+        idempotencyKey: 'test-idempotency-reversal-second' as IdempotencyKey,
         requestId: 'req-rev-2',
         now: LATER,
       });
