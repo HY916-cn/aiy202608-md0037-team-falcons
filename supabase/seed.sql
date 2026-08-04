@@ -492,3 +492,30 @@ values (
   '30000000-0000-0000-0000-000000000001'
 )
 on conflict (id) do nothing;
+
+-- Governance seed: fixed slugs & categories used by pgTAP fixtures.
+insert into public.student_score_categories (id, school_id, slug, display_name, description)
+values
+  ('90000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'homework', '作业表现', '合成演示学生分类目：作业'),
+  ('90000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000001', 'discipline', '课堂纪律', '合成演示学生分类目：纪律'),
+  ('90000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000001', 'volunteer', '志愿服务', '合成演示学生分类目：志愿')
+on conflict (school_id, slug) do update set
+  display_name = excluded.display_name,
+  description = excluded.description;
+
+insert into public.class_score_categories (id, school_id, slug, display_name, description)
+values
+  ('91000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'cleanliness', '清洁评比', '合成演示班级分类目：清洁'),
+  ('91000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000001', 'attendance', '到勤情况', '合成演示班级分类目：出勤')
+on conflict (school_id, slug) do update set
+  display_name = excluded.display_name,
+  description = excluded.description;
+
+insert into public.fine_rules (id, school_id, slug, display_name, default_amount, description)
+values
+  ('92000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'library_late', '图书归还超期', 5, '合成演示罚款：图书超期'),
+  ('92000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000001', 'lost_property', '物品遗失', 20, '合成演示罚款：物品遗失')
+on conflict (school_id, slug) do update set
+  display_name = excluded.display_name,
+  default_amount = excluded.default_amount,
+  description = excluded.description;
