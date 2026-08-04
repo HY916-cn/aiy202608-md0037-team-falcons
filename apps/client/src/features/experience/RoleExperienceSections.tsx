@@ -1,4 +1,4 @@
-import type { RoleCode } from '@dolphincloud/auth';
+import type { AuthRoleScope, RoleCode } from '@dolphincloud/auth';
 import { resolveLoadableState } from '@dolphincloud/experience';
 import type {
   AiExperienceSnapshot,
@@ -85,12 +85,20 @@ function TodaySummarySection({ role }: { readonly role: RoleCode }) {
   return <TodaySummaryCard errorMessage={error} isLoading={isLoading} onRetry={() => void load()} summary={summary} />;
 }
 
-function AiExperienceSection() {
+function AiExperienceSection({ roleScope }: { readonly roleScope: AuthRoleScope }) {
   const { aiAdapter } = useExperience();
   const [snapshot, setSnapshot] = useState<AiExperienceSnapshot>(() => aiAdapter.getSnapshot());
   const [prompt, setPrompt] = useState('整理今天的教学信息');
 
   useEffect(() => aiAdapter.subscribe(setSnapshot), [aiAdapter]);
+  useEffect(() => {
+    void aiAdapter.selectActiveRole(roleScope);
+  }, [aiAdapter, roleScope]);
+
+  const writeExecutionAdapter = useMemo<WriteActionExecutionAdapter>(
+    () => ({ execute: async () => aiAdapter.confirmAction(true) }),
+    [aiAdapter],
+  );
 
   return (
     <View style={styles.section}>
@@ -102,6 +110,14 @@ function AiExperienceSection() {
         <ActionButton label="重置" onPress={() => aiAdapter.reset()} />
       </View>
       <AiResultCard snapshot={snapshot} />
+      {snapshot.actionPreview === null ? null : (
+        <WriteActionPreviewCard
+          adapter={writeExecutionAdapter}
+          onCancel={() => void aiAdapter.cancelAction()}
+          onModify={() => void aiAdapter.returnToModify()}
+          preview={snapshot.actionPreview}
+        />
+      )}
     </View>
   );
 }
@@ -352,12 +368,18 @@ function TeachingDemoSection({ role }: { readonly role: RoleCode }) {
   );
 }
 
-export function RoleExperienceSections({ role }: { readonly role: RoleCode }) {
+export function RoleExperienceSections({
+  role,
+  roleScope,
+}: {
+  readonly role: RoleCode;
+  readonly roleScope: AuthRoleScope;
+}) {
   return (
     <>
       <TodaySummarySection role={role} />
       {role === 'teacher' || role === 'class_terminal' || role === 'family' ? <TeachingDemoSection role={role} /> : null}
-      <AiExperienceSection />
+      <AiExperienceSection roleScope={roleScope} />
     </>
   );
 }

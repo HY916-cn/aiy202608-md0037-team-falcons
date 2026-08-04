@@ -3,9 +3,25 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { SupabaseAuthSessionAdapter } from '../supabaseAuthSessionAdapter';
 
-type FakeTable = 'profiles' | 'role_assignments' | 'schools';
+type FakeTable = 'classes' | 'profiles' | 'role_assignments' | 'schools';
 
-function createFakeClient() {
+type FakeRoleAssignment = {
+  readonly id: string;
+  readonly role: string;
+  readonly scope_id: string;
+  readonly scope_type: string;
+};
+
+function createFakeClient(
+  roleAssignments: readonly FakeRoleAssignment[] = [
+    {
+      id: 'assignment-teacher-school',
+      role: 'teacher',
+      scope_id: 'demo-school-id',
+      scope_type: 'school',
+    },
+  ],
+) {
   let authListener: ((event: string) => void) | null = null;
   const unsubscribe = vi.fn();
   const onAuthStateChange = vi.fn((listener: (event: string) => void) => {
@@ -21,14 +37,9 @@ function createFakeClient() {
     error: null,
   });
   const rows = {
+    classes: { name: '演示班级' },
     profiles: { display_name: '演示教师一号', id: 'demo-teacher-id' },
-    role_assignments: [
-      {
-        role: 'teacher',
-        scope_id: 'demo-school-id',
-        scope_type: 'school',
-      },
-    ],
+    role_assignments: roleAssignments,
     schools: { name: '海豚云合成演示学校' },
   } as const;
   const from = vi.fn((table: FakeTable) => ({
@@ -77,6 +88,7 @@ describe('SupabaseAuthSessionAdapter', () => {
       availableRoles: ['teacher'],
       availableRoleScopes: [
         {
+          assignmentId: 'assignment-teacher-school',
           id: 'demo-school-id',
           label: '海豚云合成演示学校',
           role: 'teacher',
@@ -85,6 +97,7 @@ describe('SupabaseAuthSessionAdapter', () => {
       ],
       currentRole: 'teacher',
       roleScope: {
+        assignmentId: 'assignment-teacher-school',
         id: 'demo-school-id',
         label: '海豚云合成演示学校',
         role: 'teacher',
@@ -114,6 +127,33 @@ describe('SupabaseAuthSessionAdapter', () => {
     const adapter = new SupabaseAuthSessionAdapter({ client });
 
     await expect(adapter.switchRole('admin')).rejects.toThrow('FORBIDDEN');
+  });
+
+  it('同一角色有两个范围时可按 assignment id 切换到第二个范围', async () => {
+    const { client } = createFakeClient([
+      {
+        id: 'assignment-teacher-class-1',
+        role: 'teacher',
+        scope_id: 'class-1',
+        scope_type: 'class',
+      },
+      {
+        id: 'assignment-teacher-class-2',
+        role: 'teacher',
+        scope_id: 'class-2',
+        scope_type: 'class',
+      },
+    ]);
+    const adapter = new SupabaseAuthSessionAdapter({ client });
+
+    const session = await adapter.switchRoleScope('assignment-teacher-class-2');
+
+    expect(session.roleScope).toMatchObject({
+      assignmentId: 'assignment-teacher-class-2',
+      id: 'class-2',
+      role: 'teacher',
+      type: 'class',
+    });
   });
 
   it('令牌刷新和退出事件会更新共享会话并清理订阅', async () => {

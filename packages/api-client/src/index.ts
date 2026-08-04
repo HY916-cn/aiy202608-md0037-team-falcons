@@ -20,3 +20,4 @@ export * from './assignmentService';
 export * from './coursewareService';
 export * from './gradeService';
 export * from './supabaseTeachingDemoAdapter';
+export * from './supabaseAiExperienceAdapter';

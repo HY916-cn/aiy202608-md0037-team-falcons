@@ -15,36 +15,42 @@ const MOCK_AUTH_USER: AuthUser = {
 
 const MOCK_ROLE_SCOPES = {
   teacher: {
+    assignmentId: 'demo_assignment_teacher',
     id: 'demo_school',
     label: '海豚云演示学校',
     role: 'teacher',
     type: 'school',
   },
   class_terminal: {
+    assignmentId: 'demo_assignment_class_terminal',
     id: 'demo_class',
     label: '演示班级',
     role: 'class_terminal',
     type: 'class',
   },
   family: {
+    assignmentId: 'demo_assignment_family',
     id: 'demo_household',
     label: '演示家庭',
     role: 'family',
     type: 'household',
   },
   bank_operator: {
+    assignmentId: 'demo_assignment_bank_operator',
     id: 'demo_school',
     label: '海豚云演示学校',
     role: 'bank_operator',
     type: 'school',
   },
   council: {
+    assignmentId: 'demo_assignment_council',
     id: 'demo_school',
     label: '海豚云演示学校',
     role: 'council',
     type: 'school',
   },
   admin: {
+    assignmentId: 'demo_assignment_admin',
     id: 'demo_school',
     label: '海豚云演示学校',
     role: 'admin',
@@ -90,6 +96,20 @@ export class MockAuthSessionAdapter implements AuthSessionAdapter {
 
     this.currentRole = role;
     return this.createSession(role);
+  }
+
+  async switchRoleScope(roleAssignmentId: string): Promise<AuthSession> {
+    if (this.currentRole === null) {
+      throw new Error('UNAUTHENTICATED');
+    }
+    const scope = Object.values(MOCK_ROLE_SCOPES).find(
+      (candidate) => candidate.assignmentId === roleAssignmentId,
+    );
+    if (scope === undefined) {
+      throw new Error('FORBIDDEN');
+    }
+    this.currentRole = scope.role;
+    return this.createSession(scope.role);
   }
 
   private createSession(role: RoleCode | null): AuthSession {

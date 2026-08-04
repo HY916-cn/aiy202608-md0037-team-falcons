@@ -1,5 +1,5 @@
 {
-  "name": "@dolphincloud/api-client",
+  "name": "@dolphincloud/ai-service",
   "version": "0.1.0",
   "private": true,
   "sideEffects": false,
@@ -10,12 +10,11 @@
   },
   "dependencies": {
     "@dolphincloud/auth": "workspace:*",
-    "@dolphincloud/domain": "workspace:*",
     "@dolphincloud/experience": "workspace:*",
-    "@dolphincloud/validation": "workspace:*",
     "@supabase/supabase-js": "2.110.8"
   },
   "devDependencies": {
+    "@types/node": "26.1.2",
     "typescript": "~6.0.3"
   }
 }

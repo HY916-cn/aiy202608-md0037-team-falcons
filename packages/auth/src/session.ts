@@ -5,6 +5,7 @@ export const AUTH_SCOPE_TYPES = ['school', 'class', 'household'] as const;
 export type AuthScopeType = (typeof AUTH_SCOPE_TYPES)[number];
 
 export type AuthRoleScope = {
+  readonly assignmentId: string;
   readonly id: string;
   readonly label: string;
   readonly role: RoleCode;
@@ -43,4 +44,5 @@ export interface AuthSessionAdapter {
   logout(): Promise<AuthSession>;
   subscribe?(listener: (session: AuthSession) => void): () => void;
   switchRole(role: RoleCode): Promise<AuthSession>;
+  switchRoleScope(roleAssignmentId: string): Promise<AuthSession>;
 }
