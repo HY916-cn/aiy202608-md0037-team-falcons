@@ -7,7 +7,6 @@ import { useAuthSession } from '../AuthSessionProvider';
 type AuthenticatedRoleHomeScreenProps = {
   readonly role: RoleCode;
 };
-
 export function AuthenticatedRoleHomeScreen({
   role,
 }: AuthenticatedRoleHomeScreenProps) {
@@ -24,14 +23,16 @@ export function AuthenticatedRoleHomeScreen({
   return (
     <RoleHomeScreen
       availableRoles={session.availableRoles}
+      availableRoleScopes={session.availableRoleScopes}
       currentRole={session.currentRole}
       onLogout={session.logout}
       onSwitchRole={session.switchRole}
+      onSwitchRoleScope={session.switchRoleScope}
       role={role}
       roleScope={session.roleScope}
       user={session.user}
     >
-      <RoleExperienceSections role={role} />
+      <RoleExperienceSections role={role} roleScope={session.roleScope} />
     </RoleHomeScreen>
   );
 }

@@ -97,10 +97,12 @@ const ROLE_PAGE_COPY = {
 
 type RoleHomeScreenProps = {
   readonly availableRoles?: readonly RoleCode[];
+  readonly availableRoleScopes?: readonly AuthRoleScope[];
   readonly children?: ReactNode;
   readonly currentRole?: RoleCode;
   readonly onLogout?: () => Promise<void>;
   readonly onSwitchRole?: (role: RoleCode) => Promise<void>;
+  readonly onSwitchRoleScope?: (roleAssignmentId: string) => Promise<void>;
   readonly role: RoleCode;
   readonly roleScope?: AuthRoleScope;
   readonly user?: AuthUser;
@@ -170,10 +172,12 @@ function Navigation({ compact, role }: { readonly compact: boolean; readonly rol
 
 export function RoleHomeScreen({
   availableRoles = [],
+  availableRoleScopes = [],
   children,
   currentRole,
   onLogout,
   onSwitchRole,
+  onSwitchRoleScope,
   role,
   roleScope,
   user,
@@ -182,7 +186,12 @@ export function RoleHomeScreen({
   const isWide = width >= 960;
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<RoleCode | 'logout' | null>(null);
+  const [pendingScopeId, setPendingScopeId] = useState<string | null>(null);
   const pageCopy = ROLE_PAGE_COPY[role];
+  const currentRoleScopes = useMemo(
+    () => availableRoleScopes.filter((scope) => scope.role === currentRole),
+    [availableRoleScopes, currentRole],
+  );
   const userInitial = useMemo(() => user?.displayName.slice(0, 1) ?? '海', [user]);
   const today = useMemo(() => {
     const date = new Date();
@@ -213,6 +222,22 @@ export function RoleHomeScreen({
     }
   };
 
+  const handleSwitchRoleScope = async (roleAssignmentId: string) => {
+    if (
+      onSwitchRoleScope === undefined ||
+      roleAssignmentId === roleScope?.assignmentId
+    ) {
+      return;
+    }
+    setPendingScopeId(roleAssignmentId);
+    try {
+      await onSwitchRoleScope(roleAssignmentId);
+      setIsAccountOpen(false);
+    } finally {
+      setPendingScopeId(null);
+    }
+  };
+
   const accountMenu = isAccountOpen ? (
     <View style={[styles.accountMenu, !isWide && styles.accountMenuMobile]}>
       <Text style={styles.accountName}>{user?.displayName ?? '演示用户'}</Text>
@@ -239,9 +264,36 @@ export function RoleHomeScreen({
           </Pressable>
         ))}
       </View>
+      {currentRoleScopes.length <= 1 ? null : (
+        <>
+          <View style={styles.menuDivider} />
+          <Text style={styles.menuLabel}>切换当前范围</Text>
+          <View style={styles.roleOptions}>
+            {currentRoleScopes.map((scope) => {
+              const isCurrent = scope.assignmentId === roleScope?.assignmentId;
+              return (
+                <Pressable
+                  accessibilityLabel={`切换到${scope.label}`}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isCurrent }}
+                  disabled={pendingAction !== null || pendingScopeId !== null}
+                  key={scope.assignmentId}
+                  onPress={() => void handleSwitchRoleScope(scope.assignmentId)}
+                  style={[styles.roleOption, isCurrent && styles.roleOptionActive]}
+                >
+                  <View style={styles.scopeOptionMarker} />
+                  <Text numberOfLines={1} style={styles.roleOptionLabel}>
+                    {pendingScopeId === scope.assignmentId ? '切换中…' : scope.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </>
+      )}
       <Pressable
         accessibilityRole="button"
-        disabled={pendingAction !== null}
+        disabled={pendingAction !== null || pendingScopeId !== null}
         onPress={() => void handleLogout()}
         style={styles.logoutButton}
       >
@@ -363,6 +415,7 @@ const styles = StyleSheet.create({
   roleOption: { alignItems: 'center', borderRadius: theme.radius.control, flexDirection: 'row', gap: theme.space.sm, minHeight: 38, paddingHorizontal: theme.space.sm },
   roleOptionActive: { backgroundColor: theme.color.surface.primaryTint },
   roleOptionLabel: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '600' },
+  scopeOptionMarker: { backgroundColor: theme.color.brand.primary, borderRadius: theme.radius.pill, height: 7, width: 7 },
   logoutButton: { alignItems: 'center', flexDirection: 'row', gap: theme.space.sm, minHeight: 40, paddingHorizontal: theme.space.sm },
   logoutLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.sm, fontWeight: '600' },
   page: { alignItems: 'center', paddingBottom: 56, paddingHorizontal: theme.space.lg, paddingTop: theme.space.xl },

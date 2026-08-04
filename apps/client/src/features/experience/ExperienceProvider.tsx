@@ -4,6 +4,7 @@ import {
   type TeachingDemoAdapter,
   type TodaySummaryDataSource,
 } from '@dolphincloud/experience';
+import { SupabaseAiExperienceAdapter } from '@dolphincloud/api-client';
 import { createContext, useContext, useState, type ReactNode } from 'react';
 
 import { useSupabaseServices } from '@/features/supabase';
@@ -17,9 +18,15 @@ type ExperienceContextValue = {
 const ExperienceContext = createContext<ExperienceContextValue | null>(null);
 
 export function ExperienceProvider({ children }: { readonly children: ReactNode }) {
-  const { summaryDataSource, teachingAdapter } = useSupabaseServices();
+  const { client, summaryDataSource, teachingAdapter } = useSupabaseServices();
   const [value] = useState<ExperienceContextValue>(() => ({
-    aiAdapter: new MockAiExperienceAdapter(),
+    aiAdapter:
+      client !== null && process.env.EXPO_PUBLIC_AI_GATEWAY_FUNCTION !== undefined
+        ? new SupabaseAiExperienceAdapter(
+            client,
+            process.env.EXPO_PUBLIC_AI_GATEWAY_FUNCTION,
+          )
+        : new MockAiExperienceAdapter({ isOffline: true }),
     summaryDataSource,
     teachingAdapter,
   }));
