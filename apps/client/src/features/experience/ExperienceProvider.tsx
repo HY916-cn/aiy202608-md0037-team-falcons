@@ -1,14 +1,12 @@
-import { SupabaseTeachingDemoAdapter } from '@dolphincloud/api-client';
 import {
-  DemoTodaySummaryDataSource,
   MockAiExperienceAdapter,
-  MockTeachingDemoAdapter,
   type AiExperienceAdapter,
   type TeachingDemoAdapter,
   type TodaySummaryDataSource,
 } from '@dolphincloud/experience';
-import { createClient } from '@supabase/supabase-js';
 import { createContext, useContext, useState, type ReactNode } from 'react';
+
+import { useSupabaseServices } from '@/features/supabase';
 
 type ExperienceContextValue = {
   readonly aiAdapter: AiExperienceAdapter;
@@ -18,23 +16,12 @@ type ExperienceContextValue = {
 
 const ExperienceContext = createContext<ExperienceContextValue | null>(null);
 
-function createDefaultTeachingAdapter(): TeachingDemoAdapter {
-  const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-  if (url === undefined || anonKey === undefined) {
-    return new MockTeachingDemoAdapter();
-  }
-  const client = createClient(url, anonKey, {
-    auth: { autoRefreshToken: true, detectSessionInUrl: true, persistSession: true },
-  });
-  return new SupabaseTeachingDemoAdapter(client);
-}
-
 export function ExperienceProvider({ children }: { readonly children: ReactNode }) {
+  const { summaryDataSource, teachingAdapter } = useSupabaseServices();
   const [value] = useState<ExperienceContextValue>(() => ({
     aiAdapter: new MockAiExperienceAdapter(),
-    summaryDataSource: new DemoTodaySummaryDataSource(),
-    teachingAdapter: createDefaultTeachingAdapter(),
+    summaryDataSource,
+    teachingAdapter,
   }));
   return <ExperienceContext.Provider value={value}>{children}</ExperienceContext.Provider>;
 }

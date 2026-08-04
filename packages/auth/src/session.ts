@@ -41,5 +41,6 @@ export interface AuthSessionAdapter {
   getSession(): Promise<AuthSession>;
   login(input: AuthLoginInput): Promise<AuthSession>;
   logout(): Promise<AuthSession>;
+  subscribe?(listener: (session: AuthSession) => void): () => void;
   switchRole(role: RoleCode): Promise<AuthSession>;
 }

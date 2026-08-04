@@ -94,16 +94,25 @@ export class SupabaseTeachingDemoAdapter implements TeachingDemoAdapter {
               Promise.all(
                 (await this.grades.listStudentGrades(student.id)).map(
                   async (grade) => {
-                    const { data } = await this.client
+                    const { data, error } = await this.client
                       .from('assessments')
                       .select('title, status')
                       .eq('id', grade.assessmentId)
                       .single();
+                    if (
+                      error !== null ||
+                      data === null ||
+                      typeof data.title !== 'string' ||
+                      (data.status !== 'draft' && data.status !== 'published')
+                    ) {
+                      throw new ApiClientError('INTERNAL_ERROR', {
+                        cause: error ?? new Error('INVALID_ASSESSMENT_DATA'),
+                      });
+                    }
                     return {
                       ...grade,
-                      assessmentTitle: (data?.title as string | undefined) ?? '成绩',
-                      status:
-                        data?.status === 'draft' ? 'draft' : 'published',
+                      assessmentTitle: data.title,
+                      status: data.status,
                       studentName: student.name,
                     };
                   },

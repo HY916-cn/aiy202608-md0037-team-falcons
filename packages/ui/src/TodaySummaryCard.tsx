@@ -19,7 +19,7 @@ export function TodaySummaryCard({
 }: TodaySummaryCardProps) {
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>今日摘要</Text>
+      <Text style={styles.title}>{summary?.title ?? '今日摘要'}</Text>
       {isLoading ? <Text style={styles.helper}>正在加载今日摘要……</Text> : null}
       {!isLoading && errorMessage !== null ? (
         <View style={styles.feedback}>

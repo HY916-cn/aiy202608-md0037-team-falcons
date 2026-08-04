@@ -83,6 +83,34 @@ export class SupabaseAuthSessionAdapter implements AuthSessionAdapter {
     return EMPTY_AUTH_SESSION;
   }
 
+  subscribe(listener: (session: AuthSession) => void): () => void {
+    const { data } = this.client.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        this.currentRole = null;
+        listener(EMPTY_AUTH_SESSION);
+        return;
+      }
+
+      if (
+        event !== 'SIGNED_IN' &&
+        event !== 'TOKEN_REFRESHED' &&
+        event !== 'USER_UPDATED'
+      ) {
+        return;
+      }
+
+      // Supabase recommends deferring other auth calls until its callback lock is released.
+      setTimeout(() => {
+        void this.loadSession(this.currentRole).then(listener).catch(() => {
+          this.currentRole = null;
+          listener(EMPTY_AUTH_SESSION);
+        });
+      }, 0);
+    });
+
+    return () => data.subscription.unsubscribe();
+  }
+
   async switchRole(role: RoleCode): Promise<AuthSession> {
     const session = await this.loadSession(role);
 

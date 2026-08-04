@@ -3,14 +3,17 @@ import { StatusBar } from 'expo-status-bar';
 
 import { AuthSessionProvider } from '@/features/auth';
 import { ExperienceProvider } from '@/features/experience';
+import { SupabaseServiceProvider } from '@/features/supabase';
 
 export default function RootLayout() {
   return (
-    <ExperienceProvider>
-      <AuthSessionProvider>
-        <Stack screenOptions={{ headerShown: false }} />
-        <StatusBar style="dark" />
-      </AuthSessionProvider>
-    </ExperienceProvider>
+    <SupabaseServiceProvider>
+      <ExperienceProvider>
+        <AuthSessionProvider>
+          <Stack screenOptions={{ headerShown: false }} />
+          <StatusBar style="dark" />
+        </AuthSessionProvider>
+      </ExperienceProvider>
+    </SupabaseServiceProvider>
   );
 }
