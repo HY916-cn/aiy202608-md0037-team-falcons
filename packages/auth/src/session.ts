@@ -7,6 +7,7 @@ export type AuthScopeType = (typeof AUTH_SCOPE_TYPES)[number];
 export type AuthRoleScope = {
   readonly id: string;
   readonly label: string;
+  readonly role: RoleCode;
   readonly type: AuthScopeType;
 };
 
@@ -17,13 +18,20 @@ export type AuthUser = {
 
 export type AuthSession = {
   readonly availableRoles: readonly RoleCode[];
+  readonly availableRoleScopes: readonly AuthRoleScope[];
   readonly currentRole: RoleCode | null;
   readonly roleScope: AuthRoleScope | null;
   readonly user: AuthUser | null;
 };
 
+export type AuthLoginInput = {
+  readonly email: string;
+  readonly password: string;
+};
+
 export const EMPTY_AUTH_SESSION: AuthSession = {
   availableRoles: [],
+  availableRoleScopes: [],
   currentRole: null,
   roleScope: null,
   user: null,
@@ -31,7 +39,7 @@ export const EMPTY_AUTH_SESSION: AuthSession = {
 
 export interface AuthSessionAdapter {
   getSession(): Promise<AuthSession>;
-  login(role: RoleCode): Promise<AuthSession>;
+  login(input: AuthLoginInput): Promise<AuthSession>;
   logout(): Promise<AuthSession>;
   switchRole(role: RoleCode): Promise<AuthSession>;
 }

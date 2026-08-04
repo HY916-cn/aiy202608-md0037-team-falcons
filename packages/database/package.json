@@ -1,0 +1,11 @@
+{
+  "name": "@dolphincloud/database",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "test": "node scripts/testDatabase.mjs"
+  },
+  "devDependencies": {
+    "supabase": "2.111.0"
+  }
+}

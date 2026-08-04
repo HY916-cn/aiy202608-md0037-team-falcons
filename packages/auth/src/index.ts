@@ -8,6 +8,10 @@ export {
 } from './roles';
 export type { RoleCode } from './roles';
 export { MockAuthSessionAdapter } from './mockAuthSessionAdapter';
+export {
+  createSupabaseAuthSessionAdapter,
+  SupabaseAuthSessionAdapter,
+} from './supabaseAuthSessionAdapter';
 export { resolveRoleRouteGuard } from './routeGuard';
 export type {
   AuthRouteGuardDecision,
@@ -16,6 +20,7 @@ export type {
 export { AUTH_SCOPE_TYPES, EMPTY_AUTH_SESSION } from './session';
 export type {
   AuthRoleScope,
+  AuthLoginInput,
   AuthScopeType,
   AuthSession,
   AuthSessionAdapter,

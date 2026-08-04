@@ -1,7 +1,9 @@
 import {
   EMPTY_AUTH_SESSION,
   MockAuthSessionAdapter,
+  createSupabaseAuthSessionAdapter,
   parseMockRole,
+  type AuthLoginInput,
   type AuthSession,
   type AuthSessionAdapter,
   type RoleCode,
@@ -18,7 +20,7 @@ import {
 
 type AuthSessionContextValue = AuthSession & {
   readonly isLoading: boolean;
-  login(role: RoleCode): Promise<void>;
+  login(input: AuthLoginInput): Promise<void>;
   logout(): Promise<void>;
   switchRole(role: RoleCode): Promise<void>;
 };
@@ -31,6 +33,16 @@ type AuthSessionProviderProps = {
 const AuthSessionContext = createContext<AuthSessionContextValue | null>(null);
 
 function createDefaultAdapter(): AuthSessionAdapter {
+  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (supabaseUrl !== undefined && supabaseAnonKey !== undefined) {
+    return createSupabaseAuthSessionAdapter({
+      anonKey: supabaseAnonKey,
+      url: supabaseUrl,
+    });
+  }
+
   const initialRole = parseMockRole(process.env.EXPO_PUBLIC_MOCK_ROLE);
 
   return initialRole === null
@@ -80,7 +92,8 @@ export function AuthSessionProvider({
   );
 
   const login = useCallback(
-    (role: RoleCode) => runSessionAction(() => sessionAdapter.login(role)),
+    (input: AuthLoginInput) =>
+      runSessionAction(() => sessionAdapter.login(input)),
     [runSessionAction, sessionAdapter],
   );
 

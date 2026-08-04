@@ -17,7 +17,10 @@ describe('MockAuthSessionAdapter', () => {
   it('登录后暴露当前用户、六种角色和对应范围', async () => {
     const adapter = new MockAuthSessionAdapter();
 
-    const session = await adapter.login('class_terminal');
+    const session = await adapter.login({
+      email: 'demo_class_01@dolphincloud.local',
+      password: 'synthetic-password',
+    });
 
     expect(session.user?.id).toBe('demo_user_auth');
     expect(session.availableRoles).toHaveLength(6);
@@ -25,6 +28,7 @@ describe('MockAuthSessionAdapter', () => {
     expect(session.roleScope).toEqual({
       id: 'demo_class',
       label: '演示班级',
+      role: 'class_terminal',
       type: 'class',
     });
   });
