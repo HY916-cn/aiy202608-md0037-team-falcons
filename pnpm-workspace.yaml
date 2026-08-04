@@ -4,3 +4,13 @@ packages:
 
 allowBuilds:
   unrs-resolver: true
+
+minimumReleaseAgeExclude:
+  - '@expo/cli@57.0.12'
+  - '@expo/router-server@57.0.5'
+  - '@expo/ui@57.0.9'
+  - expo-constants@57.0.9
+  - expo-linking@57.0.5
+  - expo-modules-core@57.0.9
+  - expo-router@57.0.10
+  - expo@57.0.10
