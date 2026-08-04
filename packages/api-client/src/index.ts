@@ -19,3 +19,4 @@ export * from './apiError';
 export * from './assignmentService';
 export * from './coursewareService';
 export * from './gradeService';
+export * from './supabaseTeachingDemoAdapter';

@@ -6,6 +6,12 @@ import { SupabaseAuthSessionAdapter } from '../supabaseAuthSessionAdapter';
 type FakeTable = 'profiles' | 'role_assignments' | 'schools';
 
 function createFakeClient() {
+  let authListener: ((event: string) => void) | null = null;
+  const unsubscribe = vi.fn();
+  const onAuthStateChange = vi.fn((listener: (event: string) => void) => {
+    authListener = listener;
+    return { data: { subscription: { unsubscribe } } };
+  });
   const signInWithPassword = vi.fn().mockResolvedValue({ error: null });
   const signOut = vi.fn().mockResolvedValue({ error: null });
   const getUser = vi.fn().mockResolvedValue({
@@ -34,11 +40,21 @@ function createFakeClient() {
     })),
   }));
   const client = {
-    auth: { getUser, signInWithPassword, signOut },
+    auth: { getUser, onAuthStateChange, signInWithPassword, signOut },
     from,
   } as unknown as SupabaseClient;
 
-  return { client, from, getUser, signInWithPassword, signOut };
+  return {
+    client,
+    from,
+    getUser,
+    signInWithPassword,
+    signOut,
+    triggerAuthEvent(event: string) {
+      authListener?.(event);
+    },
+    unsubscribe,
+  };
 }
 
 describe('SupabaseAuthSessionAdapter', () => {
@@ -98,5 +114,26 @@ describe('SupabaseAuthSessionAdapter', () => {
     const adapter = new SupabaseAuthSessionAdapter({ client });
 
     await expect(adapter.switchRole('admin')).rejects.toThrow('FORBIDDEN');
+  });
+
+  it('令牌刷新和退出事件会更新共享会话并清理订阅', async () => {
+    const { client, triggerAuthEvent, unsubscribe } = createFakeClient();
+    const adapter = new SupabaseAuthSessionAdapter({ client });
+    const listener = vi.fn();
+    const stop = adapter.subscribe(listener);
+
+    triggerAuthEvent('TOKEN_REFRESHED');
+    await vi.waitFor(() => {
+      expect(listener).toHaveBeenCalledWith(
+        expect.objectContaining({ currentRole: 'teacher' }),
+      );
+    });
+
+    triggerAuthEvent('SIGNED_OUT');
+    expect(listener).toHaveBeenLastCalledWith(
+      expect.objectContaining({ currentRole: null, user: null }),
+    );
+    stop();
+    expect(unsubscribe).toHaveBeenCalledOnce();
   });
 });

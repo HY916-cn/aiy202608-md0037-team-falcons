@@ -1,5 +1,5 @@
 {
-  "name": "@dolphincloud/api-client",
+  "name": "@dolphincloud/experience",
   "version": "0.1.0",
   "private": true,
   "sideEffects": false,
@@ -9,10 +9,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@dolphincloud/domain": "workspace:*",
-    "@dolphincloud/experience": "workspace:*",
-    "@dolphincloud/validation": "workspace:*",
-    "@supabase/supabase-js": "2.110.8"
+    "@dolphincloud/auth": "workspace:*",
+    "@dolphincloud/domain": "workspace:*"
   },
   "devDependencies": {
     "typescript": "~6.0.3"
