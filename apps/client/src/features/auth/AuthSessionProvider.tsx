@@ -1,8 +1,5 @@
 import {
   EMPTY_AUTH_SESSION,
-  MockAuthSessionAdapter,
-  createSupabaseAuthSessionAdapter,
-  parseMockRole,
   type AuthLoginInput,
   type AuthSession,
   type AuthSessionAdapter,
@@ -18,6 +15,8 @@ import {
   type ReactNode,
 } from 'react';
 
+import { useSupabaseServices } from '@/features/supabase';
+
 type AuthSessionContextValue = AuthSession & {
   readonly isLoading: boolean;
   login(input: AuthLoginInput): Promise<void>;
@@ -32,29 +31,12 @@ type AuthSessionProviderProps = {
 
 const AuthSessionContext = createContext<AuthSessionContextValue | null>(null);
 
-function createDefaultAdapter(): AuthSessionAdapter {
-  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (supabaseUrl !== undefined && supabaseAnonKey !== undefined) {
-    return createSupabaseAuthSessionAdapter({
-      anonKey: supabaseAnonKey,
-      url: supabaseUrl,
-    });
-  }
-
-  const initialRole = parseMockRole(process.env.EXPO_PUBLIC_MOCK_ROLE);
-
-  return initialRole === null
-    ? new MockAuthSessionAdapter()
-    : new MockAuthSessionAdapter({ initialRole });
-}
-
 export function AuthSessionProvider({
   adapter,
   children,
 }: AuthSessionProviderProps) {
-  const [sessionAdapter] = useState(() => adapter ?? createDefaultAdapter());
+  const { authAdapter } = useSupabaseServices();
+  const [sessionAdapter] = useState(() => adapter ?? authAdapter);
   const [session, setSession] = useState<AuthSession>(EMPTY_AUTH_SESSION);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -79,8 +61,16 @@ export function AuthSessionProvider({
         }
       });
 
+    const unsubscribe = sessionAdapter.subscribe?.((nextSession) => {
+      if (isActive) {
+        setSession(nextSession);
+        setIsLoading(false);
+      }
+    });
+
     return () => {
       isActive = false;
+      unsubscribe?.();
     };
   }, [sessionAdapter]);
 
