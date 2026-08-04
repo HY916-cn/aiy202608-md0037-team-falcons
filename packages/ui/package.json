@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@dolphincloud/auth": "workspace:*",
+    "@dolphincloud/experience": "workspace:*",
     "lucide-react-native": "1.28.0"
   },
   "peerDependencies": {
