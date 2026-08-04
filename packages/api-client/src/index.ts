@@ -14,3 +14,6 @@ export type ApiFailure = {
 };
 
 export type ApiResponse<TData> = ApiSuccess<TData> | ApiFailure;
+
+export * from './apiError';
+export * from './coursewareService';

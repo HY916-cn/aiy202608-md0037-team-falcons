@@ -8,6 +8,11 @@
   "scripts": {
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "@dolphincloud/domain": "workspace:*",
+    "@dolphincloud/validation": "workspace:*",
+    "@supabase/supabase-js": "2.110.8"
+  },
   "devDependencies": {
     "typescript": "~6.0.3"
   }

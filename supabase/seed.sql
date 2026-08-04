@@ -189,3 +189,141 @@ values
   ('30000000-0000-0000-0000-000000000011', '20000000-0000-0000-0000-000000000001', 'active'),
   ('30000000-0000-0000-0000-000000000012', '20000000-0000-0000-0000-000000000002', 'active')
 on conflict (device_id, class_id) do update set status = excluded.status;
+
+insert into public.courseware_items (
+  id,
+  teacher_id,
+  title,
+  subject,
+  original_filename,
+  storage_path,
+  mime_type,
+  size_bytes,
+  status
+)
+values
+  (
+    '60000000-0000-0000-0000-000000000001',
+    '30000000-0000-0000-0000-000000000001',
+    '合成演示数学课件',
+    '数学',
+    '合成演示数学课件.pdf',
+    'courseware/30000000-0000-0000-0000-000000000001/60000000-0000-0000-0000-000000000001',
+    'application/pdf',
+    4096,
+    'published'
+  ),
+  (
+    '60000000-0000-0000-0000-000000000002',
+    '30000000-0000-0000-0000-000000000002',
+    '合成演示语文草稿',
+    '语文',
+    '合成演示语文草稿.pptx',
+    'courseware/30000000-0000-0000-0000-000000000002/60000000-0000-0000-0000-000000000002',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    8192,
+    'draft'
+  )
+on conflict (id) do update set
+  teacher_id = excluded.teacher_id,
+  title = excluded.title,
+  subject = excluded.subject,
+  original_filename = excluded.original_filename,
+  storage_path = excluded.storage_path,
+  mime_type = excluded.mime_type,
+  size_bytes = excluded.size_bytes,
+  status = excluded.status;
+
+insert into public.courseware_targets (
+  id,
+  courseware_id,
+  class_id,
+  sent_at,
+  withdrawn_at
+)
+values
+  (
+    '61000000-0000-0000-0000-000000000001',
+    '60000000-0000-0000-0000-000000000001',
+    '20000000-0000-0000-0000-000000000001',
+    now() - interval '1 hour',
+    null
+  ),
+  (
+    '61000000-0000-0000-0000-000000000002',
+    '60000000-0000-0000-0000-000000000001',
+    '20000000-0000-0000-0000-000000000002',
+    now() - interval '2 hours',
+    now() - interval '30 minutes'
+  )
+on conflict (id) do update set
+  courseware_id = excluded.courseware_id,
+  class_id = excluded.class_id,
+  sent_at = excluded.sent_at,
+  withdrawn_at = excluded.withdrawn_at;
+
+insert into public.courseware_receipts (
+  target_id,
+  device_id,
+  received_at,
+  downloaded_at
+)
+values (
+  '61000000-0000-0000-0000-000000000001',
+  '30000000-0000-0000-0000-000000000011',
+  now() - interval '45 minutes',
+  now() - interval '40 minutes'
+)
+on conflict (target_id, device_id) do update set
+  received_at = excluded.received_at,
+  downloaded_at = excluded.downloaded_at;
+
+insert into public.courseware_returns (
+  id,
+  class_id,
+  teacher_id,
+  operator_id,
+  title,
+  original_filename,
+  storage_path,
+  mime_type,
+  size_bytes
+)
+values (
+  '62000000-0000-0000-0000-000000000001',
+  '20000000-0000-0000-0000-000000000001',
+  '30000000-0000-0000-0000-000000000001',
+  '30000000-0000-0000-0000-000000000011',
+  '合成课堂回传图片',
+  '合成课堂回传图片.png',
+  'returns/20000000-0000-0000-0000-000000000001/30000000-0000-0000-0000-000000000001/62000000-0000-0000-0000-000000000001',
+  'image/png',
+  2048
+)
+on conflict (id) do update set
+  class_id = excluded.class_id,
+  teacher_id = excluded.teacher_id,
+  operator_id = excluded.operator_id,
+  title = excluded.title,
+  original_filename = excluded.original_filename,
+  storage_path = excluded.storage_path,
+  mime_type = excluded.mime_type,
+  size_bytes = excluded.size_bytes;
+
+insert into storage.objects (bucket_id, name, owner_id, metadata)
+values
+  (
+    'courseware-private',
+    'courseware/30000000-0000-0000-0000-000000000001/60000000-0000-0000-0000-000000000001',
+    '30000000-0000-0000-0000-000000000001',
+    '{"mimetype":"application/pdf","size":4096,"synthetic":true}'::jsonb
+  ),
+  (
+    'courseware-private',
+    'returns/20000000-0000-0000-0000-000000000001/30000000-0000-0000-0000-000000000001/62000000-0000-0000-0000-000000000001',
+    '30000000-0000-0000-0000-000000000011',
+    '{"mimetype":"image/png","size":2048,"synthetic":true}'::jsonb
+  )
+on conflict (bucket_id, name) do update set
+  owner_id = excluded.owner_id,
+  metadata = excluded.metadata;
