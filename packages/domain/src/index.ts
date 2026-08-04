@@ -4,3 +4,4 @@ export const APP_NAME_EN = 'DolphinCloud';
 export * from './assignment';
 export * from './contentStatus';
 export * from './courseware';
+export * from './grade';

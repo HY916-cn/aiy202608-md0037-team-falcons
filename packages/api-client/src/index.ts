@@ -18,3 +18,4 @@ export type ApiResponse<TData> = ApiSuccess<TData> | ApiFailure;
 export * from './apiError';
 export * from './assignmentService';
 export * from './coursewareService';
+export * from './gradeService';
