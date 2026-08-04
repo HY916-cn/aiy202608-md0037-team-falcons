@@ -7,7 +7,7 @@ import {
   type AuthorizedOperationCommand,
   type OperationRecord,
 } from './operation';
-import type { Timestamp, Uuid } from './index';
+import type { AuthorizedRoleCode, Timestamp, Uuid } from './index';
 
 /**
  * 反向操作与原操作的绑定。
@@ -20,7 +20,7 @@ export interface ReversalLink {
   readonly originalOperationId: Uuid;
   readonly reversalOperationId: Uuid;
   readonly actorId: Uuid;
-  readonly actorRole: string;
+  readonly actorRole: AuthorizedRoleCode;
   readonly reason: string;
   readonly createdAt: Timestamp;
 }
@@ -48,12 +48,7 @@ export interface PreviewReversalInput {
  */
 export function previewReversal(input: PreviewReversalInput): ReversalPreview {
   assertReversalPreconditions(input.original, input.originalEntries);
-  if (input.plannedEntryIds.length !== input.originalEntries.length) {
-    throw new DomainError(
-      'E_REVERSAL_MISMATCH',
-      'planned reverse entry ids must match original entries one-to-one',
-    );
-  }
+  assertPlannedEntryIds(input.plannedEntryIds, input.originalEntries.length);
 
   const plannedReverseEntries = input.originalEntries.map((original, index) => {
     const id = input.plannedEntryIds[index];
@@ -83,7 +78,7 @@ export interface BuildReversalInput {
   readonly original: OperationRecord;
   readonly originalEntries: readonly LedgerEntry[];
   readonly actorId: Uuid;
-  readonly actorRole: string;
+  readonly actorRole: AuthorizedRoleCode;
   readonly reason: string;
   readonly reversalOperationId: Uuid;
   readonly reversalLinkId: Uuid;
@@ -110,12 +105,7 @@ export interface BuildReversalResult {
  */
 export function buildReversal(input: BuildReversalInput): BuildReversalResult {
   assertReversalPreconditions(input.original, input.originalEntries);
-  if (input.plannedEntryIds.length !== input.originalEntries.length) {
-    throw new DomainError(
-      'E_REVERSAL_MISMATCH',
-      'planned reverse entry ids must match original entries one-to-one',
-    );
-  }
+  assertPlannedEntryIds(input.plannedEntryIds, input.originalEntries.length);
 
   const command: AuthorizedOperationCommand = {
     kind: 'reversal',
@@ -195,6 +185,13 @@ function assertReversalPreconditions(
       `only applied operations can be reversed; current status is ${original.status}`,
     );
   }
+  if (entries.length === 0) {
+    throw new DomainError(
+      'E_REVERSAL_MISMATCH',
+      `operation ${original.id} has no ledger entries to reverse`,
+    );
+  }
+  const seenEntryIds = new Set<Uuid>();
   for (const entry of entries) {
     if (entry.operationId !== original.id) {
       throw new DomainError(
@@ -208,5 +205,34 @@ function assertReversalPreconditions(
         `ledger entry ${entry.id} is itself a reverse entry and cannot be reversed`,
       );
     }
+    if (seenEntryIds.has(entry.id)) {
+      throw new DomainError(
+        'E_REVERSAL_MISMATCH',
+        `duplicate original ledger entry id ${entry.id}`,
+      );
+    }
+    seenEntryIds.add(entry.id);
+  }
+}
+
+function assertPlannedEntryIds(
+  plannedEntryIds: readonly Uuid[],
+  expectedLength: number,
+): void {
+  if (plannedEntryIds.length !== expectedLength) {
+    throw new DomainError(
+      'E_REVERSAL_MISMATCH',
+      'planned reverse entry ids must match original entries one-to-one',
+    );
+  }
+  const seen = new Set<Uuid>();
+  for (const id of plannedEntryIds) {
+    if (seen.has(id)) {
+      throw new DomainError(
+        'E_REVERSAL_MISMATCH',
+        `duplicate planned reverse entry id ${id}`,
+      );
+    }
+    seen.add(id);
   }
 }

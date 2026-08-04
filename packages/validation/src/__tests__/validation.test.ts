@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 
 import { DomainError } from '@dolphincloud/domain';
 
@@ -183,16 +184,40 @@ describe('operation request schema (external DTO)', () => {
     );
   });
 
-  it('rejects payloads carrying actorId (external DTOs must not include actor)', () => {
-    // The strict schema drops or forbids extra keys; even if zod strips it,
-    // the resulting request must not expose actorId as a typed field.
-    const parsed = parseWithDomainError(operationRequestSchema, {
-      kind: 'coin_grant',
-      idempotencyKey: VALID_IDEMPOTENCY_KEY,
-      reason: '奖励',
-      actorId: VALID_UUID,
-    } as unknown);
-    expect(Object.prototype.hasOwnProperty.call(parsed, 'actorId')).toBe(false);
+  it('rejects payloads carrying actorId with E_INVALID_INPUT (strict schema)', () => {
+    expectDomainErrorCode(
+      () =>
+        parseWithDomainError(operationRequestSchema, {
+          kind: 'coin_grant',
+          idempotencyKey: VALID_IDEMPOTENCY_KEY,
+          reason: '奖励',
+          actorId: VALID_UUID,
+        } as unknown),
+      'E_INVALID_INPUT',
+    );
+  });
+
+  it('rejects payloads carrying role or scope with E_INVALID_INPUT (strict schema)', () => {
+    expectDomainErrorCode(
+      () =>
+        parseWithDomainError(operationRequestSchema, {
+          kind: 'coin_grant',
+          idempotencyKey: VALID_IDEMPOTENCY_KEY,
+          reason: '奖励',
+          role: 'teacher',
+        } as unknown),
+      'E_INVALID_INPUT',
+    );
+    expectDomainErrorCode(
+      () =>
+        parseWithDomainError(operationRequestSchema, {
+          kind: 'coin_grant',
+          idempotencyKey: VALID_IDEMPOTENCY_KEY,
+          reason: '奖励',
+          scope: 'class:123',
+        } as unknown),
+      'E_INVALID_INPUT',
+    );
   });
 });
 
@@ -218,16 +243,54 @@ describe('student and class score entry schemas (no actor in external DTO)', () 
     ).not.toThrow();
   });
 
-  it('does not surface actorId in parsed shape even if client tries to inject it', () => {
-    const parsed = parseWithDomainError(studentScoreEntrySchema, {
-      studentId: VALID_UUID,
-      classId: VALID_UUID_ALT,
-      delta: 2,
-      reason: '值日',
-      idempotencyKey: VALID_IDEMPOTENCY_KEY,
-      actorId: VALID_UUID,
-    } as unknown);
-    expect(Object.prototype.hasOwnProperty.call(parsed, 'actorId')).toBe(false);
+  it('rejects injection of actorId / role / scope into external entry schemas (strict)', () => {
+    expectDomainErrorCode(
+      () =>
+        parseWithDomainError(studentScoreEntrySchema, {
+          studentId: VALID_UUID,
+          classId: VALID_UUID_ALT,
+          delta: 2,
+          reason: '值日',
+          idempotencyKey: VALID_IDEMPOTENCY_KEY,
+          actorId: VALID_UUID,
+        } as unknown),
+      'E_INVALID_INPUT',
+    );
+    expectDomainErrorCode(
+      () =>
+        parseWithDomainError(classScoreEntrySchema, {
+          classId: VALID_UUID,
+          delta: 1,
+          reason: '值日',
+          idempotencyKey: VALID_IDEMPOTENCY_KEY,
+          role: 'teacher',
+        } as unknown),
+      'E_INVALID_INPUT',
+    );
+    expectDomainErrorCode(
+      () =>
+        parseWithDomainError(coinLedgerEntrySchema, {
+          studentId: VALID_UUID,
+          direction: 'credit',
+          amount: 5,
+          reason: '奖励',
+          idempotencyKey: VALID_IDEMPOTENCY_KEY,
+          scope: 'class:123',
+        } as unknown),
+      'E_INVALID_INPUT',
+    );
+    expectDomainErrorCode(
+      () =>
+        parseWithDomainError(fineOrderSchema, {
+          studentId: VALID_UUID,
+          ruleId: VALID_UUID_ALT,
+          amount: 5,
+          reason: '违规',
+          idempotencyKey: VALID_IDEMPOTENCY_KEY,
+          actorId: VALID_UUID,
+        } as unknown),
+      'E_INVALID_INPUT',
+    );
   });
 });
 
@@ -352,5 +415,31 @@ describe('parseWithDomainError path metadata and code routing', () => {
     expect(caught?.code).toBe('E_REASON_REQUIRED');
     expect(caught?.code).not.toBe('E_REASON_TOO_LONG');
     expect(caught?.path).toBe('reason');
+  });
+
+  it('falls back to E_INVALID_INPUT when an issue message carries an unrecognised tag code (no unsafe cast)', () => {
+    const bogusTagSchema = z
+      .string()
+      .refine(() => false, { message: 'DC_ERR::E_NOT_A_REAL_CODE::should-fallback' });
+    let caught: DomainError | undefined;
+    try {
+      parseWithDomainError(bogusTagSchema, 'anything');
+    } catch (error) {
+      caught = error as DomainError;
+    }
+    expect(caught?.code).toBe('E_INVALID_INPUT');
+  });
+
+  it('falls back to E_INVALID_INPUT when message does not carry the DC_ERR tag prefix at all', () => {
+    const plainSchema = z.string().refine(() => false, {
+      message: 'no tag prefix here',
+    });
+    let caught: DomainError | undefined;
+    try {
+      parseWithDomainError(plainSchema, 'anything');
+    } catch (error) {
+      caught = error as DomainError;
+    }
+    expect(caught?.code).toBe('E_INVALID_INPUT');
   });
 });

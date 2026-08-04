@@ -99,6 +99,70 @@ describe('previewReversal', () => {
     }
     expect(caught?.code).toBe('E_REVERSAL_MISMATCH');
   });
+
+  it('rejects an empty original entry list with E_REVERSAL_MISMATCH', () => {
+    const { operation } = seedAppliedWithEntry();
+    let caught: DomainError | undefined;
+    try {
+      previewReversal({
+        original: operation,
+        originalEntries: [],
+        plannedReversalOperationId: REV_OP_ID,
+        plannedEntryIds: [],
+        reason: '撤销',
+        now: LATER,
+      });
+    } catch (error) {
+      caught = error as DomainError;
+    }
+    expect(caught?.code).toBe('E_REVERSAL_MISMATCH');
+  });
+
+  it('rejects duplicate original entry ids with E_REVERSAL_MISMATCH', () => {
+    const { operation, entry } = seedAppliedWithEntry();
+    let caught: DomainError | undefined;
+    try {
+      previewReversal({
+        original: operation,
+        originalEntries: [entry, entry],
+        plannedReversalOperationId: REV_OP_ID,
+        plannedEntryIds: [REV_ENTRY_ID, 'le-different-4444-4444-8444-444444444444' as Uuid],
+        reason: '撤销',
+        now: LATER,
+      });
+    } catch (error) {
+      caught = error as DomainError;
+    }
+    expect(caught?.code).toBe('E_REVERSAL_MISMATCH');
+  });
+
+  it('rejects duplicate plannedEntryIds with E_REVERSAL_MISMATCH', () => {
+    const { operation, entry } = seedAppliedWithEntry();
+    const secondEntry = buildLedgerEntry({
+      id: 'le-second-4222-4222-8222-222222222222' as Uuid,
+      kind: 'student_score',
+      direction: 'credit',
+      amount: 1,
+      subjectId: SUBJECT_ID,
+      operationId: ORIG_OP_ID,
+      reason: '值日',
+      now: NOW,
+    });
+    let caught: DomainError | undefined;
+    try {
+      previewReversal({
+        original: operation,
+        originalEntries: [entry, secondEntry],
+        plannedReversalOperationId: REV_OP_ID,
+        plannedEntryIds: [REV_ENTRY_ID, REV_ENTRY_ID],
+        reason: '撤销',
+        now: LATER,
+      });
+    } catch (error) {
+      caught = error as DomainError;
+    }
+    expect(caught?.code).toBe('E_REVERSAL_MISMATCH');
+  });
 });
 
 describe('buildReversal preconditions', () => {

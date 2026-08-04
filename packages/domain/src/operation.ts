@@ -1,5 +1,6 @@
 import { DomainError } from './errors';
 import type {
+  AuthorizedRoleCode,
   IdempotencyKey,
   OperationKind,
   OperationStatus,
@@ -19,7 +20,7 @@ import type {
 export interface AuthorizedOperationCommand {
   readonly kind: OperationKind;
   readonly actorId: Uuid;
-  readonly actorRole: string;
+  readonly actorRole: AuthorizedRoleCode;
   readonly idempotencyKey: IdempotencyKey;
   readonly reason: string;
   readonly targetType: OperationTargetType;
@@ -33,7 +34,7 @@ export interface OperationRecord {
   readonly kind: OperationKind;
   readonly status: OperationStatus;
   readonly actorId: Uuid;
-  readonly actorRole: string;
+  readonly actorRole: AuthorizedRoleCode;
   readonly targetType: OperationTargetType;
   readonly targetId: Uuid;
   readonly idempotencyKey: IdempotencyKey;

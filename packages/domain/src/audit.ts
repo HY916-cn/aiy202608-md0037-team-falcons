@@ -1,12 +1,12 @@
 import type { OperationRecord } from './operation';
-import type { Timestamp, Uuid } from './index';
+import type { AuthorizedRoleCode, Timestamp, Uuid } from './index';
 
 export type AuditResult = 'success' | 'failure';
 
 export interface AuditEvent {
   readonly id: Uuid;
   readonly actorId: Uuid;
-  readonly actorRole: string;
+  readonly actorRole: AuthorizedRoleCode;
   readonly action: string;
   readonly resourceType: string;
   readonly resourceId: Uuid;

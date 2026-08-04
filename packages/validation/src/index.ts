@@ -14,6 +14,7 @@ import {
   RANKING_WINDOWS,
   SCORE_DELTA_MAX,
   SCORE_DELTA_MIN,
+  isDomainErrorCode,
   type DomainErrorCode,
   type IdempotencyKey,
   type Timestamp,
@@ -130,47 +131,61 @@ export const fineAmountSchema = z
  * 外部 DTO：客户端提交的操作请求。
  * 严格禁止携带 actorId / role / class scope；这些字段必须由服务端从 JWT
  * 和授权表计算后注入 AuthorizedOperationCommand (@dolphincloud/domain)。
+ * 使用 .strict() 让 Zod 在遇到 actorId / role / scope / 任意额外字段时直接
+ * 抛错，而不是静默丢弃，从而在协议层就阻断越权 payload。
+ * unrecognized_keys 的默认 issue 消息不带 DC_ERR 前缀，parseWithDomainError
+ * 会自动映射到 E_INVALID_INPUT。
  */
-export const operationRequestSchema = z.object({
-  kind: operationKindSchema,
-  idempotencyKey: idempotencyKeySchema,
-  reason: reasonSchema,
-});
+export const operationRequestSchema = z
+  .object({
+    kind: operationKindSchema,
+    idempotencyKey: idempotencyKeySchema,
+    reason: reasonSchema,
+  })
+  .strict();
 export type OperationRequest = z.infer<typeof operationRequestSchema>;
 
-export const studentScoreEntrySchema = z.object({
-  studentId: uuidSchema,
-  classId: uuidSchema,
-  delta: scoreDeltaSchema,
-  reason: reasonSchema,
-  idempotencyKey: idempotencyKeySchema,
-});
+export const studentScoreEntrySchema = z
+  .object({
+    studentId: uuidSchema,
+    classId: uuidSchema,
+    delta: scoreDeltaSchema,
+    reason: reasonSchema,
+    idempotencyKey: idempotencyKeySchema,
+  })
+  .strict();
 export type StudentScoreEntryInput = z.infer<typeof studentScoreEntrySchema>;
 
-export const classScoreEntrySchema = z.object({
-  classId: uuidSchema,
-  delta: scoreDeltaSchema,
-  reason: reasonSchema,
-  idempotencyKey: idempotencyKeySchema,
-});
+export const classScoreEntrySchema = z
+  .object({
+    classId: uuidSchema,
+    delta: scoreDeltaSchema,
+    reason: reasonSchema,
+    idempotencyKey: idempotencyKeySchema,
+  })
+  .strict();
 export type ClassScoreEntryInput = z.infer<typeof classScoreEntrySchema>;
 
-export const coinLedgerEntrySchema = z.object({
-  studentId: uuidSchema,
-  direction: ledgerDirectionSchema,
-  amount: coinAmountSchema,
-  reason: reasonSchema,
-  idempotencyKey: idempotencyKeySchema,
-});
+export const coinLedgerEntrySchema = z
+  .object({
+    studentId: uuidSchema,
+    direction: ledgerDirectionSchema,
+    amount: coinAmountSchema,
+    reason: reasonSchema,
+    idempotencyKey: idempotencyKeySchema,
+  })
+  .strict();
 export type CoinLedgerEntryInput = z.infer<typeof coinLedgerEntrySchema>;
 
-export const fineOrderSchema = z.object({
-  studentId: uuidSchema,
-  ruleId: uuidSchema,
-  amount: fineAmountSchema,
-  reason: reasonSchema,
-  idempotencyKey: idempotencyKeySchema,
-});
+export const fineOrderSchema = z
+  .object({
+    studentId: uuidSchema,
+    ruleId: uuidSchema,
+    amount: fineAmountSchema,
+    reason: reasonSchema,
+    idempotencyKey: idempotencyKeySchema,
+  })
+  .strict();
 export type FineOrderInput = z.infer<typeof fineOrderSchema>;
 
 interface DecodedIssue {
@@ -184,9 +199,11 @@ function decodeIssue(issue: ZodIssue): DecodedIssue {
     const body = raw.slice(CODE_TAG.length);
     const separator = body.indexOf('::');
     if (separator > 0) {
-      const code = body.slice(0, separator) as DomainErrorCode;
+      const candidate = body.slice(0, separator);
       const message = body.slice(separator + 2);
-      return { code, message };
+      if (isDomainErrorCode(candidate)) {
+        return { code: candidate, message };
+      }
     }
   }
   return { code: 'E_INVALID_INPUT', message: raw };
