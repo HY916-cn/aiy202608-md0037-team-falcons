@@ -17,10 +17,12 @@ import {
   theme,
 } from '@dolphincloud/ui';
 import * as DocumentPicker from 'expo-document-picker';
+import { Bot, ChartColumn, ClipboardList, FolderUp } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { useExperience } from './ExperienceProvider';
+import { RoleDashboardOverview } from './RoleDashboardOverview';
 
 const EMPTY_SNAPSHOT: TeachingDemoSnapshot = {
   assignments: [],
@@ -82,7 +84,14 @@ function TodaySummarySection({ role }: { readonly role: RoleCode }) {
     void Promise.resolve().then(load);
   }, [load]);
 
-  return <TodaySummaryCard errorMessage={error} isLoading={isLoading} onRetry={() => void load()} summary={summary} />;
+  return (
+    <TodaySummaryCard
+      errorMessage={error}
+      isLoading={isLoading}
+      onRetry={() => void load()}
+      summary={summary}
+    />
+  );
 }
 
 function AiExperienceSection() {
@@ -94,11 +103,31 @@ function AiExperienceSection() {
 
   return (
     <View style={styles.section}>
+      <View style={styles.sectionHeading}>
+        <View style={styles.sectionIcon}>
+          <Bot color={theme.color.brand.secondary} size={20} />
+        </View>
+        <View style={styles.sectionHeadingCopy}>
+          <Text style={styles.sectionTitle}>AI 中心</Text>
+          <Text style={styles.sectionDescription}>
+            海豚助手可以整理信息；涉及写操作时仍需你确认。
+          </Text>
+        </View>
+      </View>
       <DolphinMascotCard snapshot={snapshot} />
-      <TextInput onChangeText={setPrompt} style={styles.input} value={prompt} />
+      <View style={styles.aiComposer}>
+        <TextInput
+          accessibilityLabel="发送给海豚助手的内容"
+          onChangeText={setPrompt}
+          placeholder="输入你想查询或整理的内容"
+          placeholderTextColor={theme.color.text.disabled}
+          style={[styles.input, styles.aiInput]}
+          value={prompt}
+        />
+        <ActionButton label="生成预览" onPress={() => void aiAdapter.submit(prompt)} />
+      </View>
       <View style={styles.actions}>
         <ActionButton label="开始聆听" onPress={() => aiAdapter.startListening()} />
-        <ActionButton label="生成预览" onPress={() => void aiAdapter.submit(prompt)} />
         <ActionButton label="重置" onPress={() => aiAdapter.reset()} />
       </View>
       <AiResultCard snapshot={snapshot} />
@@ -243,7 +272,21 @@ function TeachingDemoSection({ role }: { readonly role: RoleCode }) {
 
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>教学演示</Text>
+      <View style={styles.sectionHeading}>
+        <View style={styles.sectionIcon}>
+          <FolderUp color={theme.color.brand.primary} size={20} />
+        </View>
+        <View style={styles.sectionHeadingCopy}>
+          <Text style={styles.sectionTitle}>
+            {role === 'teacher' ? '教学内容' : '班级教学资料'}
+          </Text>
+          <Text style={styles.sectionDescription}>
+            {role === 'teacher'
+              ? '在同一处完成课件发送、作业发布与成绩管理。'
+              : '按发布时间查看教师发送的课件与作业。'}
+          </Text>
+        </View>
+      </View>
       {error === null ? null : (
         <View style={styles.feedbackBox}>
           <Text style={styles.error}>{error}</Text>
@@ -265,20 +308,29 @@ function TeachingDemoSection({ role }: { readonly role: RoleCode }) {
 
       {role === 'teacher' ? (
         <>
-          <Text style={styles.fieldLabel}>选择班级</Text>
-          <View style={styles.actions}>
+          <View style={styles.classSelectorRow}>
+            <Text style={styles.fieldLabel}>当前班级</Text>
+            <View style={styles.actions}>
             {snapshot.classes.map((item) => (
               <Pressable key={item.id} onPress={() => setSelectedClassId(item.id)} style={[styles.classButton, selectedClassId === item.id && styles.classButtonSelected]}>
                 <Text style={styles.classLabel}>{item.name}</Text>
               </Pressable>
             ))}
+            </View>
           </View>
+          <View style={styles.featureDivider} />
+          <View style={styles.featureHeading}>
+            <FolderUp color={theme.color.brand.primary} size={18} />
+            <View><Text style={styles.featureTitle}>课件</Text><Text style={styles.featureDescription}>教师与班级之间的教学文件传输</Text></View>
+          </View>
+          <Text style={styles.fieldLabel}>课件标题</Text>
           <TextInput onChangeText={setTitle} style={styles.input} value={title} />
-          <ActionButton label="选择课件文件" onPress={() => void pickFile()} />
-          <ActionButton
-            disabled={selectedClassId === null || selectedFile === null || isPending}
-            label="上传并发送到班级"
-            onPress={() =>
+          <View style={styles.actions}>
+            <ActionButton label="选择课件文件" onPress={() => void pickFile()} />
+            <ActionButton
+              disabled={selectedClassId === null || selectedFile === null || isPending}
+              label="发送到班级"
+              onPress={() =>
               requestWrite(
                 'courseware.send',
                 [snapshot.classes.find((item) => item.id === selectedClassId)?.name ?? '当前班级'],
@@ -288,7 +340,14 @@ function TeachingDemoSection({ role }: { readonly role: RoleCode }) {
                 '课件已发送。',
               )
             }
-          />
+            />
+          </View>
+          <View style={styles.featureDivider} />
+          <View style={styles.featureHeading}>
+            <ClipboardList color={theme.color.brand.primary} size={18} />
+            <View><Text style={styles.featureTitle}>作业</Text><Text style={styles.featureDescription}>先保存草稿，确认后再发布到家庭端</Text></View>
+          </View>
+          <Text style={styles.fieldLabel}>作业内容</Text>
           <TextInput multiline onChangeText={setContent} style={[styles.input, styles.multiline]} value={content} />
           <ActionButton
             disabled={selectedClassId === null || isPending}
@@ -316,6 +375,12 @@ function TeachingDemoSection({ role }: { readonly role: RoleCode }) {
               ) : null}
             </View>
           ))}
+          <View style={styles.featureDivider} />
+          <View style={styles.featureHeading}>
+            <ChartColumn color={theme.color.brand.primary} size={18} />
+            <View><Text style={styles.featureTitle}>成绩</Text><Text style={styles.featureDescription}>成绩发布后仅绑定家庭可见</Text></View>
+          </View>
+          <Text style={styles.fieldLabel}>成绩分数</Text>
           <TextInput inputMode="decimal" onChangeText={setScore} style={styles.input} value={score} />
           <ActionButton
             disabled={selectedClassId === null || selectedStudents[0] === undefined || isPending}
@@ -355,6 +420,7 @@ function TeachingDemoSection({ role }: { readonly role: RoleCode }) {
 export function RoleExperienceSections({ role }: { readonly role: RoleCode }) {
   return (
     <>
+      <RoleDashboardOverview role={role} />
       <TodaySummarySection role={role} />
       {role === 'teacher' || role === 'class_terminal' || role === 'family' ? <TeachingDemoSection role={role} /> : null}
       <AiExperienceSection />
@@ -363,22 +429,33 @@ export function RoleExperienceSections({ role }: { readonly role: RoleCode }) {
 }
 
 const styles = StyleSheet.create({
-  actionButton: { backgroundColor: theme.color.brand.primary, borderRadius: theme.radius.control, justifyContent: 'center', minHeight: 44, paddingHorizontal: theme.space.md },
-  actionLabel: { color: theme.color.surface.card, fontSize: theme.text.size.sm, fontWeight: '600' },
+  actionButton: { alignItems: 'center', backgroundColor: theme.color.brand.primary, borderRadius: theme.radius.control, justifyContent: 'center', minHeight: 44, paddingHorizontal: theme.space.md },
+  actionLabel: { color: theme.color.surface.card, fontSize: theme.text.size.sm, fontWeight: '700' },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm },
-  classButton: { borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, minHeight: 44, padding: theme.space.md },
-  classButtonSelected: { borderColor: theme.color.brand.primary, borderWidth: 2 },
-  classLabel: { color: theme.color.text.primary, fontWeight: '600' },
+  aiComposer: { alignItems: 'center', flexDirection: 'row', gap: theme.space.sm },
+  aiInput: { flex: 1 },
+  classButton: { alignItems: 'center', borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, justifyContent: 'center', minHeight: 40, paddingHorizontal: theme.space.base },
+  classButtonSelected: { backgroundColor: theme.color.surface.primaryTint, borderColor: theme.color.brand.primary },
+  classLabel: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '700' },
+  classSelectorRow: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.base },
   disabled: { opacity: 0.5 },
   error: { color: theme.color.text.primary, fontWeight: '600' },
   feedbackBox: { gap: theme.space.sm },
-  fieldLabel: { color: theme.color.text.primary, fontSize: theme.text.size.md, fontWeight: '700', marginTop: theme.space.sm },
+  featureDescription: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, marginTop: 2 },
+  featureDivider: { backgroundColor: theme.color.border.default, height: 1, marginVertical: theme.space.sm },
+  featureHeading: { alignItems: 'center', flexDirection: 'row', gap: theme.space.sm },
+  featureTitle: { color: theme.color.text.primary, fontSize: theme.text.size.md, fontWeight: '800' },
+  fieldLabel: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '700', marginTop: theme.space.xs },
   helper: { color: theme.color.text.secondary, fontSize: theme.text.size.sm, lineHeight: 21 },
-  input: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, color: theme.color.text.primary, minHeight: 46, paddingHorizontal: theme.space.md },
+  input: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, color: theme.color.text.primary, fontSize: theme.text.size.sm, minHeight: 46, paddingHorizontal: theme.space.md },
   itemTitle: { color: theme.color.text.primary, fontWeight: '600' },
-  listItem: { backgroundColor: theme.color.surface.muted, borderRadius: theme.radius.control, color: theme.color.text.primary, gap: theme.space.sm, padding: theme.space.md },
+  listItem: { backgroundColor: theme.color.surface.muted, borderRadius: theme.radius.control, color: theme.color.text.primary, gap: theme.space.sm, padding: theme.space.base },
   multiline: { minHeight: 88, paddingVertical: theme.space.md, textAlignVertical: 'top' },
   section: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, gap: theme.space.md, padding: theme.space.lg },
-  sectionTitle: { color: theme.color.text.primary, fontSize: theme.text.size.lg, fontWeight: '700' },
+  sectionDescription: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, lineHeight: 18, marginTop: 3 },
+  sectionHeading: { alignItems: 'center', flexDirection: 'row', gap: theme.space.base },
+  sectionHeadingCopy: { flex: 1 },
+  sectionIcon: { alignItems: 'center', backgroundColor: theme.color.surface.secondaryTint, borderRadius: theme.radius.control, height: 40, justifyContent: 'center', width: 40 },
+  sectionTitle: { color: theme.color.text.primary, fontSize: theme.text.size.lg, fontWeight: '800' },
   success: { color: theme.color.brand.primary, fontSize: theme.text.size.sm, fontWeight: '700' },
 });
