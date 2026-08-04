@@ -187,7 +187,10 @@ export class SupabaseCoursewareService implements CoursewareService {
       .single();
 
     if (error !== null || data === null) {
-      throw new ApiClientError('INTERNAL_ERROR', { cause: error });
+      const cleanupError = await this.removeUploadedObject(storagePath);
+      throw new ApiClientError('INTERNAL_ERROR', {
+        cause: { cleanupError, persistenceError: error },
+      });
     }
 
     return mapCoursewareItem(data as CoursewareItemRow);
@@ -237,7 +240,10 @@ export class SupabaseCoursewareService implements CoursewareService {
       .single();
 
     if (error !== null || data === null) {
-      throw new ApiClientError('INTERNAL_ERROR', { cause: error });
+      const cleanupError = await this.removeUploadedObject(storagePath);
+      throw new ApiClientError('INTERNAL_ERROR', {
+        cause: { cleanupError, persistenceError: error },
+      });
     }
 
     return mapCoursewareReturn(data as CoursewareReturnRow);
@@ -365,6 +371,18 @@ export class SupabaseCoursewareService implements CoursewareService {
 
     if (error !== null) {
       throw new ApiClientError('FORBIDDEN', { cause: error });
+    }
+  }
+
+  private async removeUploadedObject(storagePath: string): Promise<unknown> {
+    try {
+      const { error } = await this.client.storage
+        .from(COURSEWARE_BUCKET)
+        .remove([storagePath]);
+
+      return error;
+    } catch (error) {
+      return error;
     }
   }
 }

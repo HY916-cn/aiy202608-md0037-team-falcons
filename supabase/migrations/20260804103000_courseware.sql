@@ -438,7 +438,25 @@ create policy objects__select__courseware_authorized
 on storage.objects for select to authenticated
 using (
   bucket_id = 'courseware-private'
-  and public.can_read_courseware_object(name)
+  and (
+    public.can_read_courseware_object(name)
+    or (
+      name like 'courseware/' || (select auth.uid())::text || '/%'
+      and public.has_role('teacher', 'school')
+    )
+    or (
+      split_part(name, '/', 1) = 'returns'
+      and public.has_role(
+        'class_terminal',
+        'class',
+        split_part(name, '/', 2)::uuid
+      )
+      and public.is_teacher_assigned_to_class(
+        split_part(name, '/', 3)::uuid,
+        split_part(name, '/', 2)::uuid
+      )
+    )
+  )
 );
 
 create policy objects__insert__courseware_teacher
@@ -465,6 +483,55 @@ with check (
   )
 );
 
+create or replace function public.is_unregistered_courseware_object(
+  object_name text
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select case split_part(object_name, '/', 1)
+    when 'courseware' then not exists (
+      select 1
+      from public.courseware_items as item
+      where item.storage_path = object_name
+    )
+    when 'returns' then not exists (
+      select 1
+      from public.courseware_returns as return_item
+      where return_item.storage_path = object_name
+    )
+    else false
+  end;
+$$;
+
+create policy objects__delete__courseware_uploader
+on storage.objects for delete to authenticated
+using (
+  bucket_id = 'courseware-private'
+  and public.is_unregistered_courseware_object(name)
+  and (
+    (
+      name like 'courseware/' || (select auth.uid())::text || '/%'
+      and public.has_role('teacher', 'school')
+    )
+    or (
+      split_part(name, '/', 1) = 'returns'
+      and public.has_role(
+        'class_terminal',
+        'class',
+        split_part(name, '/', 2)::uuid
+      )
+      and public.is_teacher_assigned_to_class(
+        split_part(name, '/', 3)::uuid,
+        split_part(name, '/', 2)::uuid
+      )
+    )
+  )
+);
+
 revoke all on public.courseware_items from anon;
 revoke all on public.courseware_targets from anon;
 revoke all on public.courseware_receipts from anon;
@@ -479,6 +546,7 @@ revoke all on function public.is_courseware_owner(uuid) from public;
 revoke all on function public.is_teacher_assigned_to_class(uuid, uuid) from public;
 revoke all on function public.can_read_courseware_target(uuid) from public;
 revoke all on function public.can_read_courseware_object(text) from public;
+revoke all on function public.is_unregistered_courseware_object(text) from public;
 revoke all on function public.send_courseware(uuid, uuid[]) from public;
 revoke all on function public.record_courseware_receipt(uuid, text) from public;
 
@@ -486,5 +554,6 @@ grant execute on function public.is_courseware_owner(uuid) to authenticated;
 grant execute on function public.is_teacher_assigned_to_class(uuid, uuid) to authenticated;
 grant execute on function public.can_read_courseware_target(uuid) to authenticated;
 grant execute on function public.can_read_courseware_object(text) to authenticated;
+grant execute on function public.is_unregistered_courseware_object(text) to authenticated;
 grant execute on function public.send_courseware(uuid, uuid[]) to authenticated;
 grant execute on function public.record_courseware_receipt(uuid, text) to authenticated;

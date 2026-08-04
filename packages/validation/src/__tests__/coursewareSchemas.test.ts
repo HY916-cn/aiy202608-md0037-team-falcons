@@ -48,6 +48,16 @@ describe('coursewareFileMetadataSchema', () => {
     ).toThrow();
   });
 
+  it('接受恰好等于 50 MiB 上限的文件', () => {
+    expect(
+      coursewareFileMetadataSchema.parse({
+        mimeType: 'image/png',
+        originalFilename: '边界课堂图片.png',
+        sizeBytes: COURSEWARE_MAX_FILE_BYTES,
+      }).sizeBytes,
+    ).toBe(COURSEWARE_MAX_FILE_BYTES);
+  });
+
   it('拒绝包含路径分隔符的原文件名', () => {
     expect(() =>
       coursewareFileMetadataSchema.parse({

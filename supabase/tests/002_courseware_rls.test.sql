@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(37);
+select plan(50);
 
 select is(
   (select public from storage.buckets where id = 'courseware-private'),
@@ -180,6 +180,50 @@ select lives_ok(
   $$,
   '教师可以创建属于自己的课件记录'
 );
+select lives_ok(
+  $$
+    insert into public.courseware_items (
+      title,
+      subject,
+      original_filename,
+      storage_path,
+      mime_type,
+      size_bytes
+    )
+    values (
+      '50 MiB 边界课件',
+      '数学',
+      '50 MiB 边界课件.pdf',
+      'courseware/30000000-0000-0000-0000-000000000001/63000000-0000-0000-0000-000000000005',
+      'application/pdf',
+      52428800
+    )
+  $$,
+  '数据库接受恰好 50 MiB 的课件记录'
+);
+select throws_ok(
+  $$
+    insert into public.courseware_items (
+      title,
+      subject,
+      original_filename,
+      storage_path,
+      mime_type,
+      size_bytes
+    )
+    values (
+      '超限课件',
+      '数学',
+      '超限课件.pdf',
+      'courseware/30000000-0000-0000-0000-000000000001/63000000-0000-0000-0000-000000000006',
+      'application/pdf',
+      52428801
+    )
+  $$,
+  '23514',
+  null,
+  '数据库拒绝超过 50 MiB 的课件记录'
+);
 select throws_ok(
   $$
     insert into public.courseware_items (
@@ -325,6 +369,17 @@ select throws_ok(
   'new row violates row-level security policy for table "objects"',
   '教师不能向其他教师对象路径上传'
 );
+select lives_ok(
+  $$
+    insert into storage.objects (bucket_id, name, owner_id)
+    values (
+      'courseware-private',
+      'courseware/30000000-0000-0000-0000-000000000001/63000000-0000-0000-0000-000000000001',
+      '30000000-0000-0000-0000-000000000001'
+    )
+  $$,
+  '教师可以上传与已登记草稿路径匹配的对象'
+);
 
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000011', true);
 select lives_ok(
@@ -352,6 +407,104 @@ select throws_ok(
   '42501',
   'new row violates row-level security policy for table "objects"',
   '家庭端不能上传课件对象'
+);
+
+select set_config('storage.allow_delete_query', 'true', true);
+select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000001', true);
+select lives_ok(
+  $$
+    delete from storage.objects
+    where bucket_id = 'courseware-private'
+      and name = 'courseware/30000000-0000-0000-0000-000000000001/65000000-0000-0000-0000-000000000001'
+  $$,
+  '教师可通过 Storage API 删除自己的孤儿课件对象'
+);
+select is(
+  (
+    select count(*)
+    from storage.objects
+    where bucket_id = 'courseware-private'
+      and name = 'courseware/30000000-0000-0000-0000-000000000001/65000000-0000-0000-0000-000000000001'
+  ),
+  0::bigint,
+  '孤儿课件对象已实际删除'
+);
+select lives_ok(
+  $$
+    delete from storage.objects
+    where bucket_id = 'courseware-private'
+      and name = 'courseware/30000000-0000-0000-0000-000000000001/63000000-0000-0000-0000-000000000001'
+  $$,
+  '已登记课件草稿的 Storage DELETE 请求不会越权删除对象'
+);
+select is(
+  (
+    select count(*)
+    from storage.objects
+    where bucket_id = 'courseware-private'
+      and name = 'courseware/30000000-0000-0000-0000-000000000001/63000000-0000-0000-0000-000000000001'
+  ),
+  1::bigint,
+  '已登记课件草稿对象仍然存在'
+);
+select lives_ok(
+  $$
+    delete from storage.objects
+    where bucket_id = 'courseware-private'
+      and name = 'courseware/30000000-0000-0000-0000-000000000001/60000000-0000-0000-0000-000000000001'
+  $$,
+  '已发布课件的 Storage DELETE 请求不会越权删除对象'
+);
+select is(
+  (
+    select count(*)
+    from storage.objects
+    where bucket_id = 'courseware-private'
+      and name = 'courseware/30000000-0000-0000-0000-000000000001/60000000-0000-0000-0000-000000000001'
+  ),
+  1::bigint,
+  '已发布课件对象仍然存在'
+);
+
+select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000011', true);
+select lives_ok(
+  $$
+    delete from storage.objects
+    where bucket_id = 'courseware-private'
+      and name = 'returns/20000000-0000-0000-0000-000000000001/30000000-0000-0000-0000-000000000001/62000000-0000-0000-0000-000000000001'
+  $$,
+  '已登记回传的 Storage DELETE 请求不会越权删除对象'
+);
+select is(
+  (
+    select count(*)
+    from storage.objects
+    where bucket_id = 'courseware-private'
+      and name = 'returns/20000000-0000-0000-0000-000000000001/30000000-0000-0000-0000-000000000001/62000000-0000-0000-0000-000000000001'
+  ),
+  1::bigint,
+  '已登记回传对象仍然存在'
+);
+
+select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000021', true);
+select lives_ok(
+  $$
+    delete from storage.objects
+    where bucket_id = 'courseware-private'
+      and name = 'returns/20000000-0000-0000-0000-000000000001/30000000-0000-0000-0000-000000000001/65000000-0000-0000-0000-000000000003'
+  $$,
+  '家庭端不能删除班级端上传的孤儿回传对象'
+);
+select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000011', true);
+select is(
+  (
+    select count(*)
+    from storage.objects
+    where bucket_id = 'courseware-private'
+      and name = 'returns/20000000-0000-0000-0000-000000000001/30000000-0000-0000-0000-000000000001/65000000-0000-0000-0000-000000000003'
+  ),
+  1::bigint,
+  '其他角色删除失败后孤儿回传对象仍然存在'
 );
 
 select * from finish();

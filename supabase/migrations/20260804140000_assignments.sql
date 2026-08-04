@@ -35,6 +35,12 @@ as $$
 declare
   result public.assignments;
 begin
+  perform set_config(
+    'app.assignment_publish_id',
+    target_assignment_id::text,
+    true
+  );
+
   update public.assignments
   set
     status = 'published',
@@ -48,6 +54,7 @@ begin
     raise exception 'NOT_FOUND';
   end if;
 
+  perform set_config('app.assignment_publish_id', '', true);
   return result;
 end;
 $$;
@@ -96,7 +103,11 @@ with check (
   and public.is_teacher_assigned_to_class((select auth.uid()), class_id)
   and (
     (status = 'draft' and published_at is null)
-    or (status = 'published' and published_at is not null)
+    or (
+      status = 'published'
+      and published_at is not null
+      and current_setting('app.assignment_publish_id', true) = id::text
+    )
   )
 );
 
