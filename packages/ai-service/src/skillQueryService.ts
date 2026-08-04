@@ -11,6 +11,7 @@ import { assertNoAuthorizationInjection } from './inputSecurity';
 export type AiSkillContext = {
   readonly permissionScope: string;
   readonly role: RoleCode;
+  readonly roleAssignmentId: string;
   readonly userId: string;
 };
 

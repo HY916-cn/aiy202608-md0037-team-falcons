@@ -10,6 +10,7 @@
     "start": "pnpm --filter @dolphincloud/client start",
     "android": "pnpm --filter @dolphincloud/client android",
     "android:export": "pnpm --filter @dolphincloud/client android:export",
+    "build:edge": "node scripts/ci/build-edge.mjs",
     "database:test": "pnpm --filter @dolphincloud/database --fail-if-no-match test",
     "format:check": "node scripts/ci/check-format.mjs",
     "web": "pnpm --filter @dolphincloud/client web",
@@ -20,11 +21,13 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "vitest run",
     "test:ci": "vitest run --reporter=default --reporter=junit --outputFile.junit=reports/unit/junit.xml",
-    "verify:deps": "pnpm peers check && pnpm --filter @dolphincloud/client exec expo install --check"
+    "verify:deps": "pnpm peers check && pnpm --filter @dolphincloud/client exec expo install --check && pnpm verify:edge-bundle",
+    "verify:edge-bundle": "node scripts/ci/verify-edge-bundle.mjs"
   },
   "devDependencies": {
     "eslint": "9.39.5",
     "eslint-config-expo": "~57.0.1",
+    "esbuild": "0.27.0",
     "typescript": "~6.0.3",
     "vitest": "4.1.10"
   }

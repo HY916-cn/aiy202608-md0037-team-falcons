@@ -15,6 +15,7 @@ export type AiHttpRequest = {
   readonly skillContext: {
     readonly permissionScope: string;
     readonly role: RoleCode;
+    readonly roleAssignmentId: string;
     readonly userId: string;
   } | null;
 };
@@ -80,13 +81,16 @@ export class AiGatewayHttpApplication {
           typeof request.body === 'object' &&
           !Array.isArray(request.body) &&
           (request.body as Record<string, unknown>).dangerousConfirmed === true;
-        await this.drafts.confirm({
+        const receipt = await this.drafts.confirm({
           dangerousConfirmed,
           draftId: confirmMatch[1],
           principal: request.principal,
         });
         return {
-          body: { data: { status: 'completed' }, request_id: requestId },
+          body: {
+            data: { receipt, status: 'completed' },
+            request_id: requestId,
+          },
           status: 200,
         };
       }

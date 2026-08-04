@@ -7,6 +7,7 @@ import { AiGatewayHttpApplication } from '../httpApplication';
 const CONTEXT = {
   permissionScope: 'school:demo-school',
   role: 'teacher' as const,
+  roleAssignmentId: 'context-a',
   userId: 'user-a',
 };
 

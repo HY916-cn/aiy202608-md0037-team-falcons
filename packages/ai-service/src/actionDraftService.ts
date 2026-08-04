@@ -22,6 +22,11 @@ export type AiActionDraft = {
   readonly parameters: Readonly<Record<string, unknown>>;
   readonly permissionScope: string;
   readonly role: RoleCode;
+  readonly roleAssignmentId: string;
+  readonly targetId: string;
+  readonly targetType: 'assignment' | 'assessment';
+  readonly targetVersion: string;
+  readonly receipt: Readonly<Record<string, unknown>> | null;
   readonly status: AiActionDraftStatus;
   readonly targets: readonly string[];
   readonly userId: string;
@@ -35,19 +40,44 @@ export interface AiActionDraftRepository {
     readonly now: string;
     readonly userId: string;
   }): Promise<AiActionDraft>;
-  complete(draftId: string): Promise<void>;
+  complete(
+    draftId: string,
+    receipt: Readonly<Record<string, unknown>>,
+  ): Promise<Readonly<Record<string, unknown>>>;
   create(draft: Omit<AiActionDraft, 'id' | 'status'>): Promise<AiActionDraft>;
   fail(draftId: string): Promise<void>;
 }
 
 export interface AiActionExecutionAdapter {
-  execute(draft: AiActionDraft): Promise<void>;
+  execute(draft: AiActionDraft): Promise<Readonly<Record<string, unknown>>>;
+}
+
+export interface AiActionPreviewResolver {
+  resolve(input: {
+    readonly actionType: AiWriteActionType;
+    readonly context: {
+      readonly permissionScope: string;
+      readonly role: RoleCode;
+      readonly roleAssignmentId: string;
+    };
+    readonly parameters: Readonly<Record<string, unknown>>;
+    readonly principal: AiPrincipal;
+  }): Promise<{
+    readonly impact: readonly string[];
+    readonly isDangerous: boolean;
+    readonly parameters: Readonly<Record<string, unknown>>;
+    readonly targetId: string;
+    readonly targetType: 'assignment' | 'assessment';
+    readonly targetVersion: string;
+    readonly targets: readonly string[];
+  }>;
 }
 
 export class AiActionDraftService {
   constructor(
     private readonly repository: AiActionDraftRepository,
     private readonly executionAdapter: AiActionExecutionAdapter,
+    private readonly previewResolver: AiActionPreviewResolver,
     private readonly now: () => Date = () => new Date(),
     private readonly ttlMs = 5 * 60 * 1_000,
   ) {}
@@ -57,24 +87,28 @@ export class AiActionDraftService {
     readonly context: {
       readonly permissionScope: string;
       readonly role: RoleCode;
+      readonly roleAssignmentId: string;
     };
-    readonly impact: readonly string[];
-    readonly isDangerous: boolean;
     readonly parameters: Readonly<Record<string, unknown>>;
     readonly principal: AiPrincipal;
-    readonly targets: readonly string[];
   }): Promise<AiActionDraft> {
     assertNoAuthorizationInjection(input.parameters);
     const now = this.now();
+    const derived = await this.previewResolver.resolve(input);
     return this.repository.create({
       actionType: input.actionType,
       expiresAt: new Date(now.getTime() + this.ttlMs).toISOString(),
-      impact: input.impact,
-      isDangerous: input.isDangerous,
-      parameters: input.parameters,
+      impact: derived.impact,
+      isDangerous: derived.isDangerous,
+      parameters: derived.parameters,
       permissionScope: input.context.permissionScope,
+      receipt: null,
       role: input.context.role,
-      targets: input.targets,
+      roleAssignmentId: input.context.roleAssignmentId,
+      targetId: derived.targetId,
+      targetType: derived.targetType,
+      targetVersion: derived.targetVersion,
+      targets: derived.targets,
       userId: input.principal.userId,
     });
   }
@@ -83,7 +117,7 @@ export class AiActionDraftService {
     readonly dangerousConfirmed: boolean;
     readonly draftId: string;
     readonly principal: AiPrincipal | null;
-  }): Promise<void> {
+  }): Promise<Readonly<Record<string, unknown>>> {
     if (input.principal === null) {
       throw new AiServiceError('UNAUTHENTICATED', 401);
     }
@@ -93,13 +127,17 @@ export class AiActionDraftService {
       now: this.now().toISOString(),
       userId: input.principal.userId,
     });
+    if (draft.status === 'completed' && draft.receipt !== null) {
+      return draft.receipt;
+    }
+    let receipt: Readonly<Record<string, unknown>>;
     try {
-      await this.executionAdapter.execute(draft);
-      await this.repository.complete(draft.id);
+      receipt = await this.executionAdapter.execute(draft);
     } catch (error) {
       await this.repository.fail(draft.id);
       throw error;
     }
+    return await this.repository.complete(draft.id, receipt);
   }
 
   async cancel(

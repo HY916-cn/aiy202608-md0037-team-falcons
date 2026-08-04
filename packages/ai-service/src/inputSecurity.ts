@@ -31,6 +31,7 @@ export function assertNoAuthorizationInjection(value: unknown): void {
 }
 
 export function parseGatewayRequest(value: unknown): {
+  readonly contextId: string;
   readonly message: string;
   readonly sessionId?: string;
 } {
@@ -42,13 +43,32 @@ export function parseGatewayRequest(value: unknown): {
   if (typeof input.message !== 'string' || input.message.trim().length === 0) {
     throw new AiServiceError('VALIDATION_ERROR', 422);
   }
+  if (
+    typeof input.contextId !== 'string' ||
+    input.contextId.length < 1 ||
+    input.contextId.length > 128
+  ) {
+    throw new AiServiceError('VALIDATION_ERROR', 422);
+  }
+  if (input.message.trim().length > 2_000) {
+    throw new AiServiceError('VALIDATION_ERROR', 422);
+  }
   if (input.sessionId !== undefined && typeof input.sessionId !== 'string') {
     throw new AiServiceError('VALIDATION_ERROR', 422);
   }
-  if (Object.keys(input).some((key) => key !== 'message' && key !== 'sessionId')) {
+  if (
+    Object.keys(input).some(
+      (key) =>
+        key !== 'contextId' && key !== 'message' && key !== 'sessionId',
+    )
+  ) {
     throw new AiServiceError('VALIDATION_ERROR', 422);
   }
   return input.sessionId === undefined
-    ? { message: input.message.trim() }
-    : { message: input.message.trim(), sessionId: input.sessionId };
+    ? { contextId: input.contextId, message: input.message.trim() }
+    : {
+        contextId: input.contextId,
+        message: input.message.trim(),
+        sessionId: input.sessionId,
+      };
 }

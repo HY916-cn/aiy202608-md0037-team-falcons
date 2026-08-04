@@ -31,6 +31,7 @@ describe('SkillQueryService', () => {
     await service.query('get_grades', {}, {
       permissionScope: '绑定家庭',
       role: 'family',
+      roleAssignmentId: 'context-family',
       userId: 'family-user',
     });
 
@@ -44,6 +45,7 @@ describe('SkillQueryService', () => {
       service.query('get_grades', {}, {
         permissionScope: '演示一班',
         role: 'class_terminal',
+        roleAssignmentId: 'context-class',
         userId: 'class-user',
       }),
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
@@ -57,6 +59,7 @@ describe('SkillQueryService', () => {
       service.query('get_grades', { studentId: 'other-student' }, {
         permissionScope: '绑定家庭',
         role: 'family',
+        roleAssignmentId: 'context-family',
         userId: 'family-user',
       }),
     ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
@@ -64,6 +67,7 @@ describe('SkillQueryService', () => {
       service.query('list_assignments', { scope: 'other-class' }, {
         permissionScope: '绑定家庭',
         role: 'family',
+        roleAssignmentId: 'context-family',
         userId: 'family-user',
       }),
     ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });

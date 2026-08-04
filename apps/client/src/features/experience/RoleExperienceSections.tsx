@@ -85,12 +85,20 @@ function TodaySummarySection({ role }: { readonly role: RoleCode }) {
   return <TodaySummaryCard errorMessage={error} isLoading={isLoading} onRetry={() => void load()} summary={summary} />;
 }
 
-function AiExperienceSection() {
+function AiExperienceSection({ role }: { readonly role: RoleCode }) {
   const { aiAdapter } = useExperience();
   const [snapshot, setSnapshot] = useState<AiExperienceSnapshot>(() => aiAdapter.getSnapshot());
   const [prompt, setPrompt] = useState('整理今天的教学信息');
 
   useEffect(() => aiAdapter.subscribe(setSnapshot), [aiAdapter]);
+  useEffect(() => {
+    void aiAdapter.selectActiveRole(role);
+  }, [aiAdapter, role]);
+
+  const writeExecutionAdapter = useMemo<WriteActionExecutionAdapter>(
+    () => ({ execute: async () => aiAdapter.confirmAction(true) }),
+    [aiAdapter],
+  );
 
   return (
     <View style={styles.section}>
@@ -102,6 +110,14 @@ function AiExperienceSection() {
         <ActionButton label="重置" onPress={() => aiAdapter.reset()} />
       </View>
       <AiResultCard snapshot={snapshot} />
+      {snapshot.actionPreview === null ? null : (
+        <WriteActionPreviewCard
+          adapter={writeExecutionAdapter}
+          onCancel={() => void aiAdapter.cancelAction()}
+          onModify={() => void aiAdapter.returnToModify()}
+          preview={snapshot.actionPreview}
+        />
+      )}
     </View>
   );
 }
@@ -357,7 +373,7 @@ export function RoleExperienceSections({ role }: { readonly role: RoleCode }) {
     <>
       <TodaySummarySection role={role} />
       {role === 'teacher' || role === 'class_terminal' || role === 'family' ? <TeachingDemoSection role={role} /> : null}
-      <AiExperienceSection />
+      <AiExperienceSection role={role} />
     </>
   );
 }

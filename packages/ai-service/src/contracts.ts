@@ -15,6 +15,7 @@ export const AI_WRITE_ACTION_TYPES = [
 export type AiWriteActionType = (typeof AI_WRITE_ACTION_TYPES)[number];
 
 export type AiGatewayRequest = {
+  readonly contextId: string;
   readonly message: string;
   readonly sessionId?: string;
 };
@@ -28,12 +29,14 @@ export type AiProviderResult =
     }
   | {
       readonly actionType: AiWriteActionType;
-      readonly impact: readonly string[];
-      readonly isDangerous: boolean;
       readonly parameters: Readonly<Record<string, unknown>>;
-      readonly targets: readonly string[];
       readonly type: 'action_proposal';
     };
+
+export type AiProviderResponse = {
+  readonly conversationReference: string;
+  readonly result: AiProviderResult;
+};
 
 export type AiGatewayResponse =
   | { readonly sessionId: string; readonly text: string; readonly type: 'text' }
@@ -54,6 +57,7 @@ export type AiGatewayResponse =
         readonly isDangerous: boolean;
         readonly parameters: Readonly<Record<string, unknown>>;
         readonly permissionScope: string;
+        readonly role: string;
         readonly targets: readonly string[];
       };
       readonly sessionId: string;

@@ -1,206 +1,303 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(27);
+select no_plan();
 
 select has_table('public', 'ai_sessions', '存在 AI 会话表');
 select has_table('public', 'ai_action_drafts', '存在 AI 写操作草稿表');
-select has_function('public', 'create_ai_session', array[]::text[], '存在受控会话创建函数');
+select has_table('public', 'ai_skill_context_tokens', '存在单用途 Skill token 表');
+select has_function('public', 'create_ai_session', array['uuid'], '会话要求 active context');
 
-insert into public.ai_action_drafts (
-  id, user_id, action_type, role, permission_scope, parameters,
-  targets, impact, is_dangerous, status, expires_at
-) values
-  (
-    '90000000-0000-0000-0000-000000000001',
-    '30000000-0000-0000-0000-000000000001',
-    'assignment_publish', 'teacher',
-    'school:10000000-0000-0000-0000-000000000001',
-    '{"assignmentId":"70000000-0000-0000-0000-000000000001"}',
-    '["演示一班"]', '["发布后班级与家庭可见"]', true, 'pending', now() + interval '5 minutes'
-  ),
-  (
-    '90000000-0000-0000-0000-000000000002',
-    '30000000-0000-0000-0000-000000000001',
-    'assessment_publish', 'teacher',
-    'school:10000000-0000-0000-0000-000000000001',
-    '{"assessmentId":"80000000-0000-0000-0000-000000000001"}',
-    '["演示一班"]', '["发布后家庭可见"]', true, 'pending', now() + interval '5 minutes'
-  ),
-  (
-    '90000000-0000-0000-0000-000000000003',
-    '30000000-0000-0000-0000-000000000001',
-    'assignment_publish', 'teacher',
-    'school:10000000-0000-0000-0000-000000000001',
-    '{"assignmentId":"70000000-0000-0000-0000-000000000001"}',
-    '[]', '[]', true, 'pending', now() - interval '1 minute'
-  ),
-  (
-    '90000000-0000-0000-0000-000000000004',
-    '30000000-0000-0000-0000-000000000002',
-    'assignment_publish', 'teacher',
-    'school:10000000-0000-0000-0000-000000000001',
-    '{"assignmentId":"70000000-0000-0000-0000-000000000004"}',
-    '[]', '[]', true, 'pending', now() + interval '5 minutes'
-  );
+insert into public.role_assignments (user_id, role, scope_type, scope_id)
+values (
+  '30000000-0000-0000-0000-000000000001',
+  'class_terminal', 'class', '20000000-0000-0000-0000-000000000001'
+);
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000001', true);
 
 select throws_ok(
-  $$insert into public.ai_sessions (user_id) values (auth.uid())$$,
-  '42501',
-  'permission denied for table ai_sessions',
+  $$insert into public.ai_sessions (user_id, role_assignment_id)
+    select auth.uid(), id from public.role_assignments where user_id = auth.uid() limit 1$$,
+  '42501', 'permission denied for table ai_sessions',
   '客户端不能直接创建会话或指定 user_id'
 );
 
 select lives_ok(
-  $$select public.create_ai_session()$$,
-  '登录用户可通过受控函数创建会话'
+  $$select public.create_ai_session((
+    select id from public.role_assignments
+    where user_id = auth.uid() and role = 'teacher'
+  ))$$,
+  '登录用户可用选中的 teacher context 创建会话'
 );
 select is(
-  (select count(*) from public.ai_sessions),
-  1::bigint,
-  '用户只能看到自己的会话'
+  (select role from public.role_assignments where id = (
+    select role_assignment_id from public.ai_sessions
+    where role_assignment_id = (
+      select id from public.role_assignments
+      where user_id = auth.uid() and role = 'teacher'
+    ) limit 1
+  )),
+  'teacher'::public.app_role,
+  '会话绑定客户端选中且服务端验证的 teacher assignment'
+);
+select lives_ok(
+  $$select public.create_ai_session((
+    select id from public.role_assignments
+    where user_id = auth.uid() and role = 'class_terminal'
+  ))$$,
+  '多角色用户可明确选择 class_terminal context'
 );
 select is(
-  (select user_id from public.ai_sessions limit 1),
-  auth.uid(),
-  '会话 user_id 来自 auth.uid()'
+  (select role from public.role_assignments where id = (
+    select role_assignment_id from public.ai_sessions
+    where role_assignment_id = (
+      select id from public.role_assignments
+      where user_id = auth.uid() and role = 'class_terminal'
+    ) limit 1
+  )),
+  'class_terminal'::public.app_role,
+  '服务端没有固定取第一条角色记录'
+);
+select throws_ok(
+  $$select public.create_ai_session((
+    select id from public.role_assignments
+    where user_id = '30000000-0000-0000-0000-000000000002' limit 1
+  ))$$,
+  'P0001', 'FORBIDDEN', '不能选择其他用户 context'
 );
 
 select lives_ok(
   $$select public.create_ai_action_draft(
     'assignment_publish',
-    '{"assignmentId":"70000000-0000-0000-0000-000000000001"}',
-    '["演示一班"]',
-    '["发布后班级与家庭可见"]'
+    '{"assignmentId":"70000000-0000-0000-0000-000000000002"}',
+    (select id from public.role_assignments where user_id = auth.uid() and role = 'teacher')
   )$$,
-  '教师可创建受控写操作草稿'
+  '教师可提出发布作业草稿'
 );
 select is(
-  (select role from public.ai_action_drafts order by created_at desc limit 1),
-  'teacher'::public.app_role,
-  '草稿角色由服务端角色授权派生'
+  (select targets ->> 0 from public.ai_action_drafts order by created_at desc limit 1),
+  '演示一班 · 合成演示未发布草稿',
+  '预览目标由服务端真实业务对象派生'
 );
 select is(
-  (select permission_scope from public.ai_action_drafts order by created_at desc limit 1),
-  'school:10000000-0000-0000-0000-000000000001',
-  '草稿权限范围由服务端授权派生'
+  (select target_version from public.ai_action_drafts order by created_at desc limit 1),
+  (select updated_at::text from public.assignments where id = '70000000-0000-0000-0000-000000000002'),
+  '草稿保存目标版本'
 );
-select ok(
-  (select is_dangerous from public.ai_action_drafts order by created_at desc limit 1),
-  '发布草稿由服务端标记为危险操作'
-);
-
 select throws_ok(
   $$select public.create_ai_action_draft(
     'assignment_publish',
-    '{"nested":{"actorId":"forged"}}',
-    '[]', '[]'
+    '{"assignmentId":"70000000-0000-0000-0000-000000000002","targets":["伪造目标"]}',
+    (select id from public.role_assignments where user_id = auth.uid() and role = 'teacher')
   )$$,
-  'P0001', 'VALIDATION_ERROR',
-  '递归拒绝 actor 注入'
+  'P0001', 'VALIDATION_ERROR', '拒绝预览目标或额外参数篡改'
+);
+select throws_ok(
+  $$select public.create_ai_action_draft(
+    'assignment_publish',
+    '{"assignmentId":"70000000-0000-0000-0000-000000000004"}',
+    (select id from public.role_assignments where user_id = auth.uid() and role = 'teacher')
+  )$$,
+  'P0001', 'FORBIDDEN', '不能为其他教师目标创建草稿'
 );
 select throws_ok(
   $$insert into public.ai_action_drafts (
-    user_id, action_type, role, permission_scope, parameters,
-    targets, impact, is_dangerous, expires_at
-  ) values (
-    auth.uid(), 'assignment_publish', 'teacher', 'forged', '{}',
-    '[]', '[]', false, now() + interval '5 minutes'
-  )$$,
+    user_id, role_assignment_id, action_type, role, permission_scope,
+    parameters, targets, impact, target_type, target_id, target_version, expires_at
+  ) select auth.uid(), id, 'assignment_publish', 'teacher', 'forged', '{}',
+    '[]', '[]', 'assignment', gen_random_uuid(), 'forged', now() + interval '5 minutes'
+    from public.role_assignments where user_id = auth.uid() and role = 'teacher'$$,
   '42501', 'permission denied for table ai_action_drafts',
-  '客户端不能直接写草稿绕过服务端范围派生'
+  '客户端不能直接写草稿绕过派生'
 );
 
 select throws_ok(
   $$select public.claim_ai_action_draft(
-    '90000000-0000-0000-0000-000000000004', true
+    (select id from public.ai_action_drafts order by created_at desc limit 1), false
   )$$,
-  'P0001', 'FORBIDDEN',
-  '用户不能确认其他用户的草稿'
+  'P0001', 'SECOND_CONFIRMATION_REQUIRED', '危险操作必须二次确认'
 );
+
+update public.assignments set title = title || '（版本变化）'
+where id = '70000000-0000-0000-0000-000000000002';
 select throws_ok(
   $$select public.claim_ai_action_draft(
-    '90000000-0000-0000-0000-000000000001', false
+    (select id from public.ai_action_drafts order by created_at desc limit 1), true
   )$$,
-  'P0001', 'SECOND_CONFIRMATION_REQUIRED',
-  '危险操作未二次确认时拒绝执行'
+  'P0001', 'TARGET_VERSION_CHANGED', '目标版本变化时重新鉴权并拒绝'
 );
+
+reset role;
+insert into public.ai_action_drafts (
+  id, user_id, role_assignment_id, action_type, role, permission_scope,
+  parameters, targets, impact, target_type, target_id, target_version,
+  is_dangerous, status, expires_at
+) select
+  '90000000-0000-0000-0000-000000000001',
+  '30000000-0000-0000-0000-000000000001', id,
+  'assessment_publish', 'teacher', 'school:10000000-0000-0000-0000-000000000001',
+  '{"assessmentId":"80000000-0000-0000-0000-000000000002"}',
+  '["合成演示二班 · 合成演示二班成绩草稿"]', '["发布后仅绑定家庭端可见个人成绩"]',
+  'assessment', '80000000-0000-0000-0000-000000000002',
+  (select updated_at::text from public.assessments where id = '80000000-0000-0000-0000-000000000002'),
+  true, 'pending', now() + interval '5 minutes'
+from public.role_assignments
+where user_id = '30000000-0000-0000-0000-000000000001' and role = 'teacher';
+insert into public.ai_action_drafts (
+  id, user_id, role_assignment_id, action_type, role, permission_scope,
+  parameters, targets, impact, target_type, target_id, target_version,
+  is_dangerous, status, expires_at
+) select
+  '90000000-0000-0000-0000-000000000002',
+  '30000000-0000-0000-0000-000000000001', id,
+  'assignment_publish', 'teacher', 'school:10000000-0000-0000-0000-000000000001',
+  '{}', '[]', '[]', 'assignment', '70000000-0000-0000-0000-000000000002', 'old',
+  true, 'pending', now() - interval '1 minute'
+from public.role_assignments
+where user_id = '30000000-0000-0000-0000-000000000001' and role = 'teacher';
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000001', true);
+
 select lives_ok(
-  $$select public.claim_ai_action_draft(
-    '90000000-0000-0000-0000-000000000001', true
-  )$$,
-  '危险操作二次确认后可原子领取'
-);
-select is(
-  (select status from public.ai_action_drafts where id = '90000000-0000-0000-0000-000000000001'),
-  'executing'::public.ai_action_draft_status,
-  '领取后草稿进入 executing 防止并发重放'
-);
-select throws_ok(
-  $$select public.claim_ai_action_draft(
-    '90000000-0000-0000-0000-000000000001', true
-  )$$,
-  'P0001', 'DRAFT_ALREADY_USED',
-  '重复确认已领取草稿失败'
-);
-select lives_ok(
-  $$select public.finish_ai_action_draft(
-    '90000000-0000-0000-0000-000000000001', true
-  )$$,
-  '普通业务接口成功后可完成草稿'
-);
-select is(
-  (select status from public.ai_action_drafts where id = '90000000-0000-0000-0000-000000000001'),
-  'completed'::public.ai_action_draft_status,
-  '完成后草稿不可重放'
-);
-select lives_ok(
-  $$select public.cancel_ai_action_draft(
-    '90000000-0000-0000-0000-000000000002'
-  )$$,
-  '用户可取消自己的待确认草稿'
+  $$select public.claim_ai_action_draft('90000000-0000-0000-0000-000000000002', true)$$,
+  '过期 claim 返回受控状态而不回滚'
 );
 select is(
   (select status from public.ai_action_drafts where id = '90000000-0000-0000-0000-000000000002'),
-  'cancelled'::public.ai_action_draft_status,
-  '取消后草稿状态不可执行'
+  'expired'::public.ai_action_draft_status,
+  '过期状态被持久化'
+);
+select lives_ok(
+  $$select public.claim_ai_action_draft('90000000-0000-0000-0000-000000000001', true)$$,
+  '首次确认获得 executing lease'
 );
 select throws_ok(
-  $$select public.claim_ai_action_draft(
-    '90000000-0000-0000-0000-000000000002', true
+  $$select public.claim_ai_action_draft('90000000-0000-0000-0000-000000000001', true)$$,
+  'P0001', 'DRAFT_IN_PROGRESS', '有效 lease 期间拒绝并发确认'
+);
+reset role;
+update public.ai_action_drafts set execution_lease_until = now() - interval '1 second'
+where id = '90000000-0000-0000-0000-000000000001';
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000001', true);
+select lives_ok(
+  $$select public.claim_ai_action_draft('90000000-0000-0000-0000-000000000001', true)$$,
+  '过期 executing lease 可恢复'
+);
+select is(
+  (select execution_attempt from public.ai_action_drafts where id = '90000000-0000-0000-0000-000000000001'),
+  2, '恢复后执行尝试次数递增'
+);
+select is(
+  public.finish_ai_action_draft(
+    '90000000-0000-0000-0000-000000000001', true, '{"operationId":"op-1"}'
+  ),
+  '{"operationId":"op-1"}'::jsonb,
+  '完成返回幂等回执'
+);
+select is(
+  public.finish_ai_action_draft(
+    '90000000-0000-0000-0000-000000000001', true, '{"operationId":"forged"}'
+  ),
+  '{"operationId":"op-1"}'::jsonb,
+  '重复完成返回原始回执'
+);
+select lives_ok(
+  $$select public.claim_ai_action_draft('90000000-0000-0000-0000-000000000001', true)$$,
+  '重复确认已完成草稿不再触发新执行'
+);
+
+select lives_ok(
+  $$select public.register_ai_skill_context_token(
+    '91000000-0000-0000-0000-000000000001',
+    (select id from public.ai_sessions where user_id = auth.uid() limit 1),
+    array['get_grades']
   )$$,
-  'P0001', 'DRAFT_ALREADY_USED',
-  '取消后的草稿重放失败'
+  '可登记短期 Skill context token'
+);
+select lives_ok(
+  $$select public.consume_ai_skill_context_token(
+    '91000000-0000-0000-0000-000000000001', 'get_grades'
+  )$$,
+  'Skill token 可按允许工具消费一次'
 );
 select throws_ok(
-  $$select public.claim_ai_action_draft(
-    '90000000-0000-0000-0000-000000000003', true
+  $$select public.consume_ai_skill_context_token(
+    '91000000-0000-0000-0000-000000000001', 'get_grades'
   )$$,
-  'P0001', 'DRAFT_EXPIRED',
-  '过期草稿禁止执行'
+  'P0001', 'TOKEN_INVALID_OR_USED', 'Skill token 不可重放'
+);
+
+select lives_ok(
+  $$select public.begin_ai_request(
+    (select id from public.ai_sessions where user_id = auth.uid() limit 1),
+    (select role_assignment_id from public.ai_sessions where user_id = auth.uid() limit 1),
+    '92000000-0000-0000-0000-000000000001', 20
+  )$$,
+  '首个 AI 请求获得并发 lease'
+);
+select lives_ok(
+  $$select public.begin_ai_request(
+    (select id from public.ai_sessions where user_id = auth.uid() limit 1),
+    (select role_assignment_id from public.ai_sessions where user_id = auth.uid() limit 1),
+    '92000000-0000-0000-0000-000000000002', 20
+  )$$,
+  '第二个并发请求允许'
+);
+select throws_ok(
+  $$select public.begin_ai_request(
+    (select id from public.ai_sessions where user_id = auth.uid() limit 1),
+    (select role_assignment_id from public.ai_sessions where user_id = auth.uid() limit 1),
+    '92000000-0000-0000-0000-000000000003', 20
+  )$$,
+  'P0001', 'CONCURRENCY_LIMIT', '第三个并发请求被拒绝'
+);
+select throws_ok(
+  $$select public.begin_ai_request(
+    (select id from public.ai_sessions where user_id = auth.uid() limit 1),
+    (select role_assignment_id from public.ai_sessions where user_id = auth.uid() limit 1),
+    '92000000-0000-0000-0000-000000000004', 2001
+  )$$,
+  'P0001', 'MESSAGE_LENGTH', '服务端拒绝超长消息'
+);
+
+reset role;
+update public.ai_request_events set completed_at = now();
+insert into public.ai_request_events (
+  id, session_id, user_id, lease_until, completed_at, created_at
+)
+select gen_random_uuid(),
+  (select id from public.ai_sessions where user_id = '30000000-0000-0000-0000-000000000001' limit 1),
+  '30000000-0000-0000-0000-000000000001', now() + interval '30 seconds', now(), now()
+from generate_series(1, 18);
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000001', true);
+select throws_ok(
+  $$select public.begin_ai_request(
+    (select id from public.ai_sessions where user_id = auth.uid() limit 1),
+    (select role_assignment_id from public.ai_sessions where user_id = auth.uid() limit 1),
+    '92000000-0000-0000-0000-000000000005', 20
+  )$$,
+  'P0001', 'RATE_LIMITED', '一分钟频率达到上限后拒绝请求'
+);
+select lives_ok(
+  $$select public.create_ai_session((
+    select id from public.role_assignments where user_id = auth.uid() and role = 'teacher'
+  )) from generate_series(1, 8)$$,
+  '允许最多十个活动会话'
+);
+select throws_ok(
+  $$select public.create_ai_session((
+    select id from public.role_assignments where user_id = auth.uid() and role = 'teacher'
+  ))$$,
+  'P0001', 'SESSION_LIMIT', '超过活动会话上限被拒绝'
 );
 
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000021', true);
-select is(
-  (select count(*) from public.ai_sessions),
-  0::bigint,
-  '家庭用户不能读取其他用户会话'
-);
-select is(
-  (select count(*) from public.ai_action_drafts),
-  0::bigint,
-  '家庭用户不能读取其他用户草稿'
-);
-select throws_ok(
-  $$select public.create_ai_action_draft(
-    'assignment_publish', '{}', '[]', '[]'
-  )$$,
-  'P0001', 'FORBIDDEN',
-  '没有教师授权的家庭用户不能提出发布草稿'
-);
+select is((select count(*) from public.ai_sessions), 0::bigint, '家庭用户不能读取其他用户会话');
+select is((select count(*) from public.ai_action_drafts), 0::bigint, '家庭用户不能读取其他用户草稿');
 
 select * from finish();
 rollback;

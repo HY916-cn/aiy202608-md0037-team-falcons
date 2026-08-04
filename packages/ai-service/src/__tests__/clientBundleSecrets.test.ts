@@ -28,6 +28,8 @@ describe('客户端密钥边界', () => {
       'COZE_API_TOKEN',
       'COZE_BOT_ID',
       'SUPABASE_SERVICE_ROLE_KEY',
+      'SUPABASE_JWT_SECRET',
+      'AI_CONTEXT_SIGNING_SECRET',
     ];
 
     for (const path of roots.flatMap(sourceFiles)) {

@@ -1,3 +1,7 @@
+import type { RoleCode } from '@dolphincloud/auth';
+
+import type { WriteActionPreview } from './writeAction';
+
 export const AI_EXPERIENCE_STATES = [
   'idle',
   'listening',
@@ -11,16 +15,25 @@ export const AI_EXPERIENCE_STATES = [
 export type AiExperienceState = (typeof AI_EXPERIENCE_STATES)[number];
 
 export type AiExperienceSnapshot = {
+  readonly actionPreview: AiExperienceActionPreview | null;
   readonly explanation: string;
   readonly result: string | null;
   readonly state: AiExperienceState;
 };
 
+export type AiExperienceActionPreview = WriteActionPreview & {
+  readonly draftId: string;
+};
+
 export type AiExperienceListener = (snapshot: AiExperienceSnapshot) => void;
 
 export interface AiExperienceAdapter {
+  cancelAction(): Promise<void>;
+  confirmAction(dangerousConfirmed: boolean): Promise<void>;
   getSnapshot(): AiExperienceSnapshot;
   reset(): void;
+  returnToModify(): Promise<void>;
+  selectActiveRole(role: RoleCode): Promise<void>;
   startListening(): void;
   submit(prompt: string): Promise<void>;
   subscribe(listener: AiExperienceListener): () => void;
@@ -44,8 +57,9 @@ const STATE_EXPLANATIONS = {
 export function createAiExperienceSnapshot(
   state: AiExperienceState,
   result: string | null = null,
+  actionPreview: AiExperienceActionPreview | null = null,
 ): AiExperienceSnapshot {
-  return { explanation: STATE_EXPLANATIONS[state], result, state };
+  return { actionPreview, explanation: STATE_EXPLANATIONS[state], result, state };
 }
 
 export class MockAiExperienceAdapter implements AiExperienceAdapter {
@@ -67,6 +81,22 @@ export class MockAiExperienceAdapter implements AiExperienceAdapter {
 
   getSnapshot(): AiExperienceSnapshot {
     return this.snapshot;
+  }
+
+  async cancelAction(): Promise<void> {
+    this.reset();
+  }
+
+  async confirmAction(_dangerousConfirmed: boolean): Promise<void> {
+    this.succeed();
+  }
+
+  async returnToModify(): Promise<void> {
+    this.setSnapshot(createAiExperienceSnapshot('listening'));
+  }
+
+  async selectActiveRole(_role: RoleCode): Promise<void> {
+    await Promise.resolve();
   }
 
   reset(): void {
