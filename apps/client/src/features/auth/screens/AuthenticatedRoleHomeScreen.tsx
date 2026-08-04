@@ -8,6 +8,8 @@ import { RoleHomeScreen, RoleIcon, theme } from '@dolphincloud/ui';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { RoleExperienceSections } from '../../experience';
+
 import { useAuthSession } from '../AuthSessionProvider';
 
 type AuthenticatedRoleHomeScreenProps = {
@@ -153,6 +155,7 @@ export function AuthenticatedRoleHomeScreen({
 
   return (
     <RoleHomeScreen role={role}>
+      <RoleExperienceSections role={role} />
       <SessionControls
         availableRoles={session.availableRoles}
         currentRole={session.currentRole}

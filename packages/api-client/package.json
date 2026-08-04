@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@dolphincloud/domain": "workspace:*",
+    "@dolphincloud/experience": "workspace:*",
     "@dolphincloud/validation": "workspace:*",
     "@supabase/supabase-js": "2.110.8"
   },

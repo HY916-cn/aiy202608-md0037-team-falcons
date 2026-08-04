@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { MockAiExperienceAdapter } from '../aiExperience';
+import { MockTeachingDemoAdapter } from '../teachingDemo';
 
 describe('MockAiExperienceAdapter', () => {
   it('覆盖 idle、listening、thinking、preview、success、error、offline 七种状态', async () => {
@@ -32,12 +33,20 @@ describe('MockAiExperienceAdapter', () => {
 
   it('离线时提供明确反馈且不阻塞普通业务代码', async () => {
     const adapter = new MockAiExperienceAdapter({ isOffline: true });
-    let teachingOperationCount = 0;
+    const teachingAdapter = new MockTeachingDemoAdapter();
 
     await adapter.submit('发送课件');
-    teachingOperationCount += 1;
+    await teachingAdapter.createAssignmentDraft({
+      classId: '20000000-0000-0000-0000-000000000001',
+      content: 'AI 离线时创建的合成作业',
+      dueAt: '2026-08-10T18:00:00.000Z',
+      subject: '数学',
+      title: '离线教学流程',
+    });
 
     expect(adapter.getSnapshot().state).toBe('offline');
-    expect(teachingOperationCount).toBe(1);
+    await expect(teachingAdapter.load('teacher')).resolves.toMatchObject({
+      assignments: [{ title: '离线教学流程' }],
+    });
   });
 });

@@ -46,6 +46,14 @@ export function WriteActionPreviewCard({
       {state === 'awaiting_second_confirmation' ? (
         <Text style={styles.warning}>危险操作：请再次确认。</Text>
       ) : null}
+      {state === 'error' ? (
+        <Text accessibilityRole="alert" style={styles.warning}>
+          执行失败，请重试或返回修改。
+        </Text>
+      ) : null}
+      {state === 'success' ? (
+        <Text style={styles.success}>操作已成功执行。</Text>
+      ) : null}
       <View style={styles.actions}>
         <Pressable accessibilityRole="button" disabled={isPending} onPress={onModify} style={styles.secondaryButton}>
           <Text style={styles.secondaryLabel}>返回修改</Text>
@@ -62,8 +70,10 @@ export function WriteActionPreviewCard({
         >
           <Text style={styles.secondaryLabel}>取消</Text>
         </Pressable>
-        <Pressable accessibilityRole="button" disabled={isPending} onPress={() => void confirm()} style={styles.primaryButton}>
-          <Text style={styles.primaryLabel}>{isPending ? '正在执行……' : '确认执行'}</Text>
+        <Pressable accessibilityRole="button" disabled={isPending || state === 'success'} onPress={() => void confirm()} style={styles.primaryButton}>
+          <Text style={styles.primaryLabel}>
+            {isPending ? '正在执行……' : state === 'success' ? '已执行' : '确认执行'}
+          </Text>
         </Pressable>
       </View>
     </View>
@@ -79,6 +89,7 @@ const styles = StyleSheet.create({
   primaryLabel: { color: theme.color.surface.card, fontWeight: '600' },
   secondaryButton: { borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, justifyContent: 'center', minHeight: 44, paddingHorizontal: theme.space.md },
   secondaryLabel: { color: theme.color.text.primary, fontWeight: '600' },
+  success: { color: theme.color.brand.primary, fontSize: theme.text.size.sm, fontWeight: '700' },
   title: { color: theme.color.text.primary, fontSize: theme.text.size.lg, fontWeight: '700' },
   warning: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '700' },
 });

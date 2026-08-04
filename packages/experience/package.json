@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@dolphincloud/auth": "workspace:*"
+    "@dolphincloud/auth": "workspace:*",
+    "@dolphincloud/domain": "workspace:*"
   },
   "devDependencies": {
     "typescript": "~6.0.3"
