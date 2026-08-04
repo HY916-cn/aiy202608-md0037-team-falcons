@@ -1,0 +1,25 @@
+export const AI_SERVICE_ERROR_CODES = [
+  'UNAUTHENTICATED',
+  'FORBIDDEN',
+  'VALIDATION_ERROR',
+  'NOT_FOUND',
+  'CONFLICT',
+  'AI_TIMEOUT',
+  'AI_RATE_LIMITED',
+  'AI_UNAVAILABLE',
+  'AI_INVALID_RESPONSE',
+  'INTERNAL_ERROR',
+] as const;
+
+export type AiServiceErrorCode = (typeof AI_SERVICE_ERROR_CODES)[number];
+
+export class AiServiceError extends Error {
+  constructor(
+    readonly code: AiServiceErrorCode,
+    readonly status: number,
+    options?: ErrorOptions,
+  ) {
+    super(code, options);
+    this.name = 'AiServiceError';
+  }
+}
