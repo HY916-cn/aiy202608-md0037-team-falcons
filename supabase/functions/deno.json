@@ -1,0 +1,12 @@
+{
+  "imports": {
+    "@dolphincloud/ai-service": "../../packages/ai-service/src/index.ts",
+    "@dolphincloud/api-client": "../../packages/api-client/src/index.ts",
+    "@dolphincloud/auth": "../../packages/auth/src/index.ts",
+    "@dolphincloud/domain": "../../packages/domain/src/index.ts",
+    "@dolphincloud/experience": "../../packages/experience/src/index.ts",
+    "@dolphincloud/validation": "../../packages/validation/src/index.ts",
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2.110.8"
+  },
+  "unstable": ["sloppy-imports"]
+}

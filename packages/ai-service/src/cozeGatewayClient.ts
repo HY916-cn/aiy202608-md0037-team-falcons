@@ -85,11 +85,14 @@ export class CozeGatewayClient {
   async send(input: {
     readonly conversationReference: string | null;
     readonly message: string;
+    readonly signal?: AbortSignal;
     readonly sessionReference: string;
   }): Promise<AiProviderResult> {
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+      const cancel = () => controller.abort();
+      input.signal?.addEventListener('abort', cancel, { once: true });
       try {
         const response = await this.fetchImplementation(
           `${this.options.apiBaseUrl.replace(/\/$/, '')}/v1/chat`,
@@ -126,11 +129,15 @@ export class CozeGatewayClient {
           throw error;
         }
         if (controller.signal.aborted) {
+          if (input.signal?.aborted === true) {
+            throw new AiServiceError('AI_CANCELLED', 499, { cause: error });
+          }
           throw new AiServiceError('AI_TIMEOUT', 503, { cause: error });
         }
         throw new AiServiceError('AI_UNAVAILABLE', 503, { cause: error });
       } finally {
         clearTimeout(timeout);
+        input.signal?.removeEventListener('abort', cancel);
       }
     }
     throw new AiServiceError('AI_UNAVAILABLE', 503);

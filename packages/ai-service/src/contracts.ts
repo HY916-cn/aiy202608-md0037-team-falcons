@@ -36,12 +36,13 @@ export type AiProviderResult =
     };
 
 export type AiGatewayResponse =
-  | { readonly text: string; readonly type: 'text' }
+  | { readonly sessionId: string; readonly text: string; readonly type: 'text' }
   | {
       readonly card: {
         readonly kind: AiReadSkill;
         readonly payload: unknown;
       };
+      readonly sessionId: string;
       readonly type: 'data_card';
     }
   | {
@@ -55,5 +56,6 @@ export type AiGatewayResponse =
         readonly permissionScope: string;
         readonly targets: readonly string[];
       };
+      readonly sessionId: string;
       readonly type: 'action_draft';
     };

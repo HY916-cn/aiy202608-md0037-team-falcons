@@ -40,6 +40,21 @@ describe('CozeGatewayClient', () => {
     expect(fetchImplementation).toHaveBeenCalledTimes(2);
   });
 
+  it.each([
+    [429, 'AI_RATE_LIMITED'],
+    [500, 'AI_UNAVAILABLE'],
+  ] as const)('对连续 %s 返回结构化错误', async (status, code) => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(response(status, {}));
+
+    await expect(createClient(fetchImplementation).send(INPUT)).rejects.toMatchObject({
+      code,
+      status: 503,
+    });
+    expect(fetchImplementation).toHaveBeenCalledTimes(2);
+  });
+
   it('超时后取消请求并返回结构化错误', async () => {
     const fetchImplementation = vi.fn<typeof fetch>((_url, init) =>
       new Promise((_resolve, reject) => {
@@ -54,6 +69,27 @@ describe('CozeGatewayClient', () => {
       status: 503,
     });
     expect(fetchImplementation).toHaveBeenCalledOnce();
+  });
+
+  it('调用方取消后中止外部请求', async () => {
+    const fetchImplementation = vi.fn<typeof fetch>((_url, init) =>
+      new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => {
+          reject(new DOMException('aborted', 'AbortError'));
+        });
+      }),
+    );
+    const controller = new AbortController();
+    const pending = createClient(fetchImplementation).send({
+      ...INPUT,
+      signal: controller.signal,
+    });
+    controller.abort();
+
+    await expect(pending).rejects.toMatchObject({
+      code: 'AI_CANCELLED',
+      status: 499,
+    });
   });
 
   it('拒绝非法 provider 响应', async () => {

@@ -41,7 +41,7 @@ const STATE_EXPLANATIONS = {
   offline: 'AI 当前离线，课件、作业和成绩功能不受影响。',
 } as const satisfies Record<AiExperienceState, string>;
 
-function createSnapshot(
+export function createAiExperienceSnapshot(
   state: AiExperienceState,
   result: string | null = null,
 ): AiExperienceSnapshot {
@@ -52,7 +52,7 @@ export class MockAiExperienceAdapter implements AiExperienceAdapter {
   private readonly listeners = new Set<AiExperienceListener>();
   private readonly result: string;
   private isOffline: boolean;
-  private snapshot = createSnapshot('idle');
+  private snapshot = createAiExperienceSnapshot('idle');
 
   constructor({
     isOffline = false,
@@ -61,7 +61,7 @@ export class MockAiExperienceAdapter implements AiExperienceAdapter {
     this.isOffline = isOffline;
     this.result = result;
     if (isOffline) {
-      this.snapshot = createSnapshot('offline');
+      this.snapshot = createAiExperienceSnapshot('offline');
     }
   }
 
@@ -70,42 +70,46 @@ export class MockAiExperienceAdapter implements AiExperienceAdapter {
   }
 
   reset(): void {
-    this.setSnapshot(createSnapshot(this.isOffline ? 'offline' : 'idle'));
+    this.setSnapshot(
+      createAiExperienceSnapshot(this.isOffline ? 'offline' : 'idle'),
+    );
   }
 
   setOffline(isOffline: boolean): void {
     this.isOffline = isOffline;
-    this.setSnapshot(createSnapshot(isOffline ? 'offline' : 'idle'));
+    this.setSnapshot(createAiExperienceSnapshot(isOffline ? 'offline' : 'idle'));
   }
 
   startListening(): void {
     if (!this.isOffline) {
-      this.setSnapshot(createSnapshot('listening'));
+      this.setSnapshot(createAiExperienceSnapshot('listening'));
     }
   }
 
   async submit(prompt: string): Promise<void> {
     if (this.isOffline) {
-      this.setSnapshot(createSnapshot('offline'));
+      this.setSnapshot(createAiExperienceSnapshot('offline'));
       return;
     }
 
     if (prompt.trim().length === 0) {
-      this.setSnapshot(createSnapshot('error'));
+      this.setSnapshot(createAiExperienceSnapshot('error'));
       return;
     }
 
-    this.setSnapshot(createSnapshot('thinking'));
+    this.setSnapshot(createAiExperienceSnapshot('thinking'));
     await Promise.resolve();
-    this.setSnapshot(createSnapshot('preview', this.result));
+    this.setSnapshot(createAiExperienceSnapshot('preview', this.result));
   }
 
   succeed(): void {
-    this.setSnapshot(createSnapshot('success', this.snapshot.result));
+    this.setSnapshot(
+      createAiExperienceSnapshot('success', this.snapshot.result),
+    );
   }
 
   fail(): void {
-    this.setSnapshot(createSnapshot('error'));
+    this.setSnapshot(createAiExperienceSnapshot('error'));
   }
 
   subscribe(listener: AiExperienceListener): () => void {

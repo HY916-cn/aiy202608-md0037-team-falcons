@@ -282,6 +282,7 @@ type AiResponse =
 EXPO_PUBLIC_SUPABASE_URL
 EXPO_PUBLIC_SUPABASE_ANON_KEY
 EXPO_PUBLIC_APP_ENV
+EXPO_PUBLIC_AI_GATEWAY_FUNCTION
 ```
 
 ### 仅服务端保存
@@ -296,6 +297,8 @@ AI_CONTEXT_SIGNING_SECRET
 ```
 
 服务端密钥通过部署平台 Secret 管理；禁止写入 `.env.example` 的真实值。PR 日志中只检查变量是否存在，不输出内容。
+
+当前 `ai-gateway` Edge Function 使用 `SUPABASE_URL`、`SUPABASE_ANON_KEY` 和调用者 JWT 访问数据，刻意不使用 service role 绕过 RLS。运行时另需 `AI_GATEWAY_TIMEOUT_MS`；Coze 变量只由该服务端函数读取，客户端仅配置公开的 Function 名称。
 
 ## 11. 降级与超时
 

@@ -98,7 +98,20 @@ importers:
         version: 19.2.18
 
   packages/ai-service:
+    dependencies:
+      '@dolphincloud/auth':
+        specifier: workspace:*
+        version: link:../auth
+      '@dolphincloud/experience':
+        specifier: workspace:*
+        version: link:../experience
+      '@supabase/supabase-js':
+        specifier: 2.110.8
+        version: 2.110.8
     devDependencies:
+      '@types/node':
+        specifier: 26.1.2
+        version: 26.1.2
       typescript:
         specifier: ~6.0.3
         version: 6.0.3
