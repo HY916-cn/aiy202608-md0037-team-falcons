@@ -229,3 +229,8 @@ export function parseWithDomainError<T extends z.ZodTypeAny>(
   }
   throw new DomainError(decoded.code, decoded.message);
 }
+
+export * from './assignmentSchemas';
+export * from './coursewareSchemas';
+export * from './databaseIdSchema';
+export * from './gradeSchemas';

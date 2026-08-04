@@ -121,3 +121,7 @@ export * from './ledger';
 export * from './reversal';
 export * from './scoreFlow';
 export * from './ranking';
+export * from './assignment';
+export * from './contentStatus';
+export * from './courseware';
+export * from './grade';

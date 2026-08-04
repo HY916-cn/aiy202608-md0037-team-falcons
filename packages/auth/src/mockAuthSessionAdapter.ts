@@ -1,6 +1,7 @@
 import { ROLE_CODES, type RoleCode } from './roles';
 import {
   EMPTY_AUTH_SESSION,
+  type AuthLoginInput,
   type AuthRoleScope,
   type AuthSession,
   type AuthSessionAdapter,
@@ -16,31 +17,37 @@ const MOCK_ROLE_SCOPES = {
   teacher: {
     id: 'demo_school',
     label: '海豚云演示学校',
+    role: 'teacher',
     type: 'school',
   },
   class_terminal: {
     id: 'demo_class',
     label: '演示班级',
+    role: 'class_terminal',
     type: 'class',
   },
   family: {
     id: 'demo_household',
     label: '演示家庭',
+    role: 'family',
     type: 'household',
   },
   bank_operator: {
     id: 'demo_school',
     label: '海豚云演示学校',
+    role: 'bank_operator',
     type: 'school',
   },
   council: {
     id: 'demo_school',
     label: '海豚云演示学校',
+    role: 'council',
     type: 'school',
   },
   admin: {
     id: 'demo_school',
     label: '海豚云演示学校',
+    role: 'admin',
     type: 'school',
   },
 } as const satisfies Record<RoleCode, AuthRoleScope>;
@@ -60,7 +67,13 @@ export class MockAuthSessionAdapter implements AuthSessionAdapter {
     return this.createSession(this.currentRole);
   }
 
-  async login(role: RoleCode): Promise<AuthSession> {
+  async login(input: AuthLoginInput): Promise<AuthSession> {
+    const role = this.resolveRoleFromEmail(input.email);
+
+    if (input.password.length === 0) {
+      throw new Error('VALIDATION_ERROR');
+    }
+
     this.currentRole = role;
     return this.createSession(role);
   }
@@ -86,9 +99,30 @@ export class MockAuthSessionAdapter implements AuthSessionAdapter {
 
     return {
       availableRoles: ROLE_CODES,
+      availableRoleScopes: Object.values(MOCK_ROLE_SCOPES),
       currentRole: role,
       roleScope: MOCK_ROLE_SCOPES[role],
       user: MOCK_AUTH_USER,
     };
+  }
+
+  private resolveRoleFromEmail(email: string): RoleCode {
+    const normalizedEmail = email.trim().toLowerCase();
+    const role = ROLE_CODES.find((candidateRole) => {
+      const prefix =
+        candidateRole === 'class_terminal'
+          ? 'demo_class_'
+          : candidateRole === 'bank_operator'
+            ? 'demo_bank_'
+            : `demo_${candidateRole}_`;
+
+      return normalizedEmail.startsWith(prefix);
+    });
+
+    if (role === undefined) {
+      throw new Error('UNAUTHENTICATED');
+    }
+
+    return role;
   }
 }

@@ -2,7 +2,7 @@ import { Redirect } from 'expo-router';
 
 import {
   AuthLoadingScreen,
-  MockLoginScreen,
+  LoginScreen,
   useAuthSession,
 } from '@/features/auth';
 import { ROLE_HOME_PATHS } from '@/shared/routing/roleRoutes';
@@ -18,5 +18,5 @@ export default function LoginRoute() {
     return <Redirect href={ROLE_HOME_PATHS[currentRole]} />;
   }
 
-  return <MockLoginScreen onLogin={login} />;
+  return <LoginScreen onLogin={login} />;
 }
