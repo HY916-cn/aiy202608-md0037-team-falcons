@@ -2,29 +2,38 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(30);
+select plan(31);
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000001', true);
 
--- 1. Reserve returns "fresh" for a brand-new key.
+-- 1. Fresh idempotency keys succeed through the public RPC surface.
 select is(
-  (select r.is_replay from public._governance_reserve_operation(
+  (select entry_delta.delta from public.apply_student_score(
     'idem-op-test-fresh-0001',
-    'student_score_apply',
-    jsonb_build_object('a', 1, 'b', 2)
-  ) as r),
-  false,
-  '幂等预留 - 全新 key 返回非重放'
+    '50000000-0000-0000-0000-000000000003',
+    '90000000-0000-0000-0000-000000000001',
+    2,
+    '全新 key 首次调用'
+  ) as entry_delta),
+  2::numeric(9, 2),
+  '公开 RPC 对全新 key 首次执行成功'
 );
 select is(
-  (select r.is_pending from public._governance_reserve_operation(
+  (select count(*) from public.operations where idempotency_key = 'idem-op-test-fresh-0001'),
+  1::bigint,
+  '公开 RPC 首次执行只创建一条 operation'
+);
+select is(
+  (select entry_delta.delta from public.apply_student_score(
     'idem-op-test-fresh-0001b',
-    'student_score_apply',
-    jsonb_build_object('a', 1)
-  ) as r),
-  false,
-  '幂等预留 - 全新 key 返回非 pending'
+    '50000000-0000-0000-0000-000000000004',
+    '90000000-0000-0000-0000-000000000001',
+    1,
+    '第二个全新 key 首次调用'
+  ) as entry_delta),
+  1::numeric(9, 2),
+  '第二个全新 key 也可独立成功'
 );
 
 -- 2. Fingerprint stability: same payload with different key order -> same hash.

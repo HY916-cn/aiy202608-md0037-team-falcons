@@ -117,11 +117,10 @@ security definer
 set search_path = ''
 as $$
 declare
-  reserve record;
+  op record;
   actor record;
   account public.dolphin_accounts;
   target_school_id uuid;
-  op_id uuid;
   new_balance numeric(12, 2);
   tx public.dolphin_transactions;
   canonical_payload jsonb;
@@ -156,60 +155,65 @@ begin
     'reason', btrim(reason)
   );
 
-  select r.operation_id, r.is_replay, r.is_conflict, r.is_pending, r.cached_response into reserve
-  from public._governance_reserve_operation(idempotency_key, kind, canonical_payload) as r;
-  if reserve.is_conflict then
-    raise exception 'IDEMPOTENCY_FINGERPRINT_MISMATCH' using errcode = 'P0001';
-  end if;
-  if reserve.is_pending then
-    raise exception 'IDEMPOTENCY_IN_PROGRESS' using errcode = 'P0001';
-  end if;
-  if reserve.is_replay then
-    select * into tx from public.dolphin_transactions where operation_id = reserve.operation_id;
-    return tx;
-  end if;
-
-  account := public._governance_get_or_create_account(target_student_id, target_school_id);
-  new_balance := account.balance + delta;
-  if new_balance < 0 then
-    raise exception 'INSUFFICIENT_BALANCE' using errcode = 'P0001';
-  end if;
-
-  update public.dolphin_accounts
-  set balance = new_balance, version = version + 1
-  where id = account.id;
-
-  op_id := gen_random_uuid();
-
-  tx := public._governance_write_dolphin_transaction(
-    op_id, account.id, tx_kind, delta, new_balance, btrim(reason), null
-  );
-
-  perform public._governance_persist_operation(
-    op_id,
+  select * into op
+  from public._governance_begin_operation(
     idempotency_key,
     kind,
+    canonical_payload,
     actor.actor_role,
     actor.scope_type,
     actor.scope_id,
     target_school_id,
     'wallet',
-    account.id,
-    canonical_payload,
-    jsonb_build_object(
-      'operation_id', op_id,
-      'transaction_id', tx.id,
-      'balance_after', new_balance
-    ),
+    target_student_id,
     null,
     false
   );
+  if op.is_conflict then
+    raise exception 'IDEMPOTENCY_FINGERPRINT_MISMATCH' using errcode = 'P0001';
+  end if;
+  if op.is_pending then
+    raise exception 'IDEMPOTENCY_IN_PROGRESS' using errcode = 'P0001';
+  end if;
+  if op.is_replay then
+    select * into tx from public.dolphin_transactions where operation_id = op.operation_id;
+    return tx;
+  end if;
 
-  perform public._governance_write_audit(
-    op_id, target_school_id, actor.actor_role, action_name, 'wallet', account.id, 'success', canonical_payload
-  );
+  begin
+    account := public._governance_get_or_create_account(target_student_id, target_school_id);
+    new_balance := account.balance + delta;
+    if new_balance < 0 then
+      raise exception 'INSUFFICIENT_BALANCE' using errcode = 'P0001';
+    end if;
 
-  return tx;
+    update public.dolphin_accounts
+    set balance = new_balance, version = version + 1
+    where id = account.id;
+
+    tx := public._governance_write_dolphin_transaction(
+      op.operation_id, account.id, tx_kind, delta, new_balance, btrim(reason), null
+    );
+
+    perform public._governance_succeed_operation(
+      op.operation_id,
+      jsonb_build_object(
+        'operation_id', op.operation_id,
+        'transaction_id', tx.id,
+        'balance_after', new_balance
+      )
+    );
+
+    perform public._governance_write_audit(
+      op.operation_id, target_school_id, actor.actor_role, action_name, 'wallet', account.id, 'success', canonical_payload
+    );
+
+    return tx;
+  exception
+    when others then
+      perform public._governance_fail_operation(op.operation_id, jsonb_build_object('error', SQLERRM));
+      raise;
+  end;
 end;
 $$;
 

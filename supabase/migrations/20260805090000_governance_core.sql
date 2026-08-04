@@ -23,7 +23,8 @@ create type public.governance_operation_kind as enum (
 create type public.governance_operation_status as enum (
   'pending',
   'succeeded',
-  'reversed'
+  'reversed',
+  'failed'
 );
 
 create type public.governance_target_type as enum (
@@ -100,7 +101,7 @@ for each row execute function public.set_updated_at();
 create table public.idempotency_keys (
   key text primary key,
   fingerprint bytea not null,
-  operation_id uuid references public.operations (id),
+  operation_id uuid references public.operations (id) on delete cascade,
   status public.governance_idempotency_status not null default 'reserved',
   response_snapshot jsonb,
   created_at timestamptz not null default now(),
@@ -215,8 +216,8 @@ as $$
   );
 $$;
 
--- Resolve the (single) governance role and school for the current auth.uid().
--- Returns null when the caller cannot act in a governance scope.
+-- Resolve the governance role and school for the current auth.uid().
+-- This must be called by each RPC to determine the actor's permissions.
 create or replace function public._governance_actor_context(target_school_id uuid)
 returns table (actor_role public.app_role, scope_type public.app_scope_type, scope_id uuid)
 language sql
@@ -235,8 +236,7 @@ as $$
     when 'teacher' then 4
     when 'class_terminal' then 5
     when 'family' then 6
-  end
-  limit 1;
+  end;
 $$;
 
 create or replace function public._governance_write_audit(
@@ -279,12 +279,21 @@ as $$
   );
 $$;
 
--- Reserve or replay an idempotency key. Non-blocking: returns is_pending=true when
--- another transaction holds the advisory lock.
-create or replace function public._governance_reserve_operation(
+-- New state machine helpers
+
+-- Begins an operation, handling idempotency and creating a pending record.
+create or replace function public._governance_begin_operation(
   idempotency_key text,
   kind public.governance_operation_kind,
-  canonical_payload jsonb
+  payload jsonb,
+  actor_role public.app_role,
+  actor_scope_type public.app_scope_type,
+  actor_scope_id uuid,
+  school_id uuid,
+  target_type public.governance_target_type,
+  target_id uuid,
+  reason text,
+  is_reversal boolean
 )
 returns table (
   operation_id uuid,
@@ -301,48 +310,16 @@ as $$
 declare
   existing record;
   new_fingerprint bytea;
+  new_op_id uuid;
+  canonical_payload jsonb;
 begin
-  new_fingerprint := public._governance_fingerprint(kind, canonical_payload);
-
-  select ik.key, ik.fingerprint, ik.operation_id, ik.status, ik.response_snapshot
-  into existing
-  from public.idempotency_keys as ik
-  where ik.key = idempotency_key;
-
-  if found then
-    if existing.fingerprint is distinct from new_fingerprint then
-      return query select
-        existing.operation_id,
-        false,
-        true,
-        false,
-        null::jsonb;
-      return;
-    end if;
-
-    if existing.status = 'succeeded' then
-      return query select
-        existing.operation_id,
-        true,
-        false,
-        false,
-        existing.response_snapshot;
-      return;
-    end if;
-
-    return query select
-      existing.operation_id,
-      false,
-      false,
-      true,
-      null::jsonb;
-    return;
-  end if;
-
   if not public._governance_try_lock_key(idempotency_key) then
     return query select null::uuid, false, false, true, null::jsonb;
     return;
   end if;
+
+  canonical_payload := public._governance_canonicalize_jsonb(payload);
+  new_fingerprint := public._governance_fingerprint(kind, canonical_payload);
 
   select ik.key, ik.fingerprint, ik.operation_id, ik.status, ik.response_snapshot
   into existing
@@ -354,108 +331,93 @@ begin
       return query select existing.operation_id, false, true, false, null::jsonb;
       return;
     end if;
+
     if existing.status = 'succeeded' then
-      return query select
-        existing.operation_id,
-        true,
-        false,
-        false,
-        existing.response_snapshot;
+      return query select existing.operation_id, true, false, false, existing.response_snapshot;
       return;
     end if;
-    return query select existing.operation_id, false, false, true, null::jsonb;
-    return;
+
+    if existing.status = 'failed' then
+      -- Allow retry by deleting the old failed key and operation
+      delete from public.operations where id = existing.operation_id;
+      delete from public.idempotency_keys where key = idempotency_key;
+    else -- 'reserved', another process is likely busy
+      return query select existing.operation_id, false, false, true, null::jsonb;
+      return;
+    end if;
   end if;
 
-  return query select null::uuid, false, false, false, null::jsonb;
+  -- No existing non-failed key, proceed to create a pending operation
+  insert into public.operations (
+    id, kind, status, is_reversal, actor_id, actor_role, scope_type, scope_id,
+    school_id, target_type, target_id, idempotency_key, fingerprint, payload, reason
+  ) values (
+    gen_random_uuid(), kind, 'pending', is_reversal, auth.uid(), actor_role, actor_scope_type, actor_scope_id,
+    school_id, target_type, target_id, idempotency_key, new_fingerprint, canonical_payload, reason
+  ) returning id into new_op_id;
+
+  insert into public.idempotency_keys (key, fingerprint, operation_id, status)
+  values (idempotency_key, new_fingerprint, new_op_id, 'reserved');
+
+  return query select new_op_id, false, false, false, null::jsonb;
 end;
 $$;
 
-create or replace function public._governance_persist_operation(
-  operation_id uuid,
-  idempotency_key text,
-  kind public.governance_operation_kind,
-  actor_role public.app_role,
-  scope_type public.app_scope_type,
-  scope_id uuid,
-  school_id uuid,
-  target_type public.governance_target_type,
-  target_id uuid,
-  canonical_payload jsonb,
-  response_snapshot jsonb,
-  reason text,
-  is_reversal boolean
+create or replace function public._governance_succeed_operation(
+  op_id uuid,
+  response_snapshot jsonb
 )
-returns uuid
+returns void
 language plpgsql
 volatile
 security definer
 set search_path = ''
 as $$
 declare
-  new_id uuid;
-  new_fingerprint bytea;
+  op_key text;
 begin
-  new_id := coalesce(operation_id, gen_random_uuid());
-  new_fingerprint := public._governance_fingerprint(kind, canonical_payload);
+  update public.operations
+  set status = 'succeeded', response = response_snapshot, updated_at = now()
+  where id = op_id
+  returning idempotency_key into op_key;
 
-  insert into public.operations (
-    id,
-    kind,
-    status,
-    is_reversal,
-    actor_id,
-    actor_role,
-    scope_type,
-    scope_id,
-    school_id,
-    target_type,
-    target_id,
-    idempotency_key,
-    fingerprint,
-    payload,
-    response,
-    reason
-  )
-  values (
-    new_id,
-    kind,
-    'succeeded',
-    is_reversal,
-    auth.uid(),
-    actor_role,
-    scope_type,
-    scope_id,
-    school_id,
-    target_type,
-    target_id,
-    idempotency_key,
-    new_fingerprint,
-    public._governance_canonicalize_jsonb(canonical_payload),
-    response_snapshot,
-    reason
-  );
-
-  insert into public.idempotency_keys (
-    key,
-    fingerprint,
-    operation_id,
-    status,
-    response_snapshot,
-    completed_at
-  )
-  values (
-    idempotency_key,
-    new_fingerprint,
-    new_id,
-    'succeeded',
-    response_snapshot,
-    now()
-  );
-
-  return new_id;
+  if op_key is not null then
+    update public.idempotency_keys
+    set status = 'succeeded', response_snapshot = response_snapshot, completed_at = now()
+    where key = op_key;
+  end if;
 end;
 $$;
+
+create or replace function public._governance_fail_operation(
+  op_id uuid,
+  error_details jsonb
+)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  op_key text;
+begin
+  if op_id is not null then
+    update public.operations
+    set status = 'failed', response = error_details, updated_at = now()
+    where id = op_id
+    returning idempotency_key into op_key;
+
+    if op_key is not null then
+        -- Mark the key as failed so it can potentially be retried
+        update public.idempotency_keys
+        set status = 'failed', response_snapshot = error_details, completed_at = now()
+        where key = op_key;
+    end if;
+  end if;
+end;
+$$;
+
 
 alter table public.operations enable row level security;
 alter table public.idempotency_keys enable row level security;
@@ -476,5 +438,6 @@ revoke all on function public._governance_fingerprint(public.governance_operatio
 revoke all on function public._governance_try_lock_key(text) from public;
 revoke all on function public._governance_actor_context(uuid) from public;
 revoke all on function public._governance_write_audit(uuid, uuid, public.app_role, text, public.governance_target_type, uuid, public.governance_audit_result, jsonb) from public;
-revoke all on function public._governance_reserve_operation(text, public.governance_operation_kind, jsonb) from public;
-revoke all on function public._governance_persist_operation(uuid, text, public.governance_operation_kind, public.app_role, public.app_scope_type, uuid, uuid, public.governance_target_type, uuid, jsonb, jsonb, text, boolean) from public;
+revoke all on function public._governance_begin_operation(text, public.governance_operation_kind, jsonb, public.app_role, public.app_scope_type, uuid, uuid, public.governance_target_type, uuid, text, boolean) from public;
+revoke all on function public._governance_succeed_operation(uuid, jsonb) from public;
+revoke all on function public._governance_fail_operation(uuid, jsonb) from public;

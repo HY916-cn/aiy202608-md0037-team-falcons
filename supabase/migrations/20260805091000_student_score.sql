@@ -19,7 +19,7 @@ create index idx_student_score_categories__school
 
 create table public.student_score_entries (
   id uuid primary key default gen_random_uuid(),
-  operation_id uuid not null unique references public.operations (id),
+  operation_id uuid not null references public.operations (id) on delete cascade,
   student_id uuid not null references public.students (id),
   category_id uuid not null references public.student_score_categories (id),
   delta numeric(9, 2) not null check (delta <> 0 and delta >= -1000 and delta <= 1000),
@@ -30,6 +30,8 @@ create table public.student_score_entries (
   original_entry_id uuid references public.student_score_entries (id),
   is_reversal_entry boolean not null default false
 );
+create index idx_student_score_entries__operation
+  on public.student_score_entries (operation_id);
 
 create index idx_student_score_entries__student_applied
   on public.student_score_entries (student_id, applied_at desc);
@@ -223,15 +225,13 @@ security definer
 set search_path = ''
 as $$
 declare
-  reserve record;
+  op record;
   actor record;
   category record;
   target_class_id uuid;
   target_school_id uuid;
-  op_id uuid;
   entry public.student_score_entries;
   canonical_payload jsonb;
-  response_snapshot jsonb;
 begin
   if idempotency_key is null or char_length(btrim(idempotency_key)) not between 8 and 120 then
     raise exception 'INVALID_IDEMPOTENCY_KEY' using errcode = 'P0001';
@@ -262,9 +262,10 @@ begin
 
   select ctx.actor_role, ctx.scope_type, ctx.scope_id
   into actor
-  from public._governance_actor_context(target_school_id) as ctx;
+  from public._governance_actor_context(target_school_id) as ctx
+  where ctx.actor_role = 'teacher'
+  limit 1;
   if actor.actor_role is null
-    or actor.actor_role <> 'teacher'
     or not public.can_access_student(target_student_id) then
     raise exception 'FORBIDDEN' using errcode = 'P0001';
   end if;
@@ -276,71 +277,70 @@ begin
     'reason', btrim(reason)
   );
 
-  select r.operation_id, r.is_replay, r.is_conflict, r.is_pending, r.cached_response
-  into reserve
-  from public._governance_reserve_operation(
+  select * into op from public._governance_begin_operation(
     idempotency_key,
     'student_score_apply',
-    canonical_payload
-  ) as r;
-
-  if reserve.is_conflict then
-    raise exception 'IDEMPOTENCY_FINGERPRINT_MISMATCH' using errcode = 'P0001';
-  end if;
-  if reserve.is_pending then
-    raise exception 'IDEMPOTENCY_IN_PROGRESS' using errcode = 'P0001';
-  end if;
-  if reserve.is_replay then
-    select * into entry
-    from public.student_score_entries
-    where operation_id = reserve.operation_id;
-    return entry;
-  end if;
-
-  op_id := gen_random_uuid();
-
-  entry := public._governance_write_student_score_entry(
-    op_id,
-    target_student_id,
-    target_category_id,
-    delta,
-    btrim(reason)
-  );
-
-  response_snapshot := jsonb_build_object(
-    'entry_id', entry.id,
-    'operation_id', op_id,
-    'delta', entry.delta
-  );
-
-  perform public._governance_persist_operation(
-    op_id,
-    idempotency_key,
-    'student_score_apply',
+    canonical_payload,
     actor.actor_role,
     actor.scope_type,
     actor.scope_id,
     target_school_id,
     'student',
     target_student_id,
-    canonical_payload,
-    response_snapshot,
     null,
     false
   );
 
-  perform public._governance_write_audit(
-    op_id,
-    target_school_id,
-    actor.actor_role,
-    'student_score.apply',
-    'student',
-    target_student_id,
-    'success',
-    canonical_payload
-  );
+  if op.is_conflict then
+    raise exception 'IDEMPOTENCY_FINGERPRINT_MISMATCH' using errcode = 'P0001';
+  end if;
+  if op.is_pending then
+    raise exception 'IDEMPOTENCY_IN_PROGRESS' using errcode = 'P0001';
+  end if;
+  if op.is_replay then
+    select * into entry
+    from public.student_score_entries
+    where operation_id = op.operation_id
+    order by applied_at, id
+    limit 1;
+    return entry;
+  end if;
 
-  return entry;
+  begin
+    entry := public._governance_write_student_score_entry(
+      op.operation_id,
+      target_student_id,
+      target_category_id,
+      delta,
+      btrim(reason)
+    );
+
+    perform public._governance_succeed_operation(
+      op.operation_id,
+      jsonb_build_object(
+        'entry_id', entry.id,
+        'operation_id', op.operation_id,
+        'delta', entry.delta
+      )
+    );
+
+    perform public._governance_write_audit(
+      op.operation_id,
+      target_school_id,
+      actor.actor_role,
+      'student_score.apply',
+      'student',
+      target_student_id,
+      'success',
+      canonical_payload
+    );
+
+    return entry;
+  exception
+    when others then
+      perform public._governance_fail_operation(op.operation_id, jsonb_build_object('error', SQLERRM));
+      raise;
+  end;
 end;
 $$;
 
@@ -356,23 +356,20 @@ security definer
 set search_path = ''
 as $$
 declare
-  reserve record;
+  op record;
   actor_school uuid;
   actor record;
-  op_id uuid;
   item jsonb;
   entry_row public.student_score_entries;
   target_student_id uuid;
   target_category_id uuid;
   student_school uuid;
   category record;
-  target_class_id uuid;
   delta_value numeric;
   entry_reason text;
   canonical_payload jsonb;
   canonical_entries jsonb;
   response_ids jsonb := '[]'::jsonb;
-  ids uuid[];
   entry_count int;
 begin
   if idempotency_key is null or char_length(btrim(idempotency_key)) not between 8 and 120 then
@@ -384,6 +381,7 @@ begin
   if entries is null or jsonb_typeof(entries) <> 'array' then
     raise exception 'INVALID_ENTRIES' using errcode = 'P0001';
   end if;
+
   entry_count := jsonb_array_length(entries);
   if entry_count < 1 or entry_count > 100 then
     raise exception 'BATCH_SIZE_OUT_OF_RANGE' using errcode = 'P0001';
@@ -447,8 +445,10 @@ begin
 
   select ctx.actor_role, ctx.scope_type, ctx.scope_id
   into actor
-  from public._governance_actor_context(actor_school) as ctx;
-  if actor.actor_role is null or actor.actor_role <> 'teacher' then
+  from public._governance_actor_context(actor_school) as ctx
+  where ctx.actor_role = 'teacher'
+  limit 1;
+  if actor.actor_role is null then
     raise exception 'FORBIDDEN' using errcode = 'P0001';
   end if;
 
@@ -457,79 +457,78 @@ begin
     'entries', canonical_entries
   );
 
-  select r.operation_id, r.is_replay, r.is_conflict, r.is_pending, r.cached_response
-  into reserve
-  from public._governance_reserve_operation(
+  select * into op
+  from public._governance_begin_operation(
     idempotency_key,
     'student_score_apply_batch',
-    canonical_payload
-  ) as r;
-  if reserve.is_conflict then
-    raise exception 'IDEMPOTENCY_FINGERPRINT_MISMATCH' using errcode = 'P0001';
-  end if;
-  if reserve.is_pending then
-    raise exception 'IDEMPOTENCY_IN_PROGRESS' using errcode = 'P0001';
-  end if;
-  if reserve.is_replay then
-    return query
-      select *
-      from public.student_score_entries
-      where operation_id = reserve.operation_id
-      order by applied_at;
-    return;
-  end if;
-
-  op_id := gen_random_uuid();
-
-  for item in select value from jsonb_array_elements(canonical_entries) as value
-  loop
-    entry_row := public._governance_write_student_score_entry(
-      op_id,
-      (item ->> 'student_id')::uuid,
-      (item ->> 'category_id')::uuid,
-      (item ->> 'delta')::numeric,
-      item ->> 'reason'
-    );
-    ids := coalesce(ids, array[]::uuid[]) || entry_row.id;
-    response_ids := response_ids || to_jsonb(entry_row.id::text);
-  end loop;
-
-  perform public._governance_persist_operation(
-    op_id,
-    idempotency_key,
-    'student_score_apply_batch',
+    canonical_payload,
     actor.actor_role,
     actor.scope_type,
     actor.scope_id,
     actor_school,
     'student',
     (canonical_entries -> 0 ->> 'student_id')::uuid,
-    canonical_payload,
-    jsonb_build_object(
-      'operation_id', op_id,
-      'entry_ids', response_ids,
-      'count', jsonb_array_length(canonical_entries)
-    ),
     btrim(batch_reason),
     false
   );
+  if op.is_conflict then
+    raise exception 'IDEMPOTENCY_FINGERPRINT_MISMATCH' using errcode = 'P0001';
+  end if;
+  if op.is_pending then
+    raise exception 'IDEMPOTENCY_IN_PROGRESS' using errcode = 'P0001';
+  end if;
+  if op.is_replay then
+    return query
+      select *
+      from public.student_score_entries
+      where operation_id = op.operation_id
+      order by applied_at, id;
+    return;
+  end if;
 
-  perform public._governance_write_audit(
-    op_id,
-    actor_school,
-    actor.actor_role,
-    'student_score.apply_batch',
-    'student',
-    (canonical_entries -> 0 ->> 'student_id')::uuid,
-    'success',
-    canonical_payload
-  );
+  begin
+    for item in select value from jsonb_array_elements(canonical_entries) as value
+    loop
+      entry_row := public._governance_write_student_score_entry(
+        op.operation_id,
+        (item ->> 'student_id')::uuid,
+        (item ->> 'category_id')::uuid,
+        (item ->> 'delta')::numeric,
+        item ->> 'reason'
+      );
+      response_ids := response_ids || to_jsonb(entry_row.id::text);
+    end loop;
 
-  return query
-    select *
-    from public.student_score_entries
-    where operation_id = op_id
-    order by applied_at;
+    perform public._governance_succeed_operation(
+      op.operation_id,
+      jsonb_build_object(
+        'operation_id', op.operation_id,
+        'entry_ids', response_ids,
+        'count', jsonb_array_length(canonical_entries)
+      )
+    );
+
+    perform public._governance_write_audit(
+      op.operation_id,
+      actor_school,
+      actor.actor_role,
+      'student_score.apply_batch',
+      'student',
+      (canonical_entries -> 0 ->> 'student_id')::uuid,
+      'success',
+      canonical_payload
+    );
+
+    return query
+      select *
+      from public.student_score_entries
+      where operation_id = op.operation_id
+      order by applied_at, id;
+  exception
+    when others then
+      perform public._governance_fail_operation(op.operation_id, jsonb_build_object('error', SQLERRM));
+      raise;
+  end;
 end;
 $$;
 

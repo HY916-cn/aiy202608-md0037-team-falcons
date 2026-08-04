@@ -121,11 +121,10 @@ security definer
 set search_path = ''
 as $$
 declare
-  reserve record;
+  op record;
   actor record;
   category record;
   target_school_id uuid;
-  op_id uuid;
   entry public.class_score_entries;
   canonical_payload jsonb;
 begin
@@ -165,50 +164,55 @@ begin
     'reason', btrim(reason)
   );
 
-  select r.operation_id, r.is_replay, r.is_conflict, r.is_pending, r.cached_response into reserve
-  from public._governance_reserve_operation(
+  select * into op
+  from public._governance_begin_operation(
     idempotency_key,
     'class_score_apply',
-    canonical_payload
-  ) as r;
-  if reserve.is_conflict then
-    raise exception 'IDEMPOTENCY_FINGERPRINT_MISMATCH' using errcode = 'P0001';
-  end if;
-  if reserve.is_pending then
-    raise exception 'IDEMPOTENCY_IN_PROGRESS' using errcode = 'P0001';
-  end if;
-  if reserve.is_replay then
-    select * into entry from public.class_score_entries where operation_id = reserve.operation_id;
-    return entry;
-  end if;
-
-  op_id := gen_random_uuid();
-
-  entry := public._governance_write_class_score_entry(
-    op_id, target_class_id, target_category_id, delta, btrim(reason)
-  );
-
-  perform public._governance_persist_operation(
-    op_id,
-    idempotency_key,
-    'class_score_apply',
+    canonical_payload,
     actor.actor_role,
     actor.scope_type,
     actor.scope_id,
     target_school_id,
     'class',
     target_class_id,
-    canonical_payload,
-    jsonb_build_object('entry_id', entry.id, 'operation_id', op_id, 'delta', entry.delta),
     null,
     false
   );
+  if op.is_conflict then
+    raise exception 'IDEMPOTENCY_FINGERPRINT_MISMATCH' using errcode = 'P0001';
+  end if;
+  if op.is_pending then
+    raise exception 'IDEMPOTENCY_IN_PROGRESS' using errcode = 'P0001';
+  end if;
+  if op.is_replay then
+    select * into entry from public.class_score_entries where operation_id = op.operation_id;
+    return entry;
+  end if;
 
-  perform public._governance_write_audit(
-    op_id, target_school_id, actor.actor_role, 'class_score.apply', 'class', target_class_id, 'success', canonical_payload
-  );
+  begin
+    entry := public._governance_write_class_score_entry(
+      op.operation_id, target_class_id, target_category_id, delta, btrim(reason)
+    );
 
-  return entry;
+    perform public._governance_succeed_operation(
+      op.operation_id,
+      jsonb_build_object(
+        'entry_id', entry.id,
+        'operation_id', op.operation_id,
+        'delta', entry.delta
+      )
+    );
+
+    perform public._governance_write_audit(
+      op.operation_id, target_school_id, actor.actor_role, 'class_score.apply', 'class', target_class_id, 'success', canonical_payload
+    );
+
+    return entry;
+  exception
+    when others then
+      perform public._governance_fail_operation(op.operation_id, jsonb_build_object('error', SQLERRM));
+      raise;
+  end;
 end;
 $$;
 
@@ -224,11 +228,10 @@ security definer
 set search_path = ''
 as $$
 declare
-  reserve record;
+  op record;
   actor record;
   entry public.class_score_entries;
   target_school_id uuid;
-  op_id uuid;
   appeal public.class_score_appeals;
   canonical_payload jsonb;
 begin
@@ -267,54 +270,55 @@ begin
     'reason', btrim(appeal_reason)
   );
 
-  select r.operation_id, r.is_replay, r.is_conflict, r.is_pending, r.cached_response into reserve
-  from public._governance_reserve_operation(
+  select * into op
+  from public._governance_begin_operation(
     idempotency_key,
     'class_score_appeal_create',
-    canonical_payload
-  ) as r;
-  if reserve.is_conflict then
-    raise exception 'IDEMPOTENCY_FINGERPRINT_MISMATCH' using errcode = 'P0001';
-  end if;
-  if reserve.is_pending then
-    raise exception 'IDEMPOTENCY_IN_PROGRESS' using errcode = 'P0001';
-  end if;
-  if reserve.is_replay then
-    select * into appeal from public.class_score_appeals where create_operation_id = reserve.operation_id;
-    return appeal;
-  end if;
-
-  op_id := gen_random_uuid();
-
-  insert into public.class_score_appeals (
-    entry_id, appellant_id, reason, create_operation_id
-  )
-  values (
-    target_entry_id, auth.uid(), btrim(appeal_reason), op_id
-  )
-  returning * into appeal;
-
-  perform public._governance_persist_operation(
-    op_id,
-    idempotency_key,
-    'class_score_appeal_create',
+    canonical_payload,
     actor.actor_role,
     actor.scope_type,
     actor.scope_id,
     target_school_id,
     'class',
     entry.class_id,
-    canonical_payload,
-    jsonb_build_object('appeal_id', appeal.id, 'operation_id', op_id),
     null,
     false
   );
+  if op.is_conflict then
+    raise exception 'IDEMPOTENCY_FINGERPRINT_MISMATCH' using errcode = 'P0001';
+  end if;
+  if op.is_pending then
+    raise exception 'IDEMPOTENCY_IN_PROGRESS' using errcode = 'P0001';
+  end if;
+  if op.is_replay then
+    select * into appeal from public.class_score_appeals where create_operation_id = op.operation_id;
+    return appeal;
+  end if;
 
-  perform public._governance_write_audit(
-    op_id, target_school_id, actor.actor_role, 'class_score.appeal_create', 'class', entry.class_id, 'success', canonical_payload
-  );
+  begin
+    insert into public.class_score_appeals (
+      entry_id, appellant_id, reason, create_operation_id
+    )
+    values (
+      target_entry_id, auth.uid(), btrim(appeal_reason), op.operation_id
+    )
+    returning * into appeal;
 
-  return appeal;
+    perform public._governance_succeed_operation(
+      op.operation_id,
+      jsonb_build_object('appeal_id', appeal.id, 'operation_id', op.operation_id)
+    );
+
+    perform public._governance_write_audit(
+      op.operation_id, target_school_id, actor.actor_role, 'class_score.appeal_create', 'class', entry.class_id, 'success', canonical_payload
+    );
+
+    return appeal;
+  exception
+    when others then
+      perform public._governance_fail_operation(op.operation_id, jsonb_build_object('error', SQLERRM));
+      raise;
+  end;
 end;
 $$;
 
@@ -331,13 +335,14 @@ security definer
 set search_path = ''
 as $$
 declare
-  reserve record;
+  op record;
+  reversal_op record;
   actor record;
   appeal public.class_score_appeals;
   entry public.class_score_entries;
   target_school_id uuid;
-  op_id uuid;
   reversal_op_id uuid;
+  reversal_payload jsonb;
   canonical_payload jsonb;
 begin
   if idempotency_key is null or char_length(btrim(idempotency_key)) not between 8 and 120 then
@@ -370,103 +375,116 @@ begin
     'note', coalesce(btrim(resolution_note), '')
   );
 
-  select r.operation_id, r.is_replay, r.is_conflict, r.is_pending, r.cached_response into reserve
-  from public._governance_reserve_operation(
+  select * into op
+  from public._governance_begin_operation(
     idempotency_key,
     'class_score_appeal_resolve',
-    canonical_payload
-  ) as r;
-  if reserve.is_conflict then
-    raise exception 'IDEMPOTENCY_FINGERPRINT_MISMATCH' using errcode = 'P0001';
-  end if;
-  if reserve.is_pending then
-    raise exception 'IDEMPOTENCY_IN_PROGRESS' using errcode = 'P0001';
-  end if;
-  if reserve.is_replay then
-    select * into appeal from public.class_score_appeals where resolve_operation_id = reserve.operation_id;
-    return appeal;
-  end if;
-
-  op_id := gen_random_uuid();
-
-  if accept then
-    -- Create a reversal entry, mark original as reversed. Independent operation
-    -- captured in the reversal_links table.
-    reversal_op_id := gen_random_uuid();
-
-    insert into public.class_score_entries (
-      operation_id, class_id, category_id, delta, reason, is_reversal_entry, original_entry_id
-    )
-    values (
-      reversal_op_id, entry.class_id, entry.category_id, -entry.delta,
-      'appeal:' || target_appeal_id::text, true, entry.id
-    );
-
-    perform public._governance_persist_operation(
-      reversal_op_id,
-      idempotency_key || ':reversal',
-      'reversal_apply',
-      actor.actor_role,
-      actor.scope_type,
-      actor.scope_id,
-      target_school_id,
-      'operation',
-      entry.operation_id,
-      jsonb_build_object('appeal_id', target_appeal_id, 'entry_id', entry.id),
-      jsonb_build_object('reversal_operation_id', reversal_op_id),
-      'appeal accepted',
-      true
-    );
-
-    insert into public.reversal_links (original_operation_id, reversal_operation_id)
-    values (entry.operation_id, reversal_op_id);
-
-    update public.operations
-    set status = 'reversed', reversed_at = now(), reversed_by = reversal_op_id
-    where id = entry.operation_id;
-
-    update public.class_score_entries
-    set is_reversed = true, reversed_by_operation_id = reversal_op_id
-    where id = entry.id;
-  end if;
-
-  update public.class_score_appeals
-  set
-    status = case when accept then 'accepted'::public.class_score_appeal_status else 'rejected'::public.class_score_appeal_status end,
-    resolver_id = auth.uid(),
-    resolution_note = nullif(btrim(resolution_note), ''),
-    resolve_operation_id = op_id,
-    reversal_operation_id = reversal_op_id,
-    resolved_at = now()
-  where id = target_appeal_id
-  returning * into appeal;
-
-  perform public._governance_persist_operation(
-    op_id,
-    idempotency_key,
-    'class_score_appeal_resolve',
+    canonical_payload,
     actor.actor_role,
     actor.scope_type,
     actor.scope_id,
     target_school_id,
     'class',
     entry.class_id,
-    canonical_payload,
-    jsonb_build_object(
-      'appeal_id', appeal.id,
-      'operation_id', op_id,
-      'reversal_operation_id', reversal_op_id,
-      'status', appeal.status::text
-    ),
     null,
     false
   );
+  if op.is_conflict then
+    raise exception 'IDEMPOTENCY_FINGERPRINT_MISMATCH' using errcode = 'P0001';
+  end if;
+  if op.is_pending then
+    raise exception 'IDEMPOTENCY_IN_PROGRESS' using errcode = 'P0001';
+  end if;
+  if op.is_replay then
+    select * into appeal from public.class_score_appeals where resolve_operation_id = op.operation_id;
+    return appeal;
+  end if;
 
-  perform public._governance_write_audit(
-    op_id, target_school_id, actor.actor_role, 'class_score.appeal_resolve', 'class', entry.class_id, 'success', canonical_payload
-  );
+  begin
+    if accept then
+      reversal_payload := jsonb_build_object('appeal_id', target_appeal_id, 'entry_id', entry.id);
 
-  return appeal;
+      select * into reversal_op
+      from public._governance_begin_operation(
+        idempotency_key || ':reversal',
+        'reversal_apply',
+        reversal_payload,
+        actor.actor_role,
+        actor.scope_type,
+        actor.scope_id,
+        target_school_id,
+        'operation',
+        entry.operation_id,
+        'appeal accepted',
+        true
+      );
+      if reversal_op.is_conflict then
+        raise exception 'IDEMPOTENCY_FINGERPRINT_MISMATCH' using errcode = 'P0001';
+      end if;
+      if reversal_op.is_pending then
+        raise exception 'IDEMPOTENCY_IN_PROGRESS' using errcode = 'P0001';
+      end if;
+      reversal_op_id := reversal_op.operation_id;
+
+      insert into public.class_score_entries (
+        operation_id, class_id, category_id, delta, reason, is_reversal_entry, original_entry_id
+      )
+      values (
+        reversal_op_id, entry.class_id, entry.category_id, -entry.delta,
+        'appeal:' || target_appeal_id::text, true, entry.id
+      );
+
+      perform public._governance_succeed_operation(
+        reversal_op_id,
+        jsonb_build_object('reversal_operation_id', reversal_op_id)
+      );
+
+      insert into public.reversal_links (original_operation_id, reversal_operation_id)
+      values (entry.operation_id, reversal_op_id);
+
+      update public.operations
+      set status = 'reversed', reversed_at = now(), reversed_by = reversal_op_id
+      where id = entry.operation_id;
+
+      update public.class_score_entries
+      set is_reversed = true, reversed_by_operation_id = reversal_op_id
+      where id = entry.id;
+    end if;
+
+    update public.class_score_appeals
+    set
+      status = case when accept then 'accepted'::public.class_score_appeal_status else 'rejected'::public.class_score_appeal_status end,
+      resolver_id = auth.uid(),
+      resolution_note = nullif(btrim(resolution_note), ''),
+      resolve_operation_id = op.operation_id,
+      reversal_operation_id = reversal_op_id,
+      resolved_at = now()
+    where id = target_appeal_id
+    returning * into appeal;
+
+    perform public._governance_succeed_operation(
+      op.operation_id,
+      jsonb_build_object(
+        'appeal_id', appeal.id,
+        'operation_id', op.operation_id,
+        'reversal_operation_id', reversal_op_id,
+        'status', appeal.status::text
+      )
+    );
+
+    perform public._governance_write_audit(
+      op.operation_id, target_school_id, actor.actor_role, 'class_score.appeal_resolve', 'class', entry.class_id, 'success', canonical_payload
+    );
+
+    return appeal;
+  exception
+    when others then
+      perform public._governance_fail_operation(op.operation_id, jsonb_build_object('error', SQLERRM));
+      if reversal_op_id is not null then
+        perform public._governance_fail_operation(reversal_op_id, jsonb_build_object('error', SQLERRM));
+      end if;
+      raise;
+  end;
 end;
 $$;
 

@@ -88,9 +88,8 @@ security definer
 set search_path = ''
 as $$
 declare
-  reserve record;
+  op record;
   actor record;
-  op_id uuid;
   rule public.fine_rules;
   canonical_payload jsonb;
 begin
@@ -125,52 +124,57 @@ begin
     'is_active', is_active
   );
 
-  select r.operation_id, r.is_replay, r.is_conflict, r.is_pending, r.cached_response into reserve
-  from public._governance_reserve_operation(idempotency_key, 'fine_rule_manage', canonical_payload) as r;
-  if reserve.is_conflict then
-    raise exception 'IDEMPOTENCY_FINGERPRINT_MISMATCH' using errcode = 'P0001';
-  end if;
-  if reserve.is_pending then
-    raise exception 'IDEMPOTENCY_IN_PROGRESS' using errcode = 'P0001';
-  end if;
-  if reserve.is_replay then
-    select * into rule from public.fine_rules
-    where school_id = target_school_id and slug = manage_fine_rule.slug;
-    return rule;
-  end if;
-
-  op_id := gen_random_uuid();
-
-  insert into public.fine_rules (school_id, slug, display_name, default_amount, description, is_active)
-  values (target_school_id, slug, btrim(display_name), default_amount, description, is_active)
-  on conflict (school_id, slug) do update set
-    display_name = excluded.display_name,
-    default_amount = excluded.default_amount,
-    description = excluded.description,
-    is_active = excluded.is_active
-  returning * into rule;
-
-  perform public._governance_persist_operation(
-    op_id,
+  select * into op
+  from public._governance_begin_operation(
     idempotency_key,
     'fine_rule_manage',
+    canonical_payload,
     actor.actor_role,
     actor.scope_type,
     actor.scope_id,
     target_school_id,
     'fine_rule',
-    rule.id,
-    canonical_payload,
-    jsonb_build_object('rule_id', rule.id, 'operation_id', op_id),
+    target_school_id,
     null,
     false
   );
+  if op.is_conflict then
+    raise exception 'IDEMPOTENCY_FINGERPRINT_MISMATCH' using errcode = 'P0001';
+  end if;
+  if op.is_pending then
+    raise exception 'IDEMPOTENCY_IN_PROGRESS' using errcode = 'P0001';
+  end if;
+  if op.is_replay then
+    select * into rule from public.fine_rules
+    where school_id = target_school_id and slug = manage_fine_rule.slug;
+    return rule;
+  end if;
 
-  perform public._governance_write_audit(
-    op_id, target_school_id, actor.actor_role, 'fine_rule.manage', 'fine_rule', rule.id, 'success', canonical_payload
-  );
+  begin
+    insert into public.fine_rules (school_id, slug, display_name, default_amount, description, is_active)
+    values (target_school_id, slug, btrim(display_name), default_amount, description, is_active)
+    on conflict (school_id, slug) do update set
+      display_name = excluded.display_name,
+      default_amount = excluded.default_amount,
+      description = excluded.description,
+      is_active = excluded.is_active
+    returning * into rule;
 
-  return rule;
+    perform public._governance_succeed_operation(
+      op.operation_id,
+      jsonb_build_object('rule_id', rule.id, 'operation_id', op.operation_id)
+    );
+
+    perform public._governance_write_audit(
+      op.operation_id, target_school_id, actor.actor_role, 'fine_rule.manage', 'fine_rule', rule.id, 'success', canonical_payload
+    );
+
+    return rule;
+  exception
+    when others then
+      perform public._governance_fail_operation(op.operation_id, jsonb_build_object('error', SQLERRM));
+      raise;
+  end;
 end;
 $$;
 
@@ -188,11 +192,10 @@ security definer
 set search_path = ''
 as $$
 declare
-  reserve record;
+  op record;
   actor record;
   target_school_id uuid;
   rule public.fine_rules;
-  op_id uuid;
   order_row public.fine_orders;
   canonical_payload jsonb;
 begin
@@ -232,51 +235,56 @@ begin
     'reason', btrim(reason)
   );
 
-  select r.operation_id, r.is_replay, r.is_conflict, r.is_pending, r.cached_response into reserve
-  from public._governance_reserve_operation(idempotency_key, 'fine_create', canonical_payload) as r;
-  if reserve.is_conflict then
-    raise exception 'IDEMPOTENCY_FINGERPRINT_MISMATCH' using errcode = 'P0001';
-  end if;
-  if reserve.is_pending then
-    raise exception 'IDEMPOTENCY_IN_PROGRESS' using errcode = 'P0001';
-  end if;
-  if reserve.is_replay then
-    select * into order_row from public.fine_orders where create_operation_id = reserve.operation_id;
-    return order_row;
-  end if;
-
-  op_id := gen_random_uuid();
-
-  insert into public.fine_orders (
-    create_operation_id, school_id, student_id, rule_id, amount, reason
-  )
-  values (op_id, target_school_id, target_student_id, target_rule_id, amount, btrim(reason))
-  returning * into order_row;
-
-  insert into public.fine_order_events (order_id, operation_id, from_status, to_status, detail)
-  values (order_row.id, op_id, null, 'pending', canonical_payload);
-
-  perform public._governance_persist_operation(
-    op_id,
+  select * into op
+  from public._governance_begin_operation(
     idempotency_key,
     'fine_create',
+    canonical_payload,
     actor.actor_role,
     actor.scope_type,
     actor.scope_id,
     target_school_id,
     'fine_order',
-    order_row.id,
-    canonical_payload,
-    jsonb_build_object('order_id', order_row.id, 'operation_id', op_id),
+    target_student_id,
     null,
     false
   );
+  if op.is_conflict then
+    raise exception 'IDEMPOTENCY_FINGERPRINT_MISMATCH' using errcode = 'P0001';
+  end if;
+  if op.is_pending then
+    raise exception 'IDEMPOTENCY_IN_PROGRESS' using errcode = 'P0001';
+  end if;
+  if op.is_replay then
+    select * into order_row from public.fine_orders where create_operation_id = op.operation_id;
+    return order_row;
+  end if;
 
-  perform public._governance_write_audit(
-    op_id, target_school_id, actor.actor_role, 'fine.create', 'fine_order', order_row.id, 'success', canonical_payload
-  );
+  begin
+    insert into public.fine_orders (
+      create_operation_id, school_id, student_id, rule_id, amount, reason
+    )
+    values (op.operation_id, target_school_id, target_student_id, target_rule_id, amount, btrim(reason))
+    returning * into order_row;
 
-  return order_row;
+    insert into public.fine_order_events (order_id, operation_id, from_status, to_status, detail)
+    values (order_row.id, op.operation_id, null, 'pending', canonical_payload);
+
+    perform public._governance_succeed_operation(
+      op.operation_id,
+      jsonb_build_object('order_id', order_row.id, 'operation_id', op.operation_id)
+    );
+
+    perform public._governance_write_audit(
+      op.operation_id, target_school_id, actor.actor_role, 'fine.create', 'fine_order', order_row.id, 'success', canonical_payload
+    );
+
+    return order_row;
+  exception
+    when others then
+      perform public._governance_fail_operation(op.operation_id, jsonb_build_object('error', SQLERRM));
+      raise;
+  end;
 end;
 $$;
 
@@ -291,13 +299,12 @@ security definer
 set search_path = ''
 as $$
 declare
-  reserve record;
+  op record;
   actor record;
   order_row public.fine_orders;
   target_school_id uuid;
   account public.dolphin_accounts;
   new_balance numeric(12, 2);
-  op_id uuid;
   tx public.dolphin_transactions;
   canonical_payload jsonb;
 begin
@@ -323,74 +330,79 @@ begin
 
   canonical_payload := jsonb_build_object('order_id', target_order_id);
 
-  select r.operation_id, r.is_replay, r.is_conflict, r.is_pending, r.cached_response into reserve
-  from public._governance_reserve_operation(idempotency_key, 'fine_settle', canonical_payload) as r;
-  if reserve.is_conflict then
-    raise exception 'IDEMPOTENCY_FINGERPRINT_MISMATCH' using errcode = 'P0001';
-  end if;
-  if reserve.is_pending then
-    raise exception 'IDEMPOTENCY_IN_PROGRESS' using errcode = 'P0001';
-  end if;
-  if reserve.is_replay then
-    select * into order_row from public.fine_orders where settle_operation_id = reserve.operation_id;
-    return order_row;
-  end if;
-
-  account := public._governance_get_or_create_account(order_row.student_id, target_school_id);
-  new_balance := account.balance - order_row.amount;
-  if new_balance < 0 then
-    raise exception 'INSUFFICIENT_BALANCE' using errcode = 'P0001';
-  end if;
-
-  update public.dolphin_accounts
-  set balance = new_balance, version = version + 1
-  where id = account.id;
-
-  op_id := gen_random_uuid();
-
-  tx := public._governance_write_dolphin_transaction(
-    op_id, account.id, 'fine_settle', -order_row.amount, new_balance,
-    'fine:' || order_row.id::text, order_row.create_operation_id
-  );
-
-  update public.fine_orders
-  set
-    status = 'settled',
-    settle_operation_id = op_id,
-    settlement_transaction_id = tx.id,
-    settled_at = now()
-  where id = target_order_id
-  returning * into order_row;
-
-  insert into public.fine_order_events (order_id, operation_id, from_status, to_status, detail)
-  values (order_row.id, op_id, 'pending', 'settled', jsonb_build_object('transaction_id', tx.id, 'balance_after', new_balance));
-
-  perform public._governance_persist_operation(
-    op_id,
+  select * into op
+  from public._governance_begin_operation(
     idempotency_key,
     'fine_settle',
+    canonical_payload,
     actor.actor_role,
     actor.scope_type,
     actor.scope_id,
     target_school_id,
     'fine_order',
-    order_row.id,
-    canonical_payload,
-    jsonb_build_object(
-      'order_id', order_row.id,
-      'transaction_id', tx.id,
-      'operation_id', op_id,
-      'balance_after', new_balance
-    ),
+    target_order_id,
     null,
     false
   );
+  if op.is_conflict then
+    raise exception 'IDEMPOTENCY_FINGERPRINT_MISMATCH' using errcode = 'P0001';
+  end if;
+  if op.is_pending then
+    raise exception 'IDEMPOTENCY_IN_PROGRESS' using errcode = 'P0001';
+  end if;
+  if op.is_replay then
+    select * into order_row from public.fine_orders where settle_operation_id = op.operation_id;
+    return order_row;
+  end if;
 
-  perform public._governance_write_audit(
-    op_id, target_school_id, actor.actor_role, 'fine.settle', 'fine_order', order_row.id, 'success', canonical_payload
-  );
+  begin
+    account := public._governance_get_or_create_account(order_row.student_id, target_school_id);
+    new_balance := account.balance - order_row.amount;
+    if new_balance < 0 then
+      raise exception 'INSUFFICIENT_BALANCE' using errcode = 'P0001';
+    end if;
 
-  return order_row;
+    update public.dolphin_accounts
+    set balance = new_balance, version = version + 1
+    where id = account.id;
+
+    tx := public._governance_write_dolphin_transaction(
+      op.operation_id, account.id, 'fine_settle', -order_row.amount, new_balance,
+      'fine:' || order_row.id::text, order_row.create_operation_id
+    );
+
+    update public.fine_orders
+    set
+      status = 'settled',
+      settle_operation_id = op.operation_id,
+      settlement_transaction_id = tx.id,
+      settled_at = now()
+    where id = target_order_id
+    returning * into order_row;
+
+    insert into public.fine_order_events (order_id, operation_id, from_status, to_status, detail)
+    values (order_row.id, op.operation_id, 'pending', 'settled', jsonb_build_object('transaction_id', tx.id, 'balance_after', new_balance));
+
+    perform public._governance_succeed_operation(
+      op.operation_id,
+      jsonb_build_object(
+        'order_id', order_row.id,
+        'transaction_id', tx.id,
+        'operation_id', op.operation_id,
+        'balance_after', new_balance
+      )
+    );
+
+    perform public._governance_write_audit(
+      op.operation_id, target_school_id, actor.actor_role, 'fine.settle', 'fine_order', order_row.id, 'success', canonical_payload
+    );
+
+    return order_row;
+  exception
+    when others then
+      perform public._governance_fail_operation(op.operation_id, jsonb_build_object('error', SQLERRM));
+      raise;
+  end;
 end;
 $$;
 
@@ -406,11 +418,10 @@ security definer
 set search_path = ''
 as $$
 declare
-  reserve record;
+  op record;
   actor record;
   order_row public.fine_orders;
   target_school_id uuid;
-  op_id uuid;
   canonical_payload jsonb;
 begin
   if idempotency_key is null or char_length(btrim(idempotency_key)) not between 8 and 120 then
@@ -441,54 +452,59 @@ begin
     'note', btrim(cancellation_note)
   );
 
-  select r.operation_id, r.is_replay, r.is_conflict, r.is_pending, r.cached_response into reserve
-  from public._governance_reserve_operation(idempotency_key, 'fine_cancel', canonical_payload) as r;
-  if reserve.is_conflict then
-    raise exception 'IDEMPOTENCY_FINGERPRINT_MISMATCH' using errcode = 'P0001';
-  end if;
-  if reserve.is_pending then
-    raise exception 'IDEMPOTENCY_IN_PROGRESS' using errcode = 'P0001';
-  end if;
-  if reserve.is_replay then
-    select * into order_row from public.fine_orders where cancel_operation_id = reserve.operation_id;
-    return order_row;
-  end if;
-
-  op_id := gen_random_uuid();
-
-  update public.fine_orders
-  set
-    status = 'cancelled',
-    cancel_operation_id = op_id,
-    cancellation_note = btrim(cancellation_note),
-    cancelled_at = now()
-  where id = target_order_id
-  returning * into order_row;
-
-  insert into public.fine_order_events (order_id, operation_id, from_status, to_status, detail)
-  values (order_row.id, op_id, 'pending', 'cancelled', canonical_payload);
-
-  perform public._governance_persist_operation(
-    op_id,
+  select * into op
+  from public._governance_begin_operation(
     idempotency_key,
     'fine_cancel',
+    canonical_payload,
     actor.actor_role,
     actor.scope_type,
     actor.scope_id,
     target_school_id,
     'fine_order',
-    order_row.id,
-    canonical_payload,
-    jsonb_build_object('order_id', order_row.id, 'operation_id', op_id),
+    target_order_id,
     null,
     false
   );
+  if op.is_conflict then
+    raise exception 'IDEMPOTENCY_FINGERPRINT_MISMATCH' using errcode = 'P0001';
+  end if;
+  if op.is_pending then
+    raise exception 'IDEMPOTENCY_IN_PROGRESS' using errcode = 'P0001';
+  end if;
+  if op.is_replay then
+    select * into order_row from public.fine_orders where cancel_operation_id = op.operation_id;
+    return order_row;
+  end if;
 
-  perform public._governance_write_audit(
-    op_id, target_school_id, actor.actor_role, 'fine.cancel', 'fine_order', order_row.id, 'success', canonical_payload
-  );
+  begin
+    update public.fine_orders
+    set
+      status = 'cancelled',
+      cancel_operation_id = op.operation_id,
+      cancellation_note = btrim(cancellation_note),
+      cancelled_at = now()
+    where id = target_order_id
+    returning * into order_row;
 
-  return order_row;
+    insert into public.fine_order_events (order_id, operation_id, from_status, to_status, detail)
+    values (order_row.id, op.operation_id, 'pending', 'cancelled', canonical_payload);
+
+    perform public._governance_succeed_operation(
+      op.operation_id,
+      jsonb_build_object('order_id', order_row.id, 'operation_id', op.operation_id)
+    );
+
+    perform public._governance_write_audit(
+      op.operation_id, target_school_id, actor.actor_role, 'fine.cancel', 'fine_order', order_row.id, 'success', canonical_payload
+    );
+
+    return order_row;
+  exception
+    when others then
+      perform public._governance_fail_operation(op.operation_id, jsonb_build_object('error', SQLERRM));
+      raise;
+  end;
 end;
 $$;
 
