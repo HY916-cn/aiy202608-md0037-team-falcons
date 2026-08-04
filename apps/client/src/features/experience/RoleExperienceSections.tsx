@@ -12,6 +12,7 @@ import type { CoursewareFileMetadata } from '@dolphincloud/domain';
 import {
   AiResultCard,
   DolphinMascotCard,
+  type RoleNavigationKey,
   TodaySummaryCard,
   WriteActionPreviewCard,
   theme,
@@ -151,7 +152,13 @@ function AiExperienceSection({ roleScope }: { readonly roleScope: AuthRoleScope 
   );
 }
 
-function TeachingDemoSection({ role }: { readonly role: RoleCode }) {
+function TeachingDemoSection({
+  activeNavigation,
+  role,
+}: {
+  readonly activeNavigation: RoleNavigationKey;
+  readonly role: RoleCode;
+}) {
   const { teachingAdapter } = useExperience();
   const [snapshot, setSnapshot] = useState<TeachingDemoSnapshot>(EMPTY_SNAPSHOT);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
@@ -166,6 +173,19 @@ function TeachingDemoSection({ role }: { readonly role: RoleCode }) {
   const [pendingWrite, setPendingWrite] = useState<PendingWriteAction | null>(
     null,
   );
+  const sectionCopy = {
+    assignment: ['作业中心', '发布、查看并跟进当前范围内的作业。'],
+    class: ['班级与成绩', '查看当前班级学生，并在确认后发布成绩。'],
+    courseware: ['课件中心', '处理教师与班级之间的课件传输。'],
+    growth: ['成长记录', '查看已发布的成绩和学习记录。'],
+  } as const;
+  const [sectionTitle, sectionDescription] =
+    sectionCopy[activeNavigation as keyof typeof sectionCopy] ?? [
+      role === 'teacher' ? '教学内容' : '班级教学资料',
+      role === 'teacher'
+        ? '在同一处完成课件发送、作业发布与成绩管理。'
+        : '按发布时间查看教师发送的课件与作业。',
+    ];
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -293,14 +313,8 @@ function TeachingDemoSection({ role }: { readonly role: RoleCode }) {
           <FolderUp color={theme.color.brand.primary} size={20} />
         </View>
         <View style={styles.sectionHeadingCopy}>
-          <Text style={styles.sectionTitle}>
-            {role === 'teacher' ? '教学内容' : '班级教学资料'}
-          </Text>
-          <Text style={styles.sectionDescription}>
-            {role === 'teacher'
-              ? '在同一处完成课件发送、作业发布与成绩管理。'
-              : '按发布时间查看教师发送的课件与作业。'}
-          </Text>
+          <Text style={styles.sectionTitle}>{sectionTitle}</Text>
+          <Text style={styles.sectionDescription}>{sectionDescription}</Text>
         </View>
       </View>
       {error === null ? null : (
@@ -434,19 +448,47 @@ function TeachingDemoSection({ role }: { readonly role: RoleCode }) {
 }
 
 export function RoleExperienceSections({
+  activeNavigation,
+  onNavigate,
   role,
   roleScope,
 }: {
+  readonly activeNavigation: RoleNavigationKey;
+  readonly onNavigate: (key: RoleNavigationKey) => void;
   readonly role: RoleCode;
   readonly roleScope: AuthRoleScope;
 }) {
+  if (activeNavigation === 'home') {
+    return (
+      <>
+        <RoleDashboardOverview
+          onNavigate={onNavigate}
+          role={role}
+          roleScope={roleScope}
+        />
+        <TodaySummarySection role={role} />
+      </>
+    );
+  }
+
+  if (activeNavigation === 'ai') {
+    return <AiExperienceSection roleScope={roleScope} />;
+  }
+
+  if (
+    (role === 'teacher' || role === 'class_terminal' || role === 'family') &&
+    ['courseware', 'assignment', 'class', 'growth'].includes(activeNavigation)
+  ) {
+    return <TeachingDemoSection activeNavigation={activeNavigation} role={role} />;
+  }
+
   return (
-    <>
-      <RoleDashboardOverview role={role} />
-      <TodaySummarySection role={role} />
-      {role === 'teacher' || role === 'class_terminal' || role === 'family' ? <TeachingDemoSection role={role} /> : null}
-      <AiExperienceSection roleScope={roleScope} />
-    </>
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>当前功能尚未接入业务服务</Text>
+      <Text style={styles.sectionDescription}>
+        权限范围：{roleScope.label}。为避免展示伪造数据或无效按钮，服务完成接入前仅保留明确边界说明。
+      </Text>
+    </View>
   );
 }
 

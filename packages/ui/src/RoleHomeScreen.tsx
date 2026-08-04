@@ -34,55 +34,57 @@ import {
 } from 'react-native';
 
 import { RoleIcon } from './RoleIcon';
+import type { RoleNavigationKey } from './roleNavigation';
 import { theme } from './theme';
 
 type NavigationItem = {
   readonly icon: LucideIcon;
+  readonly key: RoleNavigationKey;
   readonly label: string;
 };
 
 const ROLE_NAVIGATION = {
   teacher: [
-    { icon: House, label: '首页' },
-    { icon: FolderUp, label: '课件' },
-    { icon: ClipboardList, label: '作业' },
-    { icon: UsersRound, label: '班级' },
-    { icon: Bot, label: 'AI 中心' },
+    { icon: House, key: 'home', label: '首页' },
+    { icon: FolderUp, key: 'courseware', label: '课件' },
+    { icon: ClipboardList, key: 'assignment', label: '作业' },
+    { icon: UsersRound, key: 'class', label: '班级' },
+    { icon: Bot, key: 'ai', label: 'AI 中心' },
   ],
   class_terminal: [
-    { icon: House, label: '首页' },
-    { icon: FolderUp, label: '课件' },
-    { icon: ClipboardList, label: '作业' },
-    { icon: Star, label: '班级表现' },
-    { icon: Bot, label: 'AI 中心' },
+    { icon: House, key: 'home', label: '首页' },
+    { icon: FolderUp, key: 'courseware', label: '课件' },
+    { icon: ClipboardList, key: 'assignment', label: '作业' },
+    { icon: Star, key: 'class', label: '班级表现' },
+    { icon: Bot, key: 'ai', label: 'AI 中心' },
   ],
   family: [
-    { icon: House, label: '首页' },
-    { icon: ClipboardList, label: '作业' },
-    { icon: ChartColumn, label: '成长' },
-    { icon: Coins, label: '海豚币' },
-    { icon: Bot, label: 'AI 中心' },
+    { icon: House, key: 'home', label: '首页' },
+    { icon: ClipboardList, key: 'assignment', label: '作业' },
+    { icon: ChartColumn, key: 'growth', label: '成长' },
+    { icon: Coins, key: 'coins', label: '海豚币' },
+    { icon: Bot, key: 'ai', label: 'AI 中心' },
   ],
   bank_operator: [
-    { icon: House, label: '首页' },
-    { icon: Landmark, label: '账户' },
-    { icon: ReceiptText, label: '罚款单' },
-    { icon: History, label: '账户流水' },
-    { icon: Bot, label: 'AI 中心' },
+    { icon: House, key: 'home', label: '首页' },
+    { icon: Landmark, key: 'accounts', label: '账户' },
+    { icon: ReceiptText, key: 'fines', label: '罚款单' },
+    { icon: History, key: 'transactions', label: '账户流水' },
+    { icon: Bot, key: 'ai', label: 'AI 中心' },
   ],
   council: [
-    { icon: House, label: '首页' },
-    { icon: ShieldCheck, label: '班级分' },
-    { icon: FileClock, label: '检查记录' },
-    { icon: ClipboardList, label: '更正申请' },
-    { icon: Bot, label: 'AI 中心' },
+    { icon: House, key: 'home', label: '首页' },
+    { icon: ShieldCheck, key: 'class_score', label: '班级分' },
+    { icon: FileClock, key: 'inspections', label: '检查记录' },
+    { icon: ClipboardList, key: 'appeals', label: '更正申请' },
+    { icon: Bot, key: 'ai', label: 'AI 中心' },
   ],
   admin: [
-    { icon: House, label: '首页' },
-    { icon: UsersRound, label: '账号与班级' },
-    { icon: SlidersHorizontal, label: '权限与规则' },
-    { icon: History, label: '操作审计' },
-    { icon: Settings, label: '系统设置' },
+    { icon: House, key: 'home', label: '首页' },
+    { icon: UsersRound, key: 'users', label: '账号与班级' },
+    { icon: SlidersHorizontal, key: 'permissions', label: '权限与规则' },
+    { icon: History, key: 'audit', label: '操作审计' },
+    { icon: Settings, key: 'settings', label: '系统设置' },
   ],
 } as const satisfies Record<RoleCode, readonly NavigationItem[]>;
 
@@ -96,11 +98,13 @@ const ROLE_PAGE_COPY = {
 } as const satisfies Record<RoleCode, readonly [string, string]>;
 
 type RoleHomeScreenProps = {
+  readonly activeNavigation?: RoleNavigationKey;
   readonly availableRoles?: readonly RoleCode[];
   readonly availableRoleScopes?: readonly AuthRoleScope[];
   readonly children?: ReactNode;
   readonly currentRole?: RoleCode;
   readonly onLogout?: () => Promise<void>;
+  readonly onNavigate?: (key: RoleNavigationKey) => void;
   readonly onSwitchRole?: (role: RoleCode) => Promise<void>;
   readonly onSwitchRoleScope?: (roleAssignmentId: string) => Promise<void>;
   readonly role: RoleCode;
@@ -129,20 +133,31 @@ function BrandLockup({ compact = false }: { readonly compact?: boolean }) {
   );
 }
 
-function Navigation({ compact, role }: { readonly compact: boolean; readonly role: RoleCode }) {
+function Navigation({
+  activeNavigation,
+  compact,
+  onNavigate,
+  role,
+}: {
+  readonly activeNavigation: RoleNavigationKey;
+  readonly compact: boolean;
+  readonly onNavigate: ((key: RoleNavigationKey) => void) | undefined;
+  readonly role: RoleCode;
+}) {
   const items = ROLE_NAVIGATION[role];
 
   return (
     <View style={compact ? styles.mobileNavigation : styles.navigation}>
-      {items.map((item, index) => {
+      {items.map((item) => {
         const Icon = item.icon;
-        const isActive = index === 0;
+        const isActive = item.key === activeNavigation;
         return (
           <Pressable
             accessibilityLabel={item.label}
             accessibilityRole="button"
             accessibilityState={{ selected: isActive }}
             key={item.label}
+            onPress={() => onNavigate?.(item.key)}
             style={({ pressed }) => [
               compact ? styles.mobileNavItem : styles.navItem,
               isActive && (compact ? styles.mobileNavItemActive : styles.navItemActive),
@@ -171,11 +186,13 @@ function Navigation({ compact, role }: { readonly compact: boolean; readonly rol
 }
 
 export function RoleHomeScreen({
+  activeNavigation = 'home',
   availableRoles = [],
   availableRoleScopes = [],
   children,
   currentRole,
   onLogout,
+  onNavigate,
   onSwitchRole,
   onSwitchRoleScope,
   role,
@@ -339,7 +356,7 @@ export function RoleHomeScreen({
       {isWide ? (
         <View style={styles.sidebar}>
           <BrandLockup />
-          <Navigation compact={false} role={role} />
+          <Navigation activeNavigation={activeNavigation} compact={false} onNavigate={onNavigate} role={role} />
           <View style={styles.sidebarFooter}>
             <View style={styles.scopeBadge}>
               <RoleIcon role={role} size={18} />
@@ -370,7 +387,7 @@ export function RoleHomeScreen({
             {children}
           </View>
         </ScrollView>
-        {!isWide ? <Navigation compact role={role} /> : null}
+        {!isWide ? <Navigation activeNavigation={activeNavigation} compact onNavigate={onNavigate} role={role} /> : null}
       </View>
     </View>
   );

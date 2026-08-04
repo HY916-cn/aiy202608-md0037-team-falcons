@@ -1,5 +1,6 @@
 import type { RoleCode } from '@dolphincloud/auth';
-import { RoleHomeScreen } from '@dolphincloud/ui';
+import { resolveRoleNavigationKey, RoleHomeScreen } from '@dolphincloud/ui';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { RoleExperienceSections } from '../../experience';
 import { useAuthSession } from '../AuthSessionProvider';
@@ -11,6 +12,9 @@ export function AuthenticatedRoleHomeScreen({
   role,
 }: AuthenticatedRoleHomeScreenProps) {
   const session = useAuthSession();
+  const router = useRouter();
+  const { section } = useLocalSearchParams<{ readonly section?: string }>();
+  const activeNavigation = resolveRoleNavigationKey(role, section);
 
   if (
     session.user === null ||
@@ -22,17 +26,28 @@ export function AuthenticatedRoleHomeScreen({
 
   return (
     <RoleHomeScreen
+      activeNavigation={activeNavigation}
       availableRoles={session.availableRoles}
       availableRoleScopes={session.availableRoleScopes}
       currentRole={session.currentRole}
       onLogout={session.logout}
+      onNavigate={(key) =>
+        router.setParams({ section: key === 'home' ? undefined : key })
+      }
       onSwitchRole={session.switchRole}
       onSwitchRoleScope={session.switchRoleScope}
       role={role}
       roleScope={session.roleScope}
       user={session.user}
     >
-      <RoleExperienceSections role={role} roleScope={session.roleScope} />
+      <RoleExperienceSections
+        activeNavigation={activeNavigation}
+        onNavigate={(key) =>
+          router.setParams({ section: key === 'home' ? undefined : key })
+        }
+        role={role}
+        roleScope={session.roleScope}
+      />
     </RoleHomeScreen>
   );
 }
