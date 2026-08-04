@@ -22,6 +22,7 @@ type AuthSessionContextValue = AuthSession & {
   login(input: AuthLoginInput): Promise<void>;
   logout(): Promise<void>;
   switchRole(role: RoleCode): Promise<void>;
+  switchRoleScope(roleAssignmentId: string): Promise<void>;
 };
 
 type AuthSessionProviderProps = {
@@ -98,6 +99,12 @@ export function AuthSessionProvider({
     [runSessionAction, sessionAdapter],
   );
 
+  const switchRoleScope = useCallback(
+    (roleAssignmentId: string) =>
+      runSessionAction(() => sessionAdapter.switchRoleScope(roleAssignmentId)),
+    [runSessionAction, sessionAdapter],
+  );
+
   const value = useMemo<AuthSessionContextValue>(
     () => ({
       ...session,
@@ -105,8 +112,9 @@ export function AuthSessionProvider({
       login,
       logout,
       switchRole,
+      switchRoleScope,
     }),
-    [isLoading, login, logout, session, switchRole],
+    [isLoading, login, logout, session, switchRole, switchRoleScope],
   );
 
   return (

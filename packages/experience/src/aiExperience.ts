@@ -1,4 +1,4 @@
-import type { RoleCode } from '@dolphincloud/auth';
+import type { AuthRoleScope } from '@dolphincloud/auth';
 
 import type { WriteActionPreview } from './writeAction';
 
@@ -33,7 +33,7 @@ export interface AiExperienceAdapter {
   getSnapshot(): AiExperienceSnapshot;
   reset(): void;
   returnToModify(): Promise<void>;
-  selectActiveRole(role: RoleCode): Promise<void>;
+  selectActiveRole(roleScope: AuthRoleScope): Promise<void>;
   startListening(): void;
   submit(prompt: string): Promise<void>;
   subscribe(listener: AiExperienceListener): () => void;
@@ -95,7 +95,7 @@ export class MockAiExperienceAdapter implements AiExperienceAdapter {
     this.setSnapshot(createAiExperienceSnapshot('listening'));
   }
 
-  async selectActiveRole(_role: RoleCode): Promise<void> {
+  async selectActiveRole(_roleScope: AuthRoleScope): Promise<void> {
     await Promise.resolve();
   }
 

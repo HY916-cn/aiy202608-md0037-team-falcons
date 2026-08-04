@@ -5,7 +5,7 @@ import {
   type AiExperienceListener,
   type AiExperienceSnapshot,
 } from '@dolphincloud/experience';
-import type { RoleCode } from '@dolphincloud/auth';
+import type { AuthRoleScope, RoleCode } from '@dolphincloud/auth';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 type GatewayEnvelope = {
@@ -101,13 +101,14 @@ export class SupabaseAiExperienceAdapter implements AiExperienceAdapter {
     this.setSnapshot(createAiExperienceSnapshot('idle'));
   }
 
-  async selectActiveRole(role: RoleCode): Promise<void> {
+  async selectActiveRole(roleScope: AuthRoleScope): Promise<void> {
     const { data, error } = await this.client
       .from('role_assignments')
       .select('id')
-      .eq('role', role)
-      .order('created_at', { ascending: true })
-      .limit(1)
+      .eq('id', roleScope.assignmentId)
+      .eq('role', roleScope.role)
+      .eq('scope_type', roleScope.type)
+      .eq('scope_id', roleScope.id)
       .single();
     if (error !== null || typeof data?.id !== 'string') {
       this.contextId = undefined;

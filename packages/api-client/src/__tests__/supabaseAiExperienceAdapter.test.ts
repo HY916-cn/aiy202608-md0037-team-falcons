@@ -1,9 +1,32 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
+import type { AuthRoleScope } from '@dolphincloud/auth';
 
 import { SupabaseAiExperienceAdapter } from '../supabaseAiExperienceAdapter';
 
+const TEACHER_SCOPE: AuthRoleScope = {
+  assignmentId: 'context-teacher',
+  id: 'class-1',
+  label: '演示一班',
+  role: 'teacher',
+  type: 'class',
+};
+
+const SECOND_TEACHER_SCOPE: AuthRoleScope = {
+  assignmentId: 'context-teacher-class-2',
+  id: 'class-2',
+  label: '演示二班',
+  role: 'teacher',
+  type: 'class',
+};
+
 function createClient(invoke: ReturnType<typeof vi.fn>): SupabaseClient {
+  const single = vi.fn().mockResolvedValue({
+    data: { id: 'context-teacher' },
+    error: null,
+  });
+  const query = { eq: vi.fn(), single };
+  query.eq.mockReturnValue(query);
   return {
     auth: {
       getSession: vi.fn().mockResolvedValue({
@@ -12,48 +35,55 @@ function createClient(invoke: ReturnType<typeof vi.fn>): SupabaseClient {
       }),
     },
     from: vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          order: vi.fn().mockReturnValue({
-            limit: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue({
-                data: { id: 'context-teacher' },
-                error: null,
-              }),
-            }),
-          }),
-        }),
-      }),
+      select: vi.fn().mockReturnValue(query),
     }),
     functions: { invoke },
   } as unknown as SupabaseClient;
 }
 
 describe('SupabaseAiExperienceAdapter', () => {
-  it('多角色用户只提交当前选中的可验证 role assignment id', async () => {
-    const eq = vi.fn().mockReturnValue({
-      order: vi.fn().mockReturnValue({
-        limit: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({
-            data: { id: 'context-family' },
-            error: null,
-          }),
-        }),
-      }),
+  it('同一教师拥有两个班级时精确提交当前选择的第二个 scope', async () => {
+    const invoke = vi.fn().mockResolvedValue({
+      data: {
+        data: { sessionId: 'session-2', text: '二班摘要', type: 'text' },
+      },
+      error: null,
     });
-    const client = createClient(vi.fn()) as unknown as {
+    const eq = vi.fn();
+    const query = {
+      eq,
+      single: vi.fn().mockResolvedValue({
+        data: { id: SECOND_TEACHER_SCOPE.assignmentId },
+        error: null,
+      }),
+    };
+    eq.mockReturnValue(query);
+    const client = createClient(invoke) as unknown as {
       from: ReturnType<typeof vi.fn>;
     };
     client.from = vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({ eq }),
+      select: vi.fn().mockReturnValue(query),
     });
     const adapter = new SupabaseAiExperienceAdapter(
       client as unknown as SupabaseClient,
     );
 
-    await adapter.selectActiveRole('family');
+    await adapter.selectActiveRole(SECOND_TEACHER_SCOPE);
+    await adapter.submit('查询当前班级');
 
-    expect(eq).toHaveBeenCalledWith('role', 'family');
+    expect(eq.mock.calls).toEqual([
+      ['id', 'context-teacher-class-2'],
+      ['role', 'teacher'],
+      ['scope_type', 'class'],
+      ['scope_id', 'class-2'],
+    ]);
+    expect(invoke).toHaveBeenCalledWith('ai-gateway', {
+      body: {
+        contextId: 'context-teacher-class-2',
+        message: '查询当前班级',
+      },
+      headers: { 'x-ai-route': '/chat' },
+    });
   });
 
   it('通过网关返回预览且请求中不发送身份字段', async () => {
@@ -65,7 +95,7 @@ describe('SupabaseAiExperienceAdapter', () => {
       error: null,
     });
     const adapter = new SupabaseAiExperienceAdapter(createClient(invoke));
-    await adapter.selectActiveRole('teacher');
+    await adapter.selectActiveRole(TEACHER_SCOPE);
 
     await adapter.submit('查询今日摘要');
 
@@ -85,7 +115,7 @@ describe('SupabaseAiExperienceAdapter', () => {
       error: new Error('gateway unavailable'),
     });
     const adapter = new SupabaseAiExperienceAdapter(createClient(invoke));
-    await adapter.selectActiveRole('teacher');
+    await adapter.selectActiveRole(TEACHER_SCOPE);
     const ordinaryTeachingAction = vi.fn().mockResolvedValue('仍可使用');
 
     await adapter.submit('查询');
@@ -126,7 +156,7 @@ describe('SupabaseAiExperienceAdapter', () => {
         return { data: { data: { status: 'completed' } }, error: null };
       });
     const adapter = new SupabaseAiExperienceAdapter(createClient(invoke));
-    await adapter.selectActiveRole('teacher');
+    await adapter.selectActiveRole(TEACHER_SCOPE);
 
     await adapter.submit('发布作业');
     expect(invoke).toHaveBeenCalledTimes(1);
@@ -169,7 +199,7 @@ describe('SupabaseAiExperienceAdapter', () => {
       })
       .mockResolvedValueOnce({ data: { data: { status: 'cancelled' } }, error: null });
     const adapter = new SupabaseAiExperienceAdapter(createClient(invoke));
-    await adapter.selectActiveRole('teacher');
+    await adapter.selectActiveRole(TEACHER_SCOPE);
 
     await adapter.submit('创建草稿');
     await adapter.cancelAction();
@@ -206,7 +236,7 @@ describe('SupabaseAiExperienceAdapter', () => {
       })
       .mockResolvedValueOnce({ data: { data: { status: 'cancelled' } }, error: null });
     const adapter = new SupabaseAiExperienceAdapter(createClient(invoke));
-    await adapter.selectActiveRole('teacher');
+    await adapter.selectActiveRole(TEACHER_SCOPE);
     await adapter.submit('发布作业');
 
     await adapter.returnToModify();

@@ -28,6 +28,7 @@ function createSessionAwareClient() {
             order: vi.fn().mockResolvedValue({
               data: [
                 {
+                  id: 'assignment-teacher-school',
                   role: 'teacher',
                   scope_id: 'school-1',
                   scope_type: 'school',

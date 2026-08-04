@@ -18,18 +18,22 @@ type AuthenticatedRoleHomeScreenProps = {
 
 type SessionControlsProps = {
   readonly availableRoles: readonly RoleCode[];
+  readonly availableRoleScopes: readonly AuthRoleScope[];
   readonly currentRole: RoleCode;
   readonly onLogout: () => Promise<void>;
   readonly onSwitchRole: (role: RoleCode) => Promise<void>;
+  readonly onSwitchRoleScope: (roleAssignmentId: string) => Promise<void>;
   readonly roleScope: AuthRoleScope;
   readonly user: AuthUser;
 };
 
 function SessionControls({
   availableRoles,
+  availableRoleScopes,
   currentRole,
   onLogout,
   onSwitchRole,
+  onSwitchRoleScope,
   roleScope,
   user,
 }: SessionControlsProps) {
@@ -59,6 +63,18 @@ function SessionControls({
       await onLogout();
     } catch {
       setErrorMessage('退出没有成功，请重试。');
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const handleSwitchRoleScope = async (roleAssignmentId: string) => {
+    setErrorMessage(null);
+    setPendingAction(currentRole);
+    try {
+      await onSwitchRoleScope(roleAssignmentId);
+    } catch {
+      setErrorMessage('角色范围切换没有成功，请重试。');
     } finally {
       setPendingAction(null);
     }
@@ -111,6 +127,40 @@ function SessionControls({
         })}
       </View>
 
+      <Text style={styles.sectionTitle}>切换当前范围</Text>
+      <View style={styles.roleList}>
+        {availableRoleScopes
+          .filter((scope) => scope.role === currentRole)
+          .map((scope) => {
+            const isCurrent = scope.assignmentId === roleScope.assignmentId;
+            return (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{
+                  disabled: pendingAction !== null || isCurrent,
+                  selected: isCurrent,
+                }}
+                disabled={pendingAction !== null || isCurrent}
+                key={scope.assignmentId}
+                onPress={() => void handleSwitchRoleScope(scope.assignmentId)}
+                style={[
+                  styles.roleButton,
+                  isCurrent && styles.roleButtonCurrent,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.roleLabel,
+                    isCurrent && styles.roleLabelCurrent,
+                  ]}
+                >
+                  {scope.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+      </View>
+
       <Pressable
         accessibilityRole="button"
         accessibilityState={{
@@ -155,12 +205,14 @@ export function AuthenticatedRoleHomeScreen({
 
   return (
     <RoleHomeScreen role={role}>
-      <RoleExperienceSections role={role} />
+      <RoleExperienceSections role={role} roleScope={session.roleScope} />
       <SessionControls
         availableRoles={session.availableRoles}
+        availableRoleScopes={session.availableRoleScopes}
         currentRole={session.currentRole}
         onLogout={session.logout}
         onSwitchRole={session.switchRole}
+        onSwitchRoleScope={session.switchRoleScope}
         roleScope={session.roleScope}
         user={session.user}
       />

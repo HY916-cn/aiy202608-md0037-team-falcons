@@ -295,6 +295,34 @@ select throws_ok(
   'P0001', 'SESSION_LIMIT', '超过活动会话上限被拒绝'
 );
 
+reset role;
+update public.ai_sessions set status = 'closed'
+where user_id = '30000000-0000-0000-0000-000000000001';
+insert into public.role_assignments (user_id, role, scope_type, scope_id)
+values
+  ('30000000-0000-0000-0000-000000000001', 'teacher', 'class', '20000000-0000-0000-0000-000000000001'),
+  ('30000000-0000-0000-0000-000000000001', 'teacher', 'class', '20000000-0000-0000-0000-000000000002');
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000001', true);
+select lives_ok(
+  $$select public.create_ai_session((
+    select id from public.role_assignments
+    where user_id = auth.uid() and role = 'teacher'
+      and scope_type = 'class'
+      and scope_id = '20000000-0000-0000-0000-000000000002'
+  ))$$,
+  '同一教师拥有两个班级范围时可选择第二个 active context'
+);
+select is(
+  (select assignment.scope_id
+   from public.ai_sessions as session
+   join public.role_assignments as assignment on assignment.id = session.role_assignment_id
+   where session.user_id = auth.uid() and session.status = 'active'
+   order by session.created_at desc limit 1),
+  '20000000-0000-0000-0000-000000000002'::uuid,
+  'AI 会话精确绑定当前选择的第二个班级范围'
+);
+
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000021', true);
 select is((select count(*) from public.ai_sessions), 0::bigint, '家庭用户不能读取其他用户会话');
 select is((select count(*) from public.ai_action_drafts), 0::bigint, '家庭用户不能读取其他用户草稿');

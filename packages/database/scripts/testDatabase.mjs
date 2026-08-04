@@ -1,6 +1,8 @@
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
+import { testAtomicAiLimits } from './testDatabaseConcurrency.mjs';
+
 const cliPath = fileURLToPath(
   new URL('../node_modules/supabase/dist/supabase.js', import.meta.url),
 );
@@ -65,6 +67,7 @@ try {
   shouldStop = true;
   await smokeEdgeRuntime();
   run(['db', 'reset', '--local']);
+  await testAtomicAiLimits();
   run(['test', 'db', '--local']);
 } finally {
   if (shouldStop) {

@@ -86,19 +86,24 @@ $$;
 
 create or replace function public.create_ai_session(selected_role_assignment_id uuid)
 returns public.ai_sessions language plpgsql security definer set search_path = '' as $$
-declare created_session public.ai_sessions;
+declare
+  created_session public.ai_sessions;
+  current_user_id uuid := auth.uid();
 begin
-  if auth.uid() is null then raise exception 'UNAUTHENTICATED'; end if;
+  if current_user_id is null then raise exception 'UNAUTHENTICATED'; end if;
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(current_user_id::text, 0)
+  );
   if not exists (
     select 1 from public.role_assignments
-    where id = selected_role_assignment_id and user_id = auth.uid()
+    where id = selected_role_assignment_id and user_id = current_user_id
   ) then raise exception 'FORBIDDEN'; end if;
   if (select count(*) from public.ai_sessions
-      where user_id = auth.uid() and status = 'active') >= 10 then
+      where user_id = current_user_id and status = 'active') >= 10 then
     raise exception 'SESSION_LIMIT';
   end if;
   insert into public.ai_sessions (user_id, role_assignment_id)
-  values (auth.uid(), selected_role_assignment_id)
+  values (current_user_id, selected_role_assignment_id)
   returning * into created_session;
   return created_session;
 end;
@@ -124,26 +129,31 @@ create or replace function public.begin_ai_request(
   message_length integer
 )
 returns public.ai_sessions language plpgsql security definer set search_path = '' as $$
-declare target_session public.ai_sessions;
+declare
+  current_user_id uuid := auth.uid();
+  target_session public.ai_sessions;
 begin
-  if auth.uid() is null then raise exception 'UNAUTHENTICATED'; end if;
+  if current_user_id is null then raise exception 'UNAUTHENTICATED'; end if;
   if message_length < 1 or message_length > 2000 then raise exception 'MESSAGE_LENGTH'; end if;
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(current_user_id::text, 0)
+  );
   select * into target_session from public.ai_sessions
-  where id = target_session_id and user_id = auth.uid() and status = 'active'
+  where id = target_session_id and user_id = current_user_id and status = 'active'
     and role_assignment_id = selected_role_assignment_id;
   if target_session.id is null then raise exception 'FORBIDDEN'; end if;
   delete from public.ai_request_events
-  where user_id = auth.uid() and completed_at is null and lease_until <= now();
+  where user_id = current_user_id and completed_at is null and lease_until <= now();
   if (select count(*) from public.ai_request_events
-      where user_id = auth.uid() and created_at > now() - interval '1 minute') >= 20 then
+      where user_id = current_user_id and created_at > now() - interval '1 minute') >= 20 then
     raise exception 'RATE_LIMITED';
   end if;
   if (select count(*) from public.ai_request_events
-      where user_id = auth.uid() and completed_at is null and lease_until > now()) >= 2 then
+      where user_id = current_user_id and completed_at is null and lease_until > now()) >= 2 then
     raise exception 'CONCURRENCY_LIMIT';
   end if;
   insert into public.ai_request_events (id, session_id, user_id, lease_until)
-  values (request_id, target_session_id, auth.uid(), now() + interval '30 seconds');
+  values (request_id, target_session_id, current_user_id, now() + interval '30 seconds');
   return target_session;
 end;
 $$;

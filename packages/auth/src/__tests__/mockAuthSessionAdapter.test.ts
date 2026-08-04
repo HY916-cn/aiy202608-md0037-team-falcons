@@ -26,6 +26,7 @@ describe('MockAuthSessionAdapter', () => {
     expect(session.availableRoles).toHaveLength(6);
     expect(session.currentRole).toBe('class_terminal');
     expect(session.roleScope).toEqual({
+      assignmentId: 'demo_assignment_class_terminal',
       id: 'demo_class',
       label: '演示班级',
       role: 'class_terminal',
