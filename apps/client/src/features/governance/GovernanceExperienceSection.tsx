@@ -46,6 +46,10 @@ import {
   resolveGovernanceExperienceMode,
   resolveGovernanceLayout,
 } from './governancePresentation';
+import {
+  applyTeacherFineRuleSelection,
+  resolveInitialTeacherFineState,
+} from './walletWorkflow';
 
 const EMPTY: GovernanceSnapshot = {
   accounts: [], appeals: [], classCategories: [], classEntries: [], classScores: [],
@@ -641,12 +645,16 @@ function ClassScorePanel({ requestWrite, roleScope, snapshot }: { readonly reque
 
 function WalletPanel({ requestWrite, roleScope, snapshot }: { readonly requestWrite: RequestWrite; readonly roleScope: AuthRoleScope; readonly snapshot: GovernanceSnapshot }) {
   const service = useSupabaseServices().governanceService;
+  const activeFineRules = snapshot.fineRules.filter((item) => item.isActive);
+  const initialTeacherState = useMemo(() => resolveInitialTeacherFineState(snapshot.fineRules), [snapshot.fineRules]);
+
   const [studentId, setStudentId] = useState(snapshot.students[0]?.id ?? '');
-  const [amount, setAmount] = useState('10');
-  const [reason, setReason] = useState('校园银行账户调整');
+  const [amount, setAmount] = useState(roleScope.role === 'teacher' ? initialTeacherState.amount : '10');
+  const [reason, setReason] = useState(roleScope.role === 'teacher' ? initialTeacherState.reason : '校园银行账户调整');
   const [ruleName, setRuleName] = useState('物品损坏');
   const [ruleSlug, setRuleSlug] = useState('item_damage');
   const [ruleAmount, setRuleAmount] = useState('10');
+  const [fineRuleId, setFineRuleId] = useState(initialTeacherState.ruleId);
   const [orderId, setOrderId] = useState(snapshot.fineOrders[0]?.id ?? '');
   const [orderNote, setOrderNote] = useState('经核对后执行指定记录处理');
   const selectedStudent = snapshot.students.find((item) => item.id === studentId);
@@ -666,15 +674,15 @@ function WalletPanel({ requestWrite, roleScope, snapshot }: { readonly requestWr
         <Panel description="教师可选择班级内学生并关联罚款规则创建罚款单，结算或撤销由校园银行端执行。" icon={ReceiptText} title="罚款单">
           <Selector label="选择学生" onChange={setStudentId} options={snapshot.students.map((item) => ({ id: item.id, label: item.name }))} value={studentId} />
           <Selector label="适用规则" onChange={(id) => {
-            setRuleSlug(id);
-            const rule = snapshot.fineRules.find((item) => item.id === id);
-            if (rule !== undefined) {
-              setAmount(String(rule.defaultAmount));
-              setReason(rule.description);
+            const nextState = applyTeacherFineRuleSelection(snapshot.fineRules, id);
+            if (nextState !== null) {
+              setFineRuleId(nextState.ruleId);
+              setAmount(nextState.amount);
+              setReason(nextState.reason);
             }
-          }} options={snapshot.fineRules.filter((item) => item.isActive).map((item) => ({ id: item.id, label: `${item.displayName}（默认 ${item.defaultAmount}）` }))} value={ruleSlug} />
+          }} options={activeFineRules.map((item) => ({ id: item.id, label: `${item.displayName}（默认 ${item.defaultAmount}）` }))} value={fineRuleId} />
           <View style={styles.formRow}><Field label="本次罚款金额" onChange={setAmount} value={amount} /><Field label="补充说明" onChange={setReason} value={reason} /></View>
-          <Button disabled={studentId === '' || ruleSlug === '' || !validPositiveInteger(amount)} label="预览并开具罚单" onPress={() => requestWrite({ execute: () => service.createFine(roleScope, { amount: Number(amount), reason, ruleId: ruleSlug, studentId }), impact: ['开具待处理罚款单，不直接扣除余额'], isDangerous: true, operationType: '创建罚款单', parameters: [`金额：${amount}`, `说明：${reason}`], targets: [selectedStudent?.name ?? '所选学生'] }, '罚款单已开具')} />
+          <Button disabled={studentId === '' || fineRuleId === '' || !validPositiveInteger(amount)} label="预览并开具罚单" onPress={() => requestWrite({ execute: () => service.createFine(roleScope, { amount: Number(amount), reason, ruleId: fineRuleId, studentId }), impact: ['开具待处理罚款单，不直接扣除余额'], isDangerous: true, operationType: '创建罚款单', parameters: [`金额：${amount}`, `说明：${reason}`], targets: [selectedStudent?.name ?? '所选学生'] }, '罚款单已开具')} />
           {snapshot.fineOrders.length === 0 ? <Text style={styles.empty}>当前范围暂无罚款单记录。</Text> : snapshot.fineOrders.map((order) => <View key={order.id} style={styles.record}><Text style={styles.recordTitle}>{studentName(snapshot, order.studentId)} · {order.amount} 币 · {order.reason}</Text><Text style={styles.status}>{fineStatus(order.status)}</Text></View>)}
         </Panel>
       ) : (
