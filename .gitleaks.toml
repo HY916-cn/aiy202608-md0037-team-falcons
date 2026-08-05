@@ -18,6 +18,7 @@ useDefault = true
 
 [allowlist]
 description = "Legacy test-fixture idempotency keys present in historical commits only"
+regexTarget = "match"
 regexes = [
   '''\bck-2026-idem-a-XYZ\b''',
   '''\bck-2026-rev-1st-XYZ\b''',

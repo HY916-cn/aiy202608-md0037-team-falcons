@@ -419,19 +419,6 @@ begin
 end;
 $$;
 
-create or replace function public._governance_can_manage_student_score(
-  p_student_id uuid
-)
-returns boolean
-language sql
-stable
-security definer
-set search_path = ''
-as $$
-  select public._governance_can_teacher_access_student(p_student_id)
-    or public._governance_can_class_terminal_access_student(p_student_id);
-$$;
-
 create or replace function public._governance_can_teacher_access_student(
   p_student_id uuid
 )
@@ -487,6 +474,19 @@ as $$
     where assignment.teacher_id = auth.uid()
       and class.school_id = p_school_id
   );
+$$;
+
+create or replace function public._governance_can_manage_student_score(
+  p_student_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select public._governance_can_teacher_access_student(p_student_id)
+    or public._governance_can_class_terminal_access_student(p_student_id);
 $$;
 
 create or replace function public._governance_can_view_student_governance(
