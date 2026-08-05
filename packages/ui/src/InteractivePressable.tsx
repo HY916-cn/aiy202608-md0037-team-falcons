@@ -22,14 +22,18 @@ export type InteractivePressableProps = Omit<PressableProps, 'style'> & {
 const WEB_TRANSITION = Platform.select({
   web: {
     cursor: 'pointer',
-    transitionDuration: '140ms',
-    transitionProperty:
-      'background-color, border-color, box-shadow, opacity, transform',
-    transitionTimingFunction: 'ease-out',
+    transitionDuration: '83ms',
+    transitionProperty: 'background-color, border-color, box-shadow, opacity',
+    transitionTimingFunction: 'linear',
   } as ViewStyle,
 });
 
+const WEB_DISABLED = Platform.select({
+  web: { cursor: 'auto' } as ViewStyle,
+});
+
 export function InteractivePressable({
+  disabled,
   onBlur,
   onFocus,
   onHoverIn,
@@ -43,6 +47,7 @@ export function InteractivePressable({
   return (
     <Pressable
       {...props}
+      disabled={disabled}
       onBlur={(event) => {
         setFocused(false);
         onBlur?.(event);
@@ -61,6 +66,7 @@ export function InteractivePressable({
       }}
       style={({ pressed }) => [
         WEB_TRANSITION,
+        disabled && WEB_DISABLED,
         typeof style === 'function'
           ? style({ focused, hovered, pressed })
           : style,

@@ -22,16 +22,16 @@ import {
   UsersRound,
   type LucideIcon,
 } from 'lucide-react-native';
-import type { ReactNode, RefObject } from 'react';
+import type { ReactNode } from 'react';
 import {
   useCallback,
   useEffect,
   useMemo,
   useReducer,
-  useRef,
   useState,
 } from 'react';
 import {
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -73,6 +73,15 @@ export function resolveRoleHomeLayout(width: number) {
     isCompactMobile: width < 480,
     isWide: width >= 960,
   } as const;
+}
+
+export function isRoleHomeMenuInteractionTarget(target: EventTarget | null) {
+  const element = target as { closest?: (selector: string) => unknown } | null;
+  return Boolean(
+    element?.closest?.(
+      '[id^="role-home-popup-"], [id^="role-home-trigger-"]',
+    ),
+  );
 }
 
 const ROLE_NAVIGATION = {
@@ -159,8 +168,6 @@ function Navigation({
   onNavigate,
   onOverflowToggle,
   onRequestClose,
-  overflowMenuRef,
-  overflowTriggerRef,
   role,
 }: {
   readonly activeNavigation: RoleNavigationKey;
@@ -169,8 +176,6 @@ function Navigation({
   readonly onNavigate: ((key: RoleNavigationKey) => void) | undefined;
   readonly onOverflowToggle: () => void;
   readonly onRequestClose: () => void;
-  readonly overflowMenuRef: RefObject<View | null>;
-  readonly overflowTriggerRef: RefObject<View | null>;
   readonly role: RoleCode;
 }) {
   const items = ROLE_NAVIGATION[role];
@@ -200,14 +205,14 @@ function Navigation({
             : compact
               ? styles.mobileNavItem
               : styles.navItem,
-          isActive && (compact ? styles.mobileNavItemActive : styles.navItemActive),
           hovered && styles.interactiveHover,
           focused && styles.interactiveFocus,
           pressed && styles.pressed,
+          isActive && (compact ? styles.mobileNavItemActive : styles.navItemActive),
         ]}
       >
         <Icon
-          color={isActive ? theme.color.brand.primary : theme.color.text.secondary}
+          color={isActive ? theme.color.brand.primary : theme.color.icon.secondary}
           size={isOverflowItem ? 19 : compact ? 22 : 20}
           strokeWidth={2}
         />
@@ -231,7 +236,7 @@ function Navigation({
   return (
     <View style={compact ? styles.mobileNavigation : styles.navigation}>
       {isOverflowOpen ? (
-        <View ref={overflowMenuRef} style={styles.mobileOverflowMenu}>
+        <View nativeID="role-home-popup-more" style={styles.mobileOverflowMenu}>
           <Text style={styles.mobileOverflowLabel}>更多功能</Text>
           {overflowItems.map((item) => (
             <View key={item.key} style={styles.mobileOverflowRow}>
@@ -242,7 +247,7 @@ function Navigation({
       ) : null}
       {visibleItems.map((item) => renderItem(item))}
       {hasOverflow ? (
-        <View ref={overflowTriggerRef} style={styles.mobileNavSlot}>
+        <View nativeID="role-home-trigger-more" style={styles.mobileNavSlot}>
           <InteractivePressable
             accessibilityLabel="更多"
             accessibilityRole="button"
@@ -250,17 +255,17 @@ function Navigation({
             onPress={onOverflowToggle}
             style={({ focused, hovered, pressed }) => [
               styles.mobileNavItem,
-              isOverflowActive && styles.mobileNavItemActive,
               hovered && styles.interactiveHover,
               focused && styles.interactiveFocus,
               pressed && styles.pressed,
+              isOverflowActive && styles.mobileNavItemActive,
             ]}
           >
             <Ellipsis
               color={
                 isOverflowActive
                   ? theme.color.brand.primary
-                  : theme.color.text.secondary
+                  : theme.color.icon.secondary
               }
               size={22}
             />
@@ -296,12 +301,6 @@ export function RoleHomeScreen({
   const { width } = useWindowDimensions();
   const { isCompactMobile, isWide } = resolveRoleHomeLayout(width);
   const [openMenu, dispatchMenu] = useReducer(reduceRoleHomeMenu, null);
-  const accountMenuRef = useRef<View>(null);
-  const accountTriggerRef = useRef<View>(null);
-  const notificationMenuRef = useRef<View>(null);
-  const notificationTriggerRef = useRef<View>(null);
-  const overflowMenuRef = useRef<View>(null);
-  const overflowTriggerRef = useRef<View>(null);
   const [pendingAction, setPendingAction] = useState<RoleCode | 'logout' | null>(null);
   const [pendingScopeId, setPendingScopeId] = useState<string | null>(null);
   const pageHeader = resolveRolePageHeader(role, activeNavigation);
@@ -333,23 +332,7 @@ export function RoleHomeScreen({
       if (event.key === 'Escape') dispatchMenu({ type: 'escape' });
     };
     const handlePointerDown = (event: Event) => {
-      const target = event.target;
-      const containsTarget = (ref: RefObject<View | null>) => {
-        const node = ref.current as unknown as {
-          contains?: (candidate: EventTarget | null) => boolean;
-        } | null;
-        return node?.contains?.(target) === true;
-      };
-      if ([
-        accountMenuRef,
-        accountTriggerRef,
-        notificationMenuRef,
-        notificationTriggerRef,
-        overflowMenuRef,
-        overflowTriggerRef,
-      ].some(containsTarget)) {
-        return;
-      }
+      if (isRoleHomeMenuInteractionTarget(event.target)) return;
       closeMenus();
     };
 
@@ -405,7 +388,7 @@ export function RoleHomeScreen({
 
   const accountMenu = isAccountOpen ? (
     <View
-      ref={accountMenuRef}
+      nativeID="role-home-popup-account"
       style={[styles.accountMenu, !isWide && styles.accountMenuMobile]}
     >
       <Text style={styles.accountName}>{user?.displayName ?? '当前用户'}</Text>
@@ -479,7 +462,7 @@ export function RoleHomeScreen({
           pressed && styles.pressed,
         ]}
       >
-        <LogOut color={theme.color.text.secondary} size={17} />
+        <LogOut color={theme.color.icon.secondary} size={17} />
         <Text style={styles.logoutLabel}>
           {pendingAction === 'logout' ? '退出中…' : '退出登录'}
         </Text>
@@ -489,7 +472,7 @@ export function RoleHomeScreen({
 
   const notificationMenu = isNotificationsOpen ? (
     <View
-      ref={notificationMenuRef}
+      nativeID="role-home-popup-notifications"
       style={[styles.notificationMenu, !isWide && styles.notificationMenuMobile]}
     >
       <View style={styles.notificationHeading}>
@@ -498,7 +481,7 @@ export function RoleHomeScreen({
       </View>
       <View style={styles.menuDivider} />
       <View style={styles.notificationEmpty}>
-        <Bell color={theme.color.text.disabled} size={22} />
+        <Bell color={theme.color.icon.disabled} size={22} />
         <Text style={styles.notificationEmptyTitle}>当前没有新通知</Text>
         <Text style={styles.notificationEmptyText}>
           后续业务提醒只会显示在当前角色与权限范围内。
@@ -511,7 +494,7 @@ export function RoleHomeScreen({
     <View style={[styles.topBar, isCompactMobile && styles.topBarCompact]}>
       {!isWide ? <BrandLockup compact={isCompactMobile} /> : <View />}
       <View style={styles.topBarActions}>
-        <View ref={notificationTriggerRef}>
+        <View nativeID="role-home-trigger-notifications">
           <InteractivePressable
             accessibilityLabel="通知"
             accessibilityRole="button"
@@ -524,10 +507,10 @@ export function RoleHomeScreen({
               pressed && styles.pressed,
             ]}
           >
-            <Bell color={theme.color.text.primary} size={20} />
+            <Bell color={theme.color.icon.primary} size={20} />
           </InteractivePressable>
         </View>
-        <View ref={accountTriggerRef}>
+        <View nativeID="role-home-trigger-account">
           <InteractivePressable
             accessibilityLabel="账号与角色"
             accessibilityRole="button"
@@ -547,7 +530,7 @@ export function RoleHomeScreen({
                 <Text style={styles.accountButtonRole}>{ROLE_LABELS[role]}</Text>
               </View>
             ) : null}
-            <ChevronDown color={theme.color.text.secondary} size={17} />
+            <ChevronDown color={theme.color.icon.secondary} size={17} />
           </InteractivePressable>
         </View>
       </View>
@@ -558,7 +541,7 @@ export function RoleHomeScreen({
 
   return (
     <View style={styles.shell}>
-      {openMenu !== null ? (
+      {openMenu !== null && Platform.OS !== 'web' ? (
         <InteractivePressable
           accessibilityLabel="关闭弹出菜单"
           accessibilityRole="button"
@@ -576,8 +559,6 @@ export function RoleHomeScreen({
             onNavigate={onNavigate}
             onOverflowToggle={closeMenus}
             onRequestClose={closeMenus}
-            overflowMenuRef={overflowMenuRef}
-            overflowTriggerRef={overflowTriggerRef}
             role={role}
           />
           <View style={styles.sidebarFooter}>
@@ -609,15 +590,36 @@ export function RoleHomeScreen({
                 isCompactMobile && styles.pageHeadingCompact,
               ]}
             >
-              <View style={styles.headingCopy}>
-                <Text style={styles.eyebrow}>{pageHeader.eyebrow}</Text>
-                <Text style={styles.pageTitle}>{pageHeader.title}</Text>
-                <Text style={styles.pageDescription}>{pageHeader.description}</Text>
-              </View>
-              <View style={[styles.dateBadge, isCompactMobile && styles.dateBadgeCompact]}>
-                <Text style={styles.datePrimary}>{today.date}</Text>
-                <Text style={styles.dateSecondary}>{today.weekday}</Text>
-              </View>
+              {isCompactMobile ? (
+                <View style={styles.compactHeading}>
+                  <View style={styles.compactMetaRow}>
+                    <Text numberOfLines={1} style={[styles.eyebrow, styles.compactEyebrow]}>
+                      {pageHeader.eyebrow}
+                    </Text>
+                    <Text style={styles.compactDate}>
+                      {today.date} · {today.weekday}
+                    </Text>
+                  </View>
+                  <Text style={[styles.pageTitle, styles.pageTitleCompact]}>
+                    {pageHeader.title}
+                  </Text>
+                  <Text style={[styles.pageDescription, styles.pageDescriptionCompact]}>
+                    {pageHeader.description}
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <View style={styles.headingCopy}>
+                    <Text style={styles.eyebrow}>{pageHeader.eyebrow}</Text>
+                    <Text style={styles.pageTitle}>{pageHeader.title}</Text>
+                    <Text style={styles.pageDescription}>{pageHeader.description}</Text>
+                  </View>
+                  <View style={styles.dateBadge}>
+                    <Text style={styles.datePrimary}>{today.date}</Text>
+                    <Text style={styles.dateSecondary}>{today.weekday}</Text>
+                  </View>
+                </>
+              )}
             </View>
             {children}
           </View>
@@ -630,8 +632,6 @@ export function RoleHomeScreen({
             onNavigate={onNavigate}
             onOverflowToggle={() => dispatchMenu({ menu: 'more', type: 'toggle' })}
             onRequestClose={closeMenus}
-            overflowMenuRef={overflowMenuRef}
-            overflowTriggerRef={overflowTriggerRef}
             role={role}
           />
         ) : null}
@@ -642,80 +642,85 @@ export function RoleHomeScreen({
 
 const styles = StyleSheet.create({
   shell: { backgroundColor: theme.color.surface.page, flex: 1, flexDirection: 'row', minHeight: 0, position: 'relative' },
-  sidebar: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRightWidth: 1, padding: theme.space.lg, width: 244 },
+  sidebar: { backgroundColor: theme.color.surface.layerAlt, borderColor: theme.color.border.default, borderRightWidth: 1, padding: theme.space.lg, width: 240 },
   brandLockup: { alignItems: 'center', flexDirection: 'row', gap: theme.space.base },
-  brandMark: { alignItems: 'center', backgroundColor: theme.color.surface.card, borderRadius: 13, height: 42, justifyContent: 'center', width: 42 },
-  brandName: { color: theme.color.text.primary, fontSize: 18, fontWeight: '800', letterSpacing: 0.4 },
+  brandMark: { alignItems: 'center', backgroundColor: theme.color.surface.layerAlt, borderRadius: theme.radius.control, height: 40, justifyContent: 'center', width: 40 },
+  brandName: { color: theme.color.text.primary, fontSize: 18, fontWeight: '600', letterSpacing: 0.2 },
   brandEnglish: { color: theme.color.text.secondary, fontSize: 10, fontWeight: '600', letterSpacing: 0.6, marginTop: 1 },
-  navigation: { gap: 2, marginTop: 42 },
-  navItem: { alignItems: 'center', borderLeftColor: 'transparent', borderLeftWidth: 3, flexDirection: 'row', gap: theme.space.base, minHeight: 46, paddingHorizontal: theme.space.base },
-  navItemActive: { backgroundColor: theme.color.surface.primaryTint, borderLeftColor: theme.color.brand.primary },
+  navigation: { gap: theme.space.xs, marginTop: 40 },
+  navItem: { alignItems: 'center', borderLeftColor: 'transparent', borderLeftWidth: 4, borderRadius: theme.radius.control, flexDirection: 'row', gap: theme.space.base, minHeight: 48, paddingHorizontal: theme.space.base },
+  navItemActive: { backgroundColor: theme.color.surface.secondaryTint, borderLeftColor: theme.color.brand.primary },
   navLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.sm, fontWeight: '600' },
   navLabelActive: { color: theme.color.brand.primary, fontWeight: '700' },
-  interactiveFocus: { borderColor: theme.color.brand.primary, borderWidth: 1, boxShadow: '0 0 0 3px rgba(22, 119, 254, 0.18)' },
-  interactiveHover: { backgroundColor: theme.color.surface.primaryTint },
-  pressed: { opacity: 0.68, transform: [{ scale: 0.985 }] },
+  interactiveFocus: { boxShadow: theme.shadow.focus },
+  interactiveHover: { backgroundColor: theme.color.surface.subtleHover },
+  pressed: { backgroundColor: theme.color.surface.subtlePressed },
   sidebarFooter: { flex: 1, justifyContent: 'flex-end' },
   scopeBadge: { alignItems: 'center', borderTopColor: theme.color.border.default, borderTopWidth: 1, flexDirection: 'row', gap: theme.space.sm, paddingHorizontal: theme.space.xs, paddingTop: theme.space.md },
   scopeCopy: { flex: 1 },
   scopeRole: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '700' },
   scopeLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, marginTop: 2 },
   main: { flex: 1, minHeight: 0, minWidth: 0 },
-  topBar: { alignItems: 'center', backgroundColor: theme.color.surface.card, borderBottomColor: theme.color.border.default, borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', minHeight: 72, paddingHorizontal: theme.space.lg, position: 'relative', zIndex: 20 },
-  topBarCompact: { minHeight: 64, paddingHorizontal: theme.space.md },
+  topBar: { alignItems: 'center', backgroundColor: theme.color.surface.layerAlt, borderBottomColor: theme.color.border.default, borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', minHeight: 64, paddingHorizontal: theme.space.lg, position: 'relative', zIndex: 20 },
+  topBarCompact: { minHeight: 56, paddingHorizontal: theme.space.base },
   topBarActions: { alignItems: 'center', flexDirection: 'row', gap: theme.space.sm },
-  iconButton: { alignItems: 'center', borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, height: 42, justifyContent: 'center', position: 'relative', width: 42 },
-  notificationMenu: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, elevation: 8, gap: theme.space.sm, padding: theme.space.md, position: 'absolute', right: 190, top: 62, width: 300, zIndex: 40 },
-  notificationMenuMobile: { right: 72, top: 60, width: 260 },
+  iconButton: { alignItems: 'center', borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, height: 40, justifyContent: 'center', position: 'relative', width: 40 },
+  notificationMenu: { backgroundColor: theme.color.surface.layerAlt, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, boxShadow: theme.shadow.flyout, elevation: 8, gap: theme.space.sm, padding: theme.space.md, position: 'absolute', right: 184, top: 56, width: 304, zIndex: 40 },
+  notificationMenuMobile: { right: 68, top: 52, width: 264 },
   notificationHeading: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   notificationCount: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, fontWeight: '700' },
   notificationEmpty: { alignItems: 'center', gap: theme.space.xs, paddingHorizontal: theme.space.sm, paddingVertical: theme.space.lg },
-  notificationEmptyTitle: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '800' },
+  notificationEmptyTitle: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '600' },
   notificationEmptyText: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, lineHeight: 18, textAlign: 'center' },
-  accountButton: { alignItems: 'center', borderRadius: theme.radius.control, flexDirection: 'row', gap: theme.space.sm, minHeight: 46, paddingHorizontal: theme.space.sm },
+  accountButton: { alignItems: 'center', borderRadius: theme.radius.control, flexDirection: 'row', gap: theme.space.sm, minHeight: 44, paddingHorizontal: theme.space.sm },
   avatar: { alignItems: 'center', backgroundColor: theme.color.surface.primaryTint, borderRadius: theme.radius.pill, height: 36, justifyContent: 'center', width: 36 },
-  avatarText: { color: theme.color.brand.primary, fontSize: theme.text.size.sm, fontWeight: '800' },
+  avatarText: { color: theme.color.brand.primary, fontSize: theme.text.size.sm, fontWeight: '600' },
   accountCopy: { width: 100 },
   accountButtonName: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '700' },
   accountButtonRole: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, marginTop: 2 },
-  accountMenu: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, elevation: 8, gap: theme.space.sm, padding: theme.space.md, position: 'absolute', right: theme.space.lg, top: 62, width: 280, zIndex: 40 },
-  accountMenuMobile: { right: theme.space.md, top: 60, width: 260 },
+  accountMenu: { backgroundColor: theme.color.surface.layerAlt, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, boxShadow: theme.shadow.flyout, elevation: 8, gap: theme.space.sm, padding: theme.space.md, position: 'absolute', right: theme.space.lg, top: 56, width: 280, zIndex: 40 },
+  accountMenuMobile: { right: theme.space.base, top: 52, width: 264 },
   accountName: { color: theme.color.text.primary, fontSize: theme.text.size.md, fontWeight: '700' },
   accountScope: { color: theme.color.text.secondary, fontSize: theme.text.size.xs },
   menuDivider: { backgroundColor: theme.color.border.default, height: 1, marginVertical: theme.space.xs },
   menuLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, fontWeight: '700' },
   roleOptions: { gap: theme.space.xs },
-  roleOption: { alignItems: 'center', borderRadius: theme.radius.control, flexDirection: 'row', gap: theme.space.sm, minHeight: 38, paddingHorizontal: theme.space.sm },
+  roleOption: { alignItems: 'center', borderRadius: theme.radius.control, flexDirection: 'row', gap: theme.space.sm, minHeight: 40, paddingHorizontal: theme.space.sm },
   roleOptionActive: { backgroundColor: theme.color.surface.primaryTint },
   roleOptionLabel: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '600' },
-  scopeOptionMarker: { backgroundColor: theme.color.brand.primary, borderRadius: theme.radius.pill, height: 7, width: 7 },
+  scopeOptionMarker: { backgroundColor: theme.color.brand.primary, borderRadius: theme.radius.pill, height: 8, width: 8 },
   logoutButton: { alignItems: 'center', flexDirection: 'row', gap: theme.space.sm, minHeight: 40, paddingHorizontal: theme.space.sm },
   logoutLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.sm, fontWeight: '600' },
   scrollArea: { flex: 1, minHeight: 0 },
-  page: { alignItems: 'center', paddingBottom: 56, paddingHorizontal: theme.space.xl, paddingTop: 36 },
-  pageCompact: { paddingBottom: 40, paddingHorizontal: theme.space.md, paddingTop: theme.space.lg },
-  content: { gap: 28, maxWidth: 1180, width: '100%' },
-  contentCompact: { gap: theme.space.md },
+  page: { alignItems: 'center', paddingBottom: 48, paddingHorizontal: theme.space.lg, paddingTop: theme.space.lg },
+  pageCompact: { paddingBottom: theme.space.lg, paddingHorizontal: theme.space.base, paddingTop: theme.space.base },
+  content: { gap: theme.space.lg, maxWidth: 1180, width: '100%' },
+  contentCompact: { gap: theme.space.base },
   pageHeading: { alignItems: 'flex-end', flexDirection: 'row', gap: theme.space.md, justifyContent: 'space-between' },
-  pageHeadingCompact: { alignItems: 'flex-start', flexDirection: 'column', gap: theme.space.sm },
+  pageHeadingCompact: { alignItems: 'stretch', flexDirection: 'column', gap: 0 },
   headingCopy: { flex: 1 },
   eyebrow: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, fontWeight: '700', marginBottom: 6 },
-  pageTitle: { color: theme.color.text.primary, fontSize: theme.text.size.display, fontWeight: '700', letterSpacing: -0.7 },
+  pageTitle: { color: theme.color.text.primary, fontSize: theme.text.size.display, fontWeight: '600', letterSpacing: -0.4, lineHeight: 36 },
+  pageTitleCompact: { fontSize: theme.text.size.xl, letterSpacing: -0.2, lineHeight: 30 },
   pageDescription: { color: theme.color.text.secondary, fontSize: theme.text.size.sm, lineHeight: 22, marginTop: 6 },
+  pageDescriptionCompact: { fontSize: 13, lineHeight: 19, marginTop: 2 },
   dateBadge: { alignItems: 'flex-end' },
-  dateBadgeCompact: { alignItems: 'flex-start' },
   datePrimary: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '700' },
   dateSecondary: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, marginTop: 2 },
-  mobileNavigation: { backgroundColor: theme.color.surface.card, borderTopColor: theme.color.border.default, borderTopWidth: 1, flexDirection: 'row', paddingBottom: theme.space.sm, paddingHorizontal: theme.space.xs, paddingTop: theme.space.sm, position: 'relative', zIndex: 30 },
-  mobileNavItem: { alignItems: 'center', flex: 1, gap: 3, justifyContent: 'center', minHeight: 50 },
+  compactHeading: { width: '100%' },
+  compactMetaRow: { alignItems: 'center', flexDirection: 'row', gap: theme.space.sm, justifyContent: 'space-between', marginBottom: theme.space.xs },
+  compactEyebrow: { flex: 1, marginBottom: 0, minWidth: 0 },
+  compactDate: { color: theme.color.text.secondary, flexShrink: 0, fontSize: theme.text.size.xs, fontWeight: '600' },
+  mobileNavigation: { backgroundColor: theme.color.surface.layerAlt, borderTopColor: theme.color.border.default, borderTopWidth: 1, flexDirection: 'row', paddingBottom: theme.space.sm, paddingHorizontal: theme.space.xs, paddingTop: theme.space.sm, position: 'relative', zIndex: 30 },
+  mobileNavItem: { alignItems: 'center', flex: 1, gap: theme.space.xs, justifyContent: 'center', minHeight: 48 },
   mobileNavSlot: { flex: 1 },
   mobileNavItemActive: { backgroundColor: theme.color.surface.primaryTint, borderRadius: theme.radius.control },
   mobileNavLabel: { color: theme.color.text.secondary, fontSize: 10, fontWeight: '600' },
   mobileNavLabelActive: { color: theme.color.brand.primary },
-  mobileOverflowLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, fontWeight: '800', paddingHorizontal: theme.space.base, paddingTop: theme.space.sm },
+  mobileOverflowLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, fontWeight: '600', paddingHorizontal: theme.space.base, paddingTop: theme.space.sm },
   mobileOverflowItem: { alignItems: 'center', borderRadius: theme.radius.control, flex: 1, flexDirection: 'row', gap: theme.space.sm, minHeight: 48, paddingHorizontal: theme.space.base },
   mobileOverflowItemLabel: { color: theme.color.text.primary, flex: 1, fontSize: theme.text.size.sm, fontWeight: '700' },
-  mobileOverflowMenu: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, bottom: 70, elevation: 10, gap: theme.space.xs, padding: theme.space.xs, position: 'absolute', right: theme.space.sm, width: 190, zIndex: 40 },
+  mobileOverflowMenu: { backgroundColor: theme.color.surface.layerAlt, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, bottom: 64, boxShadow: theme.shadow.flyout, elevation: 10, gap: theme.space.xs, padding: theme.space.xs, position: 'absolute', right: theme.space.sm, width: 192, zIndex: 40 },
   mobileOverflowRow: { minHeight: 52 },
   menuDismissLayer: { bottom: 0, left: 0, position: 'absolute', right: 0, top: 0, zIndex: 19 },
 });

@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  isRoleHomeMenuInteractionTarget,
   reduceRoleHomeMenu,
   resolveRoleHomeLayout,
 } from '../RoleHomeScreen';
 import { resolveWorkspaceLayout } from '../ProfessionalWorkspace';
+import { theme } from '../theme';
 
 const { EmptyComponent } = vi.hoisted(() => ({ EmptyComponent: () => null }));
 
@@ -81,6 +83,35 @@ describe('RoleHomeScreen shell state', () => {
       expect(reduceRoleHomeMenu('more', { type })).toBeNull();
     },
   );
+
+  it('只把弹层和触发器内部识别为菜单交互区域', () => {
+    const internalTarget = {
+      closest: vi.fn().mockReturnValue({ id: 'role-home-popup-account' }),
+    } as unknown as EventTarget;
+    const externalTarget = {
+      closest: vi.fn().mockReturnValue(null),
+    } as unknown as EventTarget;
+
+    expect(isRoleHomeMenuInteractionTarget(internalTarget)).toBe(true);
+    expect(isRoleHomeMenuInteractionTarget(externalTarget)).toBe(false);
+    expect(isRoleHomeMenuInteractionTarget(null)).toBe(false);
+  });
+
+  it('使用 WinUI 的 4px 控件圆角和 8px 覆盖层圆角', () => {
+    expect(theme.radius.control).toBe(4);
+    expect(theme.radius.card).toBe(8);
+    expect(theme.text.size.display).toBe(28);
+  });
+
+  it('使用 WinUI 浅色语义资源，而不是暗色资源值', () => {
+    expect(theme.color.surface.page).toBe('#F3F3F3');
+    expect(theme.color.surface.card).toBe('rgba(255,255,255,0.702)');
+    expect(theme.color.surface.input).toBe('#FFFFFF');
+    expect(theme.color.text.primary).toBe('rgba(0,0,0,0.894)');
+    expect(theme.color.text.secondary).toBe('rgba(0,0,0,0.620)');
+    expect(theme.color.border.default).toBe('rgba(0,0,0,0.060)');
+    expect(theme.color.system.critical).toBe('#C42B1C');
+  });
 
   it.each([
     [390, true, false],

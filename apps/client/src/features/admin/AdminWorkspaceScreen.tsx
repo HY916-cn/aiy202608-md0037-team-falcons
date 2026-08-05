@@ -101,10 +101,10 @@ function roleScopeSummary(user: AdminUserRow): string {
 
 function serviceTone(
   state: AdminServiceState,
-): 'muted' | 'primary' | 'secondary' {
+): 'critical' | 'primary' | 'secondary' {
   if (state === 'available') return 'primary';
   if (state === 'degraded') return 'secondary';
-  return 'muted';
+  return 'critical';
 }
 
 async function exportCsv(filename: string, content: string): Promise<void> {
@@ -214,7 +214,7 @@ function AuditRows({
               <Text style={styles.rowPrimary}>{event.action}</Text>
               <WorkspaceStatusTag
                 label={AUDIT_RESULT_LABELS[event.result]}
-                tone={event.result === 'success' ? 'primary' : 'muted'}
+                tone={event.result === 'success' ? 'primary' : 'critical'}
               />
             </View>
             <Text style={styles.rowSecondary}>
@@ -252,7 +252,7 @@ function AuditRows({
           <View style={styles.statusCell}>
             <WorkspaceStatusTag
               label={AUDIT_RESULT_LABELS[event.result]}
-              tone={event.result === 'success' ? 'primary' : 'muted'}
+              tone={event.result === 'success' ? 'primary' : 'critical'}
             />
           </View>
           <Text style={[styles.rowMeta, styles.timeCell]}>
@@ -271,7 +271,7 @@ function ServiceRows({ snapshot }: { readonly snapshot: AdminWorkspaceSnapshot }
         <View key={service.id} style={styles.serviceRow}>
           <View style={styles.serviceIdentity}>
             {service.state === 'offline' ? (
-              <WifiOff color={theme.color.text.secondary} size={19} />
+              <WifiOff color={theme.color.icon.secondary} size={19} />
             ) : (
               <ShieldCheck color={theme.color.brand.primary} size={19} />
             )}
@@ -441,7 +441,7 @@ export function AdminWorkspaceScreen({
             pressed && styles.pressed,
           ]}
         >
-          <RefreshCw color={theme.color.surface.card} size={17} />
+          <RefreshCw color={theme.color.text.onAccent} size={17} />
           <Text style={styles.retryLabel}>重新验证并读取</Text>
         </InteractivePressable>
       </WorkspaceSurface>
@@ -604,19 +604,19 @@ const styles = StyleSheet.create({
   compactRow: { borderBottomColor: theme.color.border.default, borderBottomWidth: 1, gap: theme.space.xs, paddingHorizontal: theme.space.base, paddingVertical: theme.space.md },
   emptyResult: { alignItems: 'center', borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderStyle: 'dashed', borderWidth: 1, paddingHorizontal: theme.space.md, paddingVertical: theme.space.xl },
   emptyText: { color: theme.color.text.secondary, fontSize: theme.text.size.sm, lineHeight: 21, textAlign: 'center' },
-  emptyTitle: { color: theme.color.text.primary, fontSize: theme.text.size.md, fontWeight: '800', marginBottom: theme.space.xs },
+  emptyTitle: { color: theme.color.text.primary, fontSize: theme.text.size.md, fontWeight: '600', marginBottom: theme.space.xs },
   errorText: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '700', lineHeight: 21 },
   feedback: { color: theme.color.brand.primary, fontSize: theme.text.size.sm, fontWeight: '700' },
-  focused: { borderColor: theme.color.brand.primary, borderWidth: 1, boxShadow: '0 0 0 3px rgba(22, 119, 254, 0.18)' },
-  headerCell: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, fontWeight: '800' },
+  focused: { boxShadow: theme.shadow.focus },
+  headerCell: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, fontWeight: '600' },
   permissionCell: { flex: 1, minWidth: 0 },
-  pressed: { opacity: 0.72, transform: [{ scale: 0.985 }] },
+  pressed: { opacity: 0.82 },
   retryButton: { alignItems: 'center', alignSelf: 'flex-start', backgroundColor: theme.color.brand.primary, borderRadius: theme.radius.control, flexDirection: 'row', gap: theme.space.sm, minHeight: 44, paddingHorizontal: theme.space.md },
-  retryHovered: { opacity: 0.88 },
-  retryLabel: { color: theme.color.surface.card, fontSize: theme.text.size.sm, fontWeight: '700' },
+  retryHovered: { backgroundColor: theme.color.brand.hover },
+  retryLabel: { color: theme.color.text.onAccent, fontSize: theme.text.size.sm, fontWeight: '700' },
   rowHeading: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm, justifyContent: 'space-between' },
   rowMeta: { color: theme.color.text.disabled, fontSize: theme.text.size.xs, lineHeight: 18 },
-  rowPrimary: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '800', lineHeight: 20 },
+  rowPrimary: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '600', lineHeight: 20 },
   rowSecondary: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, lineHeight: 18 },
   rowTechnical: { color: theme.color.text.disabled, fontFamily: Platform.select({ android: 'monospace', default: 'monospace' }), fontSize: 10, lineHeight: 16 },
   scopeCell: { flex: 1.8 },
@@ -627,7 +627,7 @@ const styles = StyleSheet.create({
   serviceMeta: { alignItems: 'flex-end', gap: theme.space.xs },
   serviceRow: { alignItems: 'center', borderBottomColor: theme.color.border.default, borderBottomWidth: 1, flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.base, justifyContent: 'space-between', minHeight: 72, paddingHorizontal: theme.space.base, paddingVertical: theme.space.sm },
   statusCell: { flex: 0.72 },
-  subsectionTitle: { color: theme.color.text.primary, fontSize: theme.text.size.md, fontWeight: '800' },
+  subsectionTitle: { color: theme.color.text.primary, fontSize: theme.text.size.md, fontWeight: '600' },
   table: { borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, overflow: 'hidden' },
   tableHeader: { backgroundColor: theme.color.surface.muted, minHeight: 42 },
   tableRow: { alignItems: 'center', borderBottomColor: theme.color.border.default, borderBottomWidth: 1, flexDirection: 'row', gap: theme.space.base, minHeight: 62, paddingHorizontal: theme.space.base, paddingVertical: theme.space.sm },

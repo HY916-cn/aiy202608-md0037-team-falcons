@@ -3,17 +3,10 @@ import type {
   AiExperienceState,
 } from '@dolphincloud/experience';
 import {
-  AlertCircle,
   Bot,
   CheckCircle2,
-  Ear,
-  Eye,
-  LoaderCircle,
-  Sparkles,
   Waves,
-  WifiOff,
 } from 'lucide-react-native';
-import type { LucideIcon } from 'lucide-react-native';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { theme } from './theme';
@@ -28,18 +21,7 @@ const STATE_LABELS = {
   offline: 'AI 离线',
 } as const satisfies Record<AiExperienceState, string>;
 
-const STATE_ICONS = {
-  idle: Sparkles,
-  listening: Ear,
-  thinking: LoaderCircle,
-  preview: Eye,
-  success: CheckCircle2,
-  error: AlertCircle,
-  offline: WifiOff,
-} as const satisfies Record<AiExperienceState, LucideIcon>;
-
 export function DolphinMascotCard({ snapshot }: { readonly snapshot: AiExperienceSnapshot }) {
-  const Icon = STATE_ICONS[snapshot.state];
   const isOffline = snapshot.state === 'offline';
 
   return (
@@ -48,28 +30,14 @@ export function DolphinMascotCard({ snapshot }: { readonly snapshot: AiExperienc
         <Waves
           accessibilityLabel="海豚吉祥物"
           color={theme.color.brand.secondary}
-          size={30}
+          size={24}
           strokeWidth={2.4}
         />
       </View>
       <View style={styles.copy}>
-        <View style={styles.statusHeading}>
-          <View style={styles.stateRow}>
-            <Icon
-              color={isOffline ? theme.color.text.secondary : theme.color.brand.primary}
-              size={18}
-            />
-            <Text style={[styles.state, isOffline && styles.stateOffline]}>
-              {STATE_LABELS[snapshot.state]}
-            </Text>
-          </View>
-          <View style={[styles.connectionTag, isOffline && styles.connectionTagOffline]}>
-            <View style={[styles.connectionDot, isOffline && styles.connectionDotOffline]} />
-            <Text style={styles.connectionLabel}>
-              {isOffline ? 'AI 服务未连接' : '海豚云 AI 网关'}
-            </Text>
-          </View>
-        </View>
+        <Text style={[styles.state, isOffline && styles.stateOffline]}>
+          {STATE_LABELS[snapshot.state]}
+        </Text>
         <Text style={styles.explanation}>{snapshot.explanation}</Text>
       </View>
     </View>
@@ -85,10 +53,7 @@ export function AiResultCard({ snapshot }: { readonly snapshot: AiExperienceSnap
     <View style={styles.resultCard}>
       <View style={styles.resultHeading}>
         <Bot color={theme.color.brand.secondary} size={19} />
-        <View style={styles.copy}>
-          <Text style={styles.resultTitle}>查询结果</Text>
-          <Text style={styles.resultMeta}>由海豚云 AI 网关返回，展示前已通过客户端白名单。</Text>
-        </View>
+        <Text style={styles.resultTitle}>查询结果</Text>
       </View>
       <Text style={styles.explanation}>{snapshot.result}</Text>
       <View style={styles.noticeBox}>
@@ -121,20 +86,15 @@ export function AiAuditResultCard({ snapshot }: { readonly snapshot: AiExperienc
 
 const styles = StyleSheet.create({
   auditCard: { alignItems: 'flex-start', backgroundColor: theme.color.surface.primaryTint, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, flexDirection: 'row', gap: theme.space.sm, padding: theme.space.md },
-  connectionDot: { backgroundColor: theme.color.brand.primary, borderRadius: theme.radius.pill, height: 7, width: 7 },
-  connectionDotOffline: { backgroundColor: theme.color.text.disabled },
-  connectionLabel: { color: theme.color.text.secondary, fontSize: 10, fontWeight: '700' },
-  connectionTag: { alignItems: 'center', flexDirection: 'row', gap: theme.space.xs, minHeight: 28 },
-  connectionTagOffline: { opacity: 0.8 },
   copy: { flex: 1, gap: theme.space.xs },
   explanation: { color: theme.color.text.secondary, fontSize: theme.text.size.sm, lineHeight: 21 },
   mascot: {
     alignItems: 'center',
     backgroundColor: theme.color.surface.primaryTint,
     borderRadius: theme.radius.control,
-    height: 48,
+    height: 40,
     justifyContent: 'center',
-    width: 48,
+    width: 40,
   },
   mascotCard: {
     alignItems: 'center',
@@ -153,16 +113,14 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.card,
     borderWidth: 1,
     gap: theme.space.sm,
-    padding: theme.space.lg,
+    padding: theme.space.md,
   },
-  resultHeading: { alignItems: 'flex-start', flexDirection: 'row', gap: theme.space.sm },
+  resultHeading: { alignItems: 'center', flexDirection: 'row', gap: theme.space.sm },
   resultMeta: { color: theme.color.text.disabled, fontSize: theme.text.size.xs, lineHeight: 17 },
   resultTitle: { color: theme.color.text.primary, fontSize: theme.text.size.md, fontWeight: '700' },
   state: { color: theme.color.brand.primary, fontSize: theme.text.size.sm, fontWeight: '700' },
   stateOffline: { color: theme.color.text.secondary },
-  stateRow: { alignItems: 'center', flexDirection: 'row', gap: theme.space.sm },
-  statusHeading: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm, justifyContent: 'space-between' },
-  structuredKind: { color: theme.color.brand.primary, fontSize: theme.text.size.xs, fontWeight: '800' },
+  structuredKind: { color: theme.color.brand.primary, fontSize: theme.text.size.xs, fontWeight: '600' },
   structuredLabel: { color: theme.color.text.secondary, flexBasis: 130, fontSize: theme.text.size.xs, fontWeight: '700' },
   structuredResult: { borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, overflow: 'hidden' },
   structuredRow: { borderTopColor: theme.color.border.default, borderTopWidth: 1, flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm, padding: theme.space.base },

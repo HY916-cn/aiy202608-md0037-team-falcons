@@ -103,13 +103,13 @@ function WriteActionPreviewCardContent({
       </View>
       {state === 'awaiting_second_confirmation' ? (
         <View style={styles.warningBox}>
-          <TriangleAlert color={theme.color.text.primary} size={18} />
+          <TriangleAlert color={theme.color.icon.primary} size={18} />
           <Text style={styles.warning}>这是高风险写操作，请再次核对对象、数值与影响。</Text>
         </View>
       ) : null}
       {state === 'error' ? (
         <View accessibilityRole="alert" style={styles.warningBox}>
-          <TriangleAlert color={theme.color.text.primary} size={18} />
+          <TriangleAlert color={theme.color.icon.primary} size={18} />
           <Text style={styles.warning}>没有成功，原数据没有改变。请重试或返回修改。</Text>
         </View>
       ) : null}
@@ -176,12 +176,12 @@ function WriteActionPreviewCardContent({
 
 const styles = StyleSheet.create({
   actions: { borderTopColor: theme.color.border.default, borderTopWidth: 1, flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm, paddingTop: theme.space.md },
-  backdrop: { alignItems: 'center', backgroundColor: 'rgba(15, 23, 42, 0.42)', flex: 1, justifyContent: 'center', padding: theme.space.base },
+  backdrop: { alignItems: 'center', backgroundColor: theme.color.overlay.smoke, flex: 1, justifyContent: 'center', padding: theme.space.base },
   card: { gap: theme.space.sm, padding: theme.space.lg },
-  dialog: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, boxShadow: '0 20px 60px rgba(15, 23, 42, 0.24)', maxHeight: '88%', maxWidth: 720, overflow: 'hidden', width: '100%' },
+  dialog: { backgroundColor: theme.color.surface.layerAlt, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, boxShadow: theme.shadow.dialog, maxHeight: '88%', maxWidth: 720, overflow: 'hidden', width: '100%' },
   disabled: { opacity: 0.5 },
-  eyebrow: { color: theme.color.brand.primary, fontSize: theme.text.size.xs, fontWeight: '800', letterSpacing: 0.6 },
-  focused: { borderColor: theme.color.brand.primary, borderWidth: 1, boxShadow: '0 0 0 3px rgba(22, 119, 254, 0.18)' },
+  eyebrow: { color: theme.color.brand.primary, fontSize: theme.text.size.xs, fontWeight: '600', letterSpacing: 0.6 },
+  focused: { boxShadow: theme.shadow.focus },
   heading: { alignItems: 'flex-start', flexDirection: 'row', gap: theme.space.base },
   headingCopy: { flex: 1, gap: theme.space.xs },
   headingDescription: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, lineHeight: 18 },
@@ -189,19 +189,19 @@ const styles = StyleSheet.create({
   metadata: { color: theme.color.text.secondary, fontSize: theme.text.size.sm, lineHeight: 21 },
   metadataLabel: { color: theme.color.text.disabled, fontSize: theme.text.size.xs, fontWeight: '700' },
   operation: { color: theme.color.brand.primary, fontSize: theme.text.size.md, fontWeight: '700' },
-  pressed: { opacity: 0.72, transform: [{ scale: 0.985 }] },
+  pressed: { opacity: 0.82 },
   previewBlock: { flex: 1, gap: theme.space.xs, minWidth: 190 },
   previewGrid: { backgroundColor: theme.color.surface.page, flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.base, padding: theme.space.md },
   primaryButton: { backgroundColor: theme.color.brand.primary, borderRadius: theme.radius.control, justifyContent: 'center', minHeight: 44, paddingHorizontal: theme.space.md },
-  primaryButtonHover: { opacity: 0.88, transform: [{ translateY: -1 }] },
-  primaryLabel: { color: theme.color.surface.card, fontWeight: '600' },
+  primaryButtonHover: { backgroundColor: theme.color.brand.hover },
+  primaryLabel: { color: theme.color.text.onAccent, fontWeight: '600' },
   secondaryButton: { borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, justifyContent: 'center', minHeight: 44, paddingHorizontal: theme.space.md },
-  secondaryButtonHover: { backgroundColor: theme.color.surface.primaryTint, borderColor: theme.color.brand.primary },
+  secondaryButtonHover: { backgroundColor: theme.color.surface.subtleHover, borderColor: theme.color.border.control },
   secondaryLabel: { color: theme.color.text.primary, fontWeight: '600' },
   scopeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.md },
   scopeText: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, fontWeight: '700' },
   success: { color: theme.color.brand.primary, fontSize: theme.text.size.sm, fontWeight: '700' },
-  successBox: { alignItems: 'center', backgroundColor: theme.color.surface.primaryTint, flexDirection: 'row', gap: theme.space.sm, padding: theme.space.base },
+  successBox: { alignItems: 'center', backgroundColor: theme.color.system.successBackground, flexDirection: 'row', gap: theme.space.sm, padding: theme.space.base },
   title: { color: theme.color.text.primary, fontSize: theme.text.size.lg, fontWeight: '700' },
   warning: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '700' },
   warningBox: { alignItems: 'center', backgroundColor: theme.color.surface.muted, borderColor: theme.color.border.default, borderWidth: 1, flexDirection: 'row', gap: theme.space.sm, padding: theme.space.base },

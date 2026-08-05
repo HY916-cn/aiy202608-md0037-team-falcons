@@ -96,7 +96,7 @@ export function WorkspaceStatusTag({
   tone = 'muted',
 }: {
   readonly label: string;
-  readonly tone?: 'muted' | 'primary' | 'secondary';
+  readonly tone?: 'critical' | 'muted' | 'primary' | 'secondary';
 }) {
   return (
     <View
@@ -104,6 +104,7 @@ export function WorkspaceStatusTag({
         styles.statusTag,
         tone === 'primary' && styles.statusTagPrimary,
         tone === 'secondary' && styles.statusTagSecondary,
+        tone === 'critical' && styles.statusTagCritical,
       ]}
     >
       <View
@@ -111,12 +112,15 @@ export function WorkspaceStatusTag({
           styles.statusDot,
           tone === 'primary' && styles.statusDotPrimary,
           tone === 'secondary' && styles.statusDotSecondary,
+          tone === 'critical' && styles.statusDotCritical,
         ]}
       />
       <Text
         style={[
           styles.statusLabel,
           tone === 'primary' && styles.statusLabelPrimary,
+          tone === 'secondary' && styles.statusLabelSecondary,
+          tone === 'critical' && styles.statusLabelCritical,
         ]}
       >
         {label}
@@ -183,7 +187,7 @@ export function WorkspaceToolbar<Filter extends string, Sort extends string>({
   return (
     <View style={styles.toolbar}>
       <View style={styles.searchControl}>
-        <Search color={theme.color.text.secondary} size={18} />
+        <Search color={theme.color.icon.secondary} size={18} />
         <TextInput
           accessibilityLabel={searchPlaceholder}
           onChangeText={onQueryChange}
@@ -198,7 +202,9 @@ export function WorkspaceToolbar<Filter extends string, Sort extends string>({
           accessibilityLabel="状态筛选"
           style={[styles.filterGroup, isCompact && styles.filterGroupCompact]}
         >
-          <SlidersHorizontal color={theme.color.text.secondary} size={17} />
+          <View style={styles.filterIcon}>
+            <SlidersHorizontal color={theme.color.icon.secondary} size={17} />
+          </View>
           {filterOptions.map((option) => {
             const isSelected = option.value === filter;
             return (
@@ -239,7 +245,7 @@ export function WorkspaceToolbar<Filter extends string, Sort extends string>({
             pressed && styles.pressed,
           ]}
         >
-          <ArrowDownUp color={theme.color.text.primary} size={17} />
+          <ArrowDownUp color={theme.color.icon.primary} size={17} />
           <Text style={styles.toolbarButtonLabel}>{activeSortLabel}</Text>
         </InteractivePressable>
         <InteractivePressable
@@ -256,12 +262,12 @@ export function WorkspaceToolbar<Filter extends string, Sort extends string>({
             pressed && styles.pressed,
           ]}
         >
-          <Download color={theme.color.surface.card} size={17} />
+          <Download color={theme.color.text.onAccent} size={17} />
           <Text style={styles.exportButtonLabel}>导出 CSV</Text>
         </InteractivePressable>
       </View>
       <View style={styles.resultMeta}>
-        <Info color={theme.color.text.secondary} size={15} />
+        <Info color={theme.color.icon.secondary} size={15} />
         <Text style={styles.resultMetaText}>当前结果 {resultCount} 条</Text>
       </View>
     </View>
@@ -270,23 +276,24 @@ export function WorkspaceToolbar<Filter extends string, Sort extends string>({
 
 const styles = StyleSheet.create({
   boundaryCopy: { flex: 1, gap: 2 },
-  boundaryLabel: { color: theme.color.text.primary, fontSize: theme.text.size.xs, fontWeight: '800' },
-  boundaryNotice: { alignItems: 'flex-start', backgroundColor: theme.color.surface.primaryTint, borderLeftColor: theme.color.brand.primary, borderLeftWidth: 3, flexDirection: 'row', gap: theme.space.sm, padding: theme.space.base },
+  boundaryLabel: { color: theme.color.text.primary, fontSize: theme.text.size.xs, fontWeight: '600' },
+  boundaryNotice: { alignItems: 'flex-start', backgroundColor: theme.color.surface.primaryTint, borderLeftColor: theme.color.brand.primary, borderLeftWidth: 4, flexDirection: 'row', gap: theme.space.sm, padding: theme.space.base },
   boundaryText: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, lineHeight: 18 },
   description: { color: theme.color.text.secondary, fontSize: theme.text.size.sm, lineHeight: 21, marginTop: theme.space.xs },
   disabled: { opacity: 0.45 },
-  eyebrow: { color: theme.color.brand.primary, fontSize: theme.text.size.xs, fontWeight: '800', letterSpacing: 0.8, marginBottom: theme.space.xs },
+  eyebrow: { color: theme.color.brand.primary, fontSize: theme.text.size.xs, fontWeight: '600', letterSpacing: 0.4, marginBottom: theme.space.xs },
   exportButton: { alignItems: 'center', backgroundColor: theme.color.brand.primary, borderRadius: theme.radius.control, flexDirection: 'row', gap: theme.space.sm, minHeight: 44, paddingHorizontal: theme.space.md },
-  exportButtonHovered: { opacity: 0.88, transform: [{ translateY: -1 }] },
-  exportButtonLabel: { color: theme.color.surface.card, fontSize: theme.text.size.sm, fontWeight: '700' },
-  filterButton: { alignItems: 'center', borderRadius: theme.radius.pill, justifyContent: 'center', minHeight: 36, paddingHorizontal: theme.space.base },
+  exportButtonHovered: { backgroundColor: theme.color.brand.hover },
+  exportButtonLabel: { color: theme.color.text.onAccent, fontSize: theme.text.size.sm, fontWeight: '700' },
+  filterButton: { alignItems: 'center', borderRadius: theme.radius.pill, flexShrink: 0, height: 36, justifyContent: 'center', paddingHorizontal: theme.space.base },
   filterButtonSelected: { backgroundColor: theme.color.surface.primaryTint },
-  filterGroup: { alignItems: 'center', borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.xs, minHeight: 44, paddingHorizontal: theme.space.xs },
+  filterGroup: { alignItems: 'center', borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, flexDirection: 'row', flexWrap: 'nowrap', gap: theme.space.xs, minHeight: 44, paddingHorizontal: theme.space.xs, paddingVertical: 3 },
   filterGroupCompact: { width: '100%' },
-  filterLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, fontWeight: '700' },
+  filterIcon: { alignItems: 'center', flexShrink: 0, height: 36, justifyContent: 'center', width: 28 },
+  filterLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, fontWeight: '700', lineHeight: 20 },
   filterLabelSelected: { color: theme.color.brand.primary },
-  focused: { borderColor: theme.color.brand.primary, borderWidth: 1, boxShadow: '0 0 0 3px rgba(22, 119, 254, 0.18)' },
-  hovered: { backgroundColor: theme.color.surface.primaryTint },
+  focused: { boxShadow: theme.shadow.focus },
+  hovered: { backgroundColor: theme.color.surface.subtleHover },
   insightItem: { flex: 1, minWidth: 110, paddingHorizontal: theme.space.md, paddingVertical: theme.space.base },
   insightItemCompact: { minWidth: 0, width: '100%' },
   insightItemSeparated: { borderLeftColor: theme.color.border.default, borderLeftWidth: 1 },
@@ -294,24 +301,28 @@ const styles = StyleSheet.create({
   insightLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, marginTop: 3 },
   insightStrip: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, flexDirection: 'row', flexWrap: 'wrap', overflow: 'hidden' },
   insightStripCompact: { flexDirection: 'column' },
-  insightValue: { color: theme.color.text.primary, fontSize: theme.text.size.lg, fontWeight: '800' },
-  pressed: { opacity: 0.72, transform: [{ scale: 0.985 }] },
+  insightValue: { color: theme.color.text.primary, fontSize: theme.text.size.lg, fontWeight: '600' },
+  pressed: { backgroundColor: theme.color.surface.subtlePressed },
   resultMeta: { alignItems: 'center', flexDirection: 'row', gap: theme.space.xs },
   resultMetaText: { color: theme.color.text.secondary, fontSize: theme.text.size.xs },
-  searchControl: { alignItems: 'center', backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, flexDirection: 'row', gap: theme.space.sm, minHeight: 46, paddingHorizontal: theme.space.base },
+  searchControl: { alignItems: 'center', backgroundColor: theme.color.surface.input, borderColor: theme.color.border.control, borderRadius: theme.radius.control, borderWidth: 1, flexDirection: 'row', gap: theme.space.sm, minHeight: 44, paddingHorizontal: theme.space.base },
   searchInput: { color: theme.color.text.primary, flex: 1, fontSize: theme.text.size.sm, minWidth: 0, paddingVertical: 0 },
-  statusDot: { backgroundColor: theme.color.text.disabled, borderRadius: theme.radius.pill, height: 7, width: 7 },
-  statusDotPrimary: { backgroundColor: theme.color.brand.primary },
-  statusDotSecondary: { backgroundColor: theme.color.brand.secondary },
+  statusDot: { backgroundColor: theme.color.text.disabled, borderRadius: theme.radius.pill, height: 8, width: 8 },
+  statusDotCritical: { backgroundColor: theme.color.system.critical },
+  statusDotPrimary: { backgroundColor: theme.color.system.success },
+  statusDotSecondary: { backgroundColor: theme.color.system.caution },
   statusLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, fontWeight: '700' },
-  statusLabelPrimary: { color: theme.color.brand.primary },
+  statusLabelCritical: { color: theme.color.system.critical },
+  statusLabelPrimary: { color: theme.color.system.success },
+  statusLabelSecondary: { color: theme.color.system.caution },
   statusTag: { alignItems: 'center', alignSelf: 'flex-start', backgroundColor: theme.color.surface.muted, borderRadius: theme.radius.pill, flexDirection: 'row', gap: theme.space.xs, minHeight: 28, paddingHorizontal: theme.space.sm },
-  statusTagPrimary: { backgroundColor: theme.color.surface.primaryTint },
-  statusTagSecondary: { backgroundColor: theme.color.surface.secondaryTint, borderColor: theme.color.brand.secondary, borderWidth: 1 },
+  statusTagCritical: { backgroundColor: theme.color.system.criticalBackground },
+  statusTagPrimary: { backgroundColor: theme.color.system.successBackground },
+  statusTagSecondary: { backgroundColor: theme.color.system.cautionBackground },
   surface: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, gap: theme.space.md, overflow: 'hidden', padding: theme.space.lg },
   surfaceCompact: { padding: theme.space.md },
   surfaceHeading: { maxWidth: 760 },
-  title: { color: theme.color.text.primary, fontSize: theme.text.size.lg, fontWeight: '800' },
+  title: { color: theme.color.text.primary, fontSize: theme.text.size.lg, fontWeight: '600' },
   toolbar: { gap: theme.space.sm },
   toolbarButton: { alignItems: 'center', borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, flexDirection: 'row', gap: theme.space.sm, minHeight: 44, paddingHorizontal: theme.space.base },
   toolbarButtonLabel: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '700' },

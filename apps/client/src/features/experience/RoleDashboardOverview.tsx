@@ -120,7 +120,7 @@ function ActionButton({
     >
       <Icon color={theme.color.brand.primary} size={19} />
       <Text style={styles.actionLabel}>{action.label}</Text>
-      <ArrowRight color={theme.color.text.disabled} size={16} />
+      <ArrowRight color={theme.color.icon.disabled} size={16} />
     </InteractivePressable>
   );
 }
@@ -354,9 +354,9 @@ export function RoleDashboardOverview({
 }
 
 const styles = StyleSheet.create({
-  actionButton: { alignItems: 'center', backgroundColor: theme.color.surface.muted, borderRadius: theme.radius.control, flexDirection: 'row', gap: theme.space.sm, minHeight: 50, paddingHorizontal: theme.space.base },
+  actionButton: { alignItems: 'center', backgroundColor: theme.color.surface.muted, borderRadius: theme.radius.control, flexDirection: 'row', gap: theme.space.sm, minHeight: 48, paddingHorizontal: theme.space.base },
   actionButtonNarrow: { minWidth: 0, width: '100%' },
-  actionButtonHover: { backgroundColor: theme.color.surface.primaryTint, transform: [{ translateX: 2 }] },
+  actionButtonHover: { backgroundColor: theme.color.surface.subtleHover },
   actionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm, marginTop: theme.space.base },
   actionGridNarrow: { flexDirection: 'column' },
   actionLabel: { color: theme.color.text.primary, flex: 1, fontSize: theme.text.size.sm, fontWeight: '700', minWidth: 110 },
@@ -373,19 +373,19 @@ const styles = StyleSheet.create({
   metricLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, marginTop: 4 },
   metrics: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, flexDirection: 'row', flexWrap: 'wrap', overflow: 'hidden' },
   metricsNarrow: { flexDirection: 'column' },
-  metricValue: { color: theme.color.text.primary, fontSize: theme.text.size.xl, fontWeight: '800' },
-  focused: { borderColor: theme.color.brand.primary, boxShadow: '0 0 0 3px rgba(22, 119, 254, 0.18)' },
-  pressed: { opacity: 0.72, transform: [{ scale: 0.985 }] },
-  retryButton: { alignItems: 'center', alignSelf: 'flex-start', backgroundColor: theme.color.brand.primary, borderRadius: theme.radius.control, justifyContent: 'center', marginTop: theme.space.base, minHeight: 42, paddingHorizontal: theme.space.lg },
-  retryButtonHover: { opacity: 0.88 },
-  retryLabel: { color: theme.color.surface.card, fontSize: theme.text.size.sm, fontWeight: '700' },
+  metricValue: { color: theme.color.text.primary, fontSize: theme.text.size.xl, fontWeight: '600' },
+  focused: { boxShadow: theme.shadow.focus },
+  pressed: { opacity: 0.82 },
+  retryButton: { alignItems: 'center', alignSelf: 'flex-start', backgroundColor: theme.color.brand.primary, borderRadius: theme.radius.control, justifyContent: 'center', marginTop: theme.space.base, minHeight: 40, paddingHorizontal: theme.space.lg },
+  retryButtonHover: { backgroundColor: theme.color.brand.hover },
+  retryLabel: { color: theme.color.text.onAccent, fontSize: theme.text.size.sm, fontWeight: '700' },
   scopeBar: { alignItems: 'center', borderBottomColor: theme.color.border.default, borderBottomWidth: 1, flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.base, justifyContent: 'space-between', minHeight: 52, paddingBottom: theme.space.base },
   scopeBarNarrow: { alignItems: 'flex-start', flexDirection: 'column' },
   scopeCopy: { flex: 1, minWidth: 0 },
   scopeEyebrow: { color: theme.color.text.secondary, fontSize: 10, fontWeight: '700', lineHeight: 14 },
   scopeHint: { color: theme.color.text.secondary, fontSize: theme.text.size.xs },
   scopeIdentity: { alignItems: 'center', flexDirection: 'row', gap: theme.space.sm },
-  scopeLabel: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '800', lineHeight: 20, marginTop: 2 },
+  scopeLabel: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '600', lineHeight: 20, marginTop: 2 },
   surface: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, flex: 1, minWidth: 290, padding: theme.space.lg },
   surfaceNarrow: { minWidth: 0, padding: theme.space.md, width: '100%' },
   surfaceDescription: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, lineHeight: 18, marginTop: 4 },
