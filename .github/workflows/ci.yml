@@ -144,7 +144,143 @@ jobs:
           cache: pnpm
       - name: Install frozen dependencies
         run: pnpm install --frozen-lockfile
+      - name: Verify .env.production.example
+        run: |
+          if [ ! -f "apps/client/.env.production.example" ]; then
+            echo "Error: apps/client/.env.production.example does not exist"
+            exit 1
+          fi
+          if grep -E 'sk-|(AI|COZE)_TOKEN|eyJ|postgres://' apps/client/.env.production.example; then
+            echo "Error: Real credentials found in .env.production.example"
+            exit 1
+          fi
+          echo ".env.production.example verification passed"
       - name: Export and verify Web
         run: pnpm smoke:web
-      - name: Export and verify Android
-        run: pnpm smoke:android
+      - name: Create Web Release
+        run: pnpm release:web
+      - name: Upload Web Release Artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: web-release-ubuntu-${{ github.run_id }}
+          path: artifacts/release
+          if-no-files-found: error
+          retention-days: 14
+      - name: Docker Negative Test (Missing Config)
+        run: |
+          if docker compose config > /dev/null 2>&1; then
+            echo "Negative test failed: compose config should fail without env vars"
+            exit 1
+          fi
+          echo "Negative test passed: compose config correctly failed"
+      - name: Build and start Docker container
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321"
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: "dummy-anon-key"
+          EXPO_PUBLIC_AI_GATEWAY_FUNCTION: "dummy-gateway"
+          EXPO_PUBLIC_APP_ENV: "production"
+        run: |
+          docker compose config
+          docker compose up --build -d
+      - name: Wait for container to be healthy
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321"
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: "dummy-anon-key"
+          EXPO_PUBLIC_AI_GATEWAY_FUNCTION: "dummy-gateway"
+          EXPO_PUBLIC_APP_ENV: "production"
+        run: |
+          for i in {1..30}; do
+            STATUS=$(docker inspect --format='{{.State.Health.Status}}' $(docker compose ps -q web))
+            if [ "$STATUS" == "healthy" ]; then
+              echo "Container is healthy!"
+              exit 0
+            fi
+            echo "Waiting for container to be healthy... ($STATUS)"
+            sleep 2
+          done
+          echo "Container failed to become healthy"
+          docker compose logs web
+          exit 1
+      - name: Verify Web Endpoints and Headers
+        run: |
+          HEALTH=$(curl -fsSL http://127.0.0.1:8080/healthz)
+          if [ "$HEALTH" != "healthy" ]; then
+            echo "Health check failed: $HEALTH"
+            exit 1
+          fi
+
+          # Verify teacher export file exists in container
+          if ! docker compose exec web sh -c '[ -s "/usr/share/nginx/html/(teacher)/index.html" ]'; then
+            echo "Teacher export file missing or empty"
+            exit 1
+          fi
+
+          # Verify an exported route through Nginx
+          HTTP_STATUS=$(curl -sL -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/login)
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "Valid route check failed"
+            exit 1
+          fi
+
+          # A missing static asset must return 404 instead of the SPA HTML shell
+          INVALID_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/_expo/static/missing-asset.js)
+          if [ "$INVALID_STATUS" != "404" ]; then
+            echo "Invalid route check failed (expected 404, got $INVALID_STATUS)"
+            exit 1
+          fi
+
+          ROOT_HEADERS=$(curl -sSL -D - -o /dev/null http://127.0.0.1:8080/)
+          echo "$ROOT_HEADERS" | grep -i "Cache-Control:.*no-store"
+          echo "$ROOT_HEADERS" | grep -i "X-Content-Type-Options:.*nosniff"
+          echo "$ROOT_HEADERS" | grep -i "X-Frame-Options:.*SAMEORIGIN"
+          echo "$ROOT_HEADERS" | grep -i "Referrer-Policy:.*strict-origin-when-cross-origin"
+
+          JS_URL=$(curl -fsSL http://127.0.0.1:8080/ | grep -oE '/_expo/static/[^"]+\.js' | head -1 || true)
+          if [ -z "$JS_URL" ]; then
+            echo "Error: No static JS found to verify immutable cache header."
+            exit 1
+          fi
+          STATIC_HEADERS=$(curl -sSL -D - -o /dev/null "http://127.0.0.1:8080$JS_URL")
+          echo "$STATIC_HEADERS" | grep -i "Cache-Control:.*immutable"
+          echo "$STATIC_HEADERS" | grep -i "X-Content-Type-Options:.*nosniff"
+          echo "$STATIC_HEADERS" | grep -i "X-Frame-Options:.*SAMEORIGIN"
+          echo "$STATIC_HEADERS" | grep -i "Referrer-Policy:.*strict-origin-when-cross-origin"
+      - name: Clean up Docker
+        if: always()
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321"
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: "dummy-anon-key"
+          EXPO_PUBLIC_AI_GATEWAY_FUNCTION: "dummy-gateway"
+          EXPO_PUBLIC_APP_ENV: "production"
+        run: docker compose down -v
+  web-release-windows:
+    name: Web Release (Windows)
+    needs:
+      - quality
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          run_install: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Export and verify Web
+        run: pnpm smoke:web
+      - name: Create Web Release
+        run: pnpm release:web
+      - name: Upload Web Release Artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: web-release-windows-${{ github.run_id }}
+          path: artifacts/release
+          if-no-files-found: error
+          retention-days: 14

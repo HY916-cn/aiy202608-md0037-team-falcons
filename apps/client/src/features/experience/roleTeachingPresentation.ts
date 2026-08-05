@@ -103,3 +103,12 @@ export function filterTeachingSnapshotForClass(
     students,
   };
 }
+
+export function resolvePreferredTeachingClassId(
+  classes: TeachingDemoSnapshot['classes'],
+  preferredClassId: string | null,
+): string | null {
+  return classes.some((item) => item.id === preferredClassId)
+    ? preferredClassId
+    : (classes[0]?.id ?? null);
+}

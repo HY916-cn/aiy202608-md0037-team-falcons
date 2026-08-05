@@ -1,0 +1,13 @@
+.git
+**/.env*
+!**/.env.example
+!**/.env.production.example
+node_modules
+.pnpm-store
+dist
+artifacts
+reports
+coverage
+*.log
+tmp/
+temp/

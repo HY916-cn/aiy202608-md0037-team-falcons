@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   countStudentsForClass,
   filterTeachingSnapshotForClass,
+  resolvePreferredTeachingClassId,
   resolveTeachingSectionPresentation,
 } from '../roleTeachingPresentation';
 
@@ -139,5 +140,20 @@ describe('roleTeachingPresentation', () => {
     ]);
     expect(filtered.grades.map((item) => item.id)).toEqual(['grade-b']);
     expect(filtered.students.map((item) => item.id)).toEqual(['student-b']);
+  });
+
+  it('刷新后保留仍然有效的当前班级，否则回退到首个授权班级', () => {
+    const classes = [
+      { id: 'class-a', name: 'A 班' },
+      { id: 'class-b', name: 'B 班' },
+    ];
+
+    expect(resolvePreferredTeachingClassId(classes, 'class-b')).toBe(
+      'class-b',
+    );
+    expect(resolvePreferredTeachingClassId(classes, 'revoked-class')).toBe(
+      'class-a',
+    );
+    expect(resolvePreferredTeachingClassId([], 'class-b')).toBeNull();
   });
 });

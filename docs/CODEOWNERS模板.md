@@ -27,7 +27,6 @@
 /packages/validation/                    @cskunkuncskk @Simen111216 @HY916-cn
 /packages/api-client/                    @cskunkuncskk @Simen111216 @HY916-cn
 /.github/                                @HY916-cn @cskunkuncskk
-/apps/desktop/                           @HY916-cn @cskunkuncskk
 /docs/                                   @cskunkuncskk @Simen111216 @HY916-cn
 ```
 
