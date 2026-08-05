@@ -469,7 +469,7 @@ begin
     raise exception 'STUDENT_NOT_FOUND' using errcode = 'P0001';
   end if;
 
-  select cat.id, cat.school_id, cat.is_active
+  select cat.id, cat.school_id, cat.kind, cat.is_active
   into category
   from public.student_score_categories as cat
   where cat.id = target_category_id;
@@ -647,7 +647,7 @@ begin
       raise exception 'BATCH_MIXED_SCHOOLS' using errcode = 'P0001';
     end if;
 
-    select cat.id, cat.school_id, cat.is_active
+    select cat.id, cat.school_id, cat.kind, cat.is_active
     into category
     from public.student_score_categories as cat
     where cat.id = target_category_id;

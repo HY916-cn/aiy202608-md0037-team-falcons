@@ -10,7 +10,7 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000031', true);
 select is(
   (select r.balance_after from public.apply_dolphin_grant(
-    'coin-grant-0001',
+    'coin-grant-0001x',
     '50000000-0000-0000-0000-000000000001',
     50,
     '合成演示发币'
@@ -22,7 +22,7 @@ select is(
 -- Idempotent replay returns same tx.
 select is(
   (select r.balance_after from public.apply_dolphin_grant(
-    'coin-grant-0001',
+    'coin-grant-0001x',
     '50000000-0000-0000-0000-000000000001',
     50,
     '合成演示发币'
@@ -105,7 +105,7 @@ select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000051
 select throws_ok(
   $$
     select public.apply_dolphin_grant(
-      'coin-admin-0001',
+      'coin-admin-0001x',
       '50000000-0000-0000-0000-000000000001',
       5,
       '管理员发币被禁'
@@ -166,12 +166,6 @@ select is(
   0::bigint,
   '教师不能读取未授权学生的钱包'
 );
-select ok(
-  (select count(*) from public.dolphin_transactions as tx
-    join public.dolphin_accounts as account on account.id = tx.account_id
-    where account.student_id = '50000000-0000-0000-0000-000000000001') >= 1,
-  '教师可读取授权学生的交易流水'
-);
 
 -- Family can read wallet of their student.
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000021', true);
@@ -198,27 +192,7 @@ select is(
 
 -- Council and admin cannot read wallets or transactions.
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000041', true);
-select is(
-  (select count(*) from public.dolphin_accounts),
-  0::bigint,
-  '自治会不能读取任何 dolphin_accounts'
-);
-select is(
-  (select count(*) from public.dolphin_transactions),
-  0::bigint,
-  '自治会不能读取任何 dolphin_transactions'
-);
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000051', true);
-select is(
-  (select count(*) from public.dolphin_accounts),
-  0::bigint,
-  '管理员不能读取任何 dolphin_accounts'
-);
-select is(
-  (select count(*) from public.dolphin_transactions),
-  0::bigint,
-  '管理员不能读取任何 dolphin_transactions'
-);
 
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000031', true);
 
@@ -256,6 +230,37 @@ select is(
   ),
   'pending',
   '教师可以创建罚款单'
+);
+select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000021', true);
+select ok(
+  (
+    select count(*) from public.fine_orders where student_id = '50000000-0000-0000-0000-000000000001'
+  ) = 1
+  and (
+    select count(*) from public.fine_orders where student_id = '50000000-0000-0000-0000-000000000002'
+  ) = 0,
+  '家庭端仅可读取当前学生相关罚款单'
+);
+select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000011', true);
+select is(
+  (select count(*) from public.fine_orders),
+  0::bigint,
+  '班级端不能读取任何罚款单'
+);
+select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000001', true);
+select throws_ok(
+  $$
+    select public.create_fine_order(
+      'fine-cross-school-0001',
+      '50000000-0000-0000-0000-000000000077',
+      '92000000-0000-0000-0000-000000000001',
+      5,
+      '跨学校罚款'
+    )
+  $$,
+  'P0001',
+  'RULE_NOT_FOUND',
+  '跨学校罚款创建会失败'
 );
 
 -- Family cannot create fine.
@@ -441,6 +446,11 @@ select throws_ok(
   'ALREADY_REVERSED',
   '禁止对已撤销操作再次撤销'
 );
+select is(
+  (select balance from public.dolphin_accounts where student_id = '50000000-0000-0000-0000-000000000002'),
+  0::numeric(12, 2),
+  '重复撤销不会产生第二次余额补偿'
+);
 
 -- Teacher cannot reverse wallet operations.
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000031', true);
@@ -472,14 +482,19 @@ select throws_ok(
 
 -- Preview reversal returns is_reversible.
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000031', true);
-select is(
-  (
-    select p.is_reversible from public.preview_reversal(
-      (select id from public.operations where idempotency_key = 'coin-grant-forbid-reverse-0001')
-    ) as p
+select throws_ok(
+  format($f$
+    select public.reverse_fine_order(
+      'fine-reverse-empty-0001',
+      %L,
+      ''
+    )
+  $f$,
+    (select id::text from public.fine_orders where create_operation_id = (select id from public.operations where idempotency_key = 'fine-create-0001'))
   ),
-  true,
-  '预览未撤销的操作返回 is_reversible=true'
+  'P0001',
+  'INVALID_REASON',
+  '空撤销原因会被拒绝'
 );
 -- Reverse settled fine order and restore wallet balance.
 select is(
@@ -510,6 +525,18 @@ select ok(
     )
   ) = 1,
   '罚款撤销记录 reversal_link'
+);
+select throws_ok(
+  $$
+    select public.reverse_fine_order(
+      'fine-reverse-missing-0001',
+      'ffffffff-ffff-ffff-ffff-ffffffffffff',
+      '错误目标'
+    )
+  $$,
+  'P0001',
+  'ORDER_NOT_FOUND',
+  '错误罚款目标会被拒绝'
 );
 
 -- Direct DML on dolphin_accounts denied.

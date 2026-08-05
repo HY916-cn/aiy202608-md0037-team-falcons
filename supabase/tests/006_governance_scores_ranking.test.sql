@@ -145,9 +145,15 @@ select is(
   '教师应用学生分成功'
 );
 select is(
-  (select count(*) from public.student_score_entries where reason = '课堂积极'),
-  1::bigint,
-  '产生一条学生分明细'
+  (select r.delta from public.apply_student_score(
+    'ss-single-negative-0001',
+    '50000000-0000-0000-0000-000000000003',
+    '90000000-0000-0000-0000-000000000002',
+    -2,
+    '课堂纪律扣分'
+  ) as r),
+  -2::numeric(9, 2),
+  '教师可按负向类目成功扣减学生分'
 );
 
 -- Teacher applies a batch.
@@ -222,7 +228,7 @@ select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000001
 -- Both students 1 and 2 currently have entries. Add explicit ties to a third student.
 select is(
   (select r.delta from public.apply_student_score(
-    'ss-tie-0003',
+    'ss-tie-case-0003',
     '50000000-0000-0000-0000-000000000004',
     '90000000-0000-0000-0000-000000000001',
     10,
@@ -233,7 +239,7 @@ select is(
 );
 select is(
   (select r.delta from public.apply_student_score(
-    'ss-tie-0004',
+    'ss-tie-case-0004',
     '50000000-0000-0000-0000-000000000005',
     '90000000-0000-0000-0000-000000000001',
     10,
@@ -322,7 +328,7 @@ select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000041
 select throws_ok(
   $$
     select public.apply_student_score(
-      'ss-council-0001',
+      'ss-council-ok-0001',
       '50000000-0000-0000-0000-000000000001',
       '90000000-0000-0000-0000-000000000001',
       2,
@@ -338,7 +344,7 @@ select throws_ok(
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000041', true);
 select is(
   (select r.delta from public.apply_class_score(
-    'cs-council-0001',
+    'cs-council-ok-0001',
     '20000000-0000-0000-0000-000000000001',
     '91000000-0000-0000-0000-000000000001',
     5,
@@ -391,7 +397,7 @@ select is(
       'appeal-terminal-0001',
       (
         select id from public.class_score_entries
-        where operation_id = (select id from public.operations where idempotency_key = 'cs-council-0001')
+        where operation_id = (select id from public.operations where idempotency_key = 'cs-council-ok-0001')
       ),
       '希望复核清洁评比结果'
     ) as cs
@@ -412,7 +418,7 @@ select throws_ok(
   $f$,
     (
       select id::text from public.class_score_entries
-      where operation_id = (select id from public.operations where idempotency_key = 'cs-council-0001')
+      where operation_id = (select id from public.operations where idempotency_key = 'cs-council-ok-0001')
     )
   ),
   'P0001',
@@ -432,7 +438,7 @@ select throws_ok(
   $f$,
     (
       select id::text from public.class_score_entries
-      where operation_id = (select id from public.operations where idempotency_key = 'cs-council-0001')
+      where operation_id = (select id from public.operations where idempotency_key = 'cs-council-ok-0001')
     )
   ),
   'P0001',
@@ -459,7 +465,7 @@ select is(
 -- The original class score entry is now marked reversed.
 select is(
   (select is_reversed from public.class_score_entries
-   where operation_id = (select id from public.operations where idempotency_key = 'cs-council-0001')),
+   where operation_id = (select id from public.operations where idempotency_key = 'cs-council-ok-0001')),
   true,
   '接受申诉后原班级分标记为已撤销'
 );
@@ -476,7 +482,7 @@ select throws_ok(
   $f$,
     (
       select id::text from public.class_score_entries
-      where operation_id = (select id from public.operations where idempotency_key = 'cs-council-0001')
+      where operation_id = (select id from public.operations where idempotency_key = 'cs-council-ok-0001')
     )
   ),
   'P0001',
