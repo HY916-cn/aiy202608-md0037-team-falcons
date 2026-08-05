@@ -4,7 +4,7 @@
 
 FROM node:22.13.0-alpine AS builder
 # Enable pnpm
-RUN corepack enable pnpm
+RUN npm install -g pnpm@11.9.0
 
 WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
