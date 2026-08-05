@@ -1,34 +1,35 @@
 # Gitleaks configuration.
 #
-# We extend the upstream default ruleset (which includes generic-api-key and
-# every provider rule) and only append a minimal, exact-string allowlist for
-# eleven historical test fixture idempotency keys that were committed before the
-# fixtures were renamed to `test-idempotency-*-fixture`.
+# We extend the upstream default ruleset and add narrowly scoped allowlists for
+# synthetic SQL fixture ids that trigger the `generic-api-key` rule in Git
+# history. The allowlists below only apply when BOTH the target rule and the
+# fixture test path match.
 #
-# Scope of this allowlist:
-#   * It matches ONLY the exact literal strings listed below.
-#   * It DOES NOT disable the generic-api-key rule, any other rule, or any
-#     directory / path. Every new secret and every other occurrence of a
-#     high-entropy token is still detected.
+# Scope of these allowlists:
+#   * They apply ONLY to the `generic-api-key` rule.
+#   * They apply ONLY to the specific governance pgTAP fixture files below.
+#   * They match ONLY the synthetic fixture id namespaces used by those tests.
+#   * All other rules, files, and strings are still scanned normally.
 
 title = "dolphin-cloud gitleaks configuration"
 
 [extend]
 useDefault = true
 
-[allowlist]
-description = "Legacy test-fixture idempotency keys present in historical commits only"
-regexTarget = "match"
+[[allowlists]]
+description = "Governance idempotency test fixture ids"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''supabase/tests/005_governance_operations_idempotency\.test\.sql''']
 regexes = [
-  '''\bck-2026-idem-a-XYZ\b''',
-  '''\bck-2026-rev-1st-XYZ\b''',
-  '''\bck-2026-rev-2nd-XYZ\b''',
-  '''\bck-2026-rev-fail-XYZ\b''',
-  '''\bck-2026-rev-mism-XYZ\b''',
-  '''\bck-2026-rev-nested-XYZ\b''',
-  '''\bck-2026-rev-ok-XYZ\b''',
-  '''\bck-2026-rev-op-XYZ\b''',
-  '''\bck-2026-rev-orig-XYZ\b''',
-  '''\bcoin-reversal-0001\b''',
-  '''test-idem-op-fresh-0001''',
+  '''^(?:test-idem|idem-op-test)-[a-z0-9-]+$''',
+]
+
+[[allowlists]]
+description = "Governance wallet and fine test fixture ids"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''supabase/tests/007_governance_wallet_fine_reversal\.test\.sql''']
+regexes = [
+  '''^(?:coin|fine)-[a-z0-9-]+$''',
 ]
