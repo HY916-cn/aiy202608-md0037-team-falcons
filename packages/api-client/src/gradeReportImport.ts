@@ -27,7 +27,7 @@ export type GradeReportImportContext = {
 
 type ImportCell = string | number | null;
 
-function parseCsvRows(csv: string): ImportCell[][] {
+export function parseGradeReportCsvRows(csv: string): ImportCell[][] {
   const rows: ImportCell[][] = [];
   let row: ImportCell[] = [];
   let value = '';
@@ -178,5 +178,89 @@ export function normalizeGradeReportCsv(
   definition: GradeReportImportDefinition,
   csv: string,
 ): SaveGradeReportSheetDraftInput {
-  return normalizeGradeReportMatrix(context, definition, parseCsvRows(csv), 'csv');
+  return normalizeGradeReportMatrix(
+    context,
+    definition,
+    parseGradeReportCsvRows(csv),
+    'csv',
+  );
+}
+
+export function normalizeGradeReportCsvUpload(
+  context: GradeReportImportContext,
+  csv: string,
+): SaveGradeReportSheetDraftInput {
+  const matrix = parseGradeReportCsvRows(csv);
+  const headerRow = matrix[0];
+  if (headerRow === undefined) {
+    throw new ApiClientError('VALIDATION_ERROR');
+  }
+  const headers = headerRow.map(readHeader);
+  if (!headers.includes('student_id')) {
+    throw new ApiClientError('VALIDATION_ERROR', {
+      cause: new Error('CSV_MISSING_STUDENT_ID'),
+    });
+  }
+  if (headers.some((header) => header === '') || new Set(headers).size !== headers.length) {
+    throw new ApiClientError('VALIDATION_ERROR', {
+      cause: new Error('CSV_DUPLICATE_OR_EMPTY_HEADER'),
+    });
+  }
+
+  const commentHeaders = new Set(
+    headers.filter((header) => header !== 'student_id' && header.endsWith('评语')),
+  );
+  const scoreHeaders = headers.filter(
+    (header) => header !== 'student_id' && !commentHeaders.has(header),
+  );
+  if (scoreHeaders.length === 0) {
+    throw new ApiClientError('VALIDATION_ERROR', {
+      cause: new Error('CSV_MISSING_GRADE_ITEM'),
+    });
+  }
+
+  const columns = scoreHeaders.map((scoreHeader, index) => {
+    const match = /^(.*?)(?:\[([^\]]+)\])?$/u.exec(scoreHeader);
+    const name = match?.[1]?.trim() ?? '';
+    const maxScoreText = match?.[2]?.trim();
+    if (name === '' || name.includes('[') || name.includes(']')) {
+      throw new ApiClientError('VALIDATION_ERROR', {
+        cause: new Error(`CSV_INVALID_GRADE_ITEM:${scoreHeader}`),
+      });
+    }
+    const maxScore =
+      maxScoreText === undefined || maxScoreText === ''
+        ? null
+        : Number(maxScoreText);
+    if (maxScore !== null && !Number.isFinite(maxScore)) {
+      throw new ApiClientError('VALIDATION_ERROR', {
+        cause: new Error(`CSV_INVALID_MAX_SCORE:${scoreHeader}`),
+      });
+    }
+    const commentHeader = `${name}评语`;
+    return {
+      columnKey: `item_${index + 1}`,
+      commentHeader: commentHeaders.has(commentHeader) ? commentHeader : null,
+      maxScore,
+      name,
+      scoreHeader,
+    };
+  });
+  const knownCommentHeaders = new Set(
+    columns.flatMap((column) =>
+      column.commentHeader === null ? [] : [column.commentHeader],
+    ),
+  );
+  if ([...commentHeaders].some((header) => !knownCommentHeaders.has(header))) {
+    throw new ApiClientError('VALIDATION_ERROR', {
+      cause: new Error('CSV_ORPHAN_COMMENT_COLUMN'),
+    });
+  }
+
+  return normalizeGradeReportMatrix(
+    context,
+    { columns, studentIdHeader: 'student_id' },
+    matrix,
+    'csv',
+  );
 }

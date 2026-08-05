@@ -202,7 +202,7 @@ describe('createSupabaseServiceRuntime', () => {
       runtime.summaryDataSource.load(classScope),
     ]);
 
-    expect(snapshot.students).toHaveLength(1);
+    expect(snapshot.students).toHaveLength(2);
     expect(snapshot.courseware).toHaveLength(3);
     expect(snapshot.assignments).toHaveLength(2);
     expect(summary.items.find(({ id }) => id === 'new-courseware')?.value).toBe(

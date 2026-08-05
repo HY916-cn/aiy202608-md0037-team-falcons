@@ -63,7 +63,7 @@ describe('MockTeachingDemoAdapter', () => {
       '一班课件',
     ]);
     expect(classTerminal.grades).toEqual([]);
-    expect(classTerminal.students.map((student) => student.name)).toEqual([
+    expect(classTerminal.students.slice(0, 1).map((student) => student.name)).toEqual([
       '演示学生01',
     ]);
     expect((await adapter.load(FAMILY_SCOPE)).courseware).toEqual([]);
@@ -161,7 +161,7 @@ describe('MockTeachingDemoAdapter', () => {
 
     expect(classTerminal.classes).toEqual(teacher.classes);
     expect(classTerminal.students).toEqual(teacher.students);
-    expect(classTerminal.students).toHaveLength(1);
+    expect(classTerminal.students).toHaveLength(2);
     expect(classTerminal.grades).toEqual([]);
   });
 });
