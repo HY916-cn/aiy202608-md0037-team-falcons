@@ -6,6 +6,7 @@
 - 🏷 **命题企业 / 赛道：** Coze · 校园生活 AI 助手
 - 👥 **团队：** Team Falcons
 - 🔢 **团队编号：** MD0037
+- 🌐 **正式交付：** Web
 
 ![海豚云 AI 中心](./docs/assets/product-ai-center.jpg)
 
@@ -14,8 +15,8 @@
 | 成员 | GitHub | 负责内容 |
 | --- | --- | --- |
 | Haoyu Huang | [@HY916-cn](https://github.com/HY916-cn) | 产品设计、架构协调、代码审查、测试构建与路演 |
-| Qiteng Jiang | [@cskunkuncskk](https://github.com/cskunkuncskk) | Web 前端、六角色工作台、教学与成绩体验 |
 | Lilun Yan | [@Simen111216](https://github.com/Simen111216) | Supabase、治理账本、权限安全与发布工程 |
+| Qiteng Jiang | [@cskunkuncskk](https://github.com/cskunkuncskk) | Web 前端、六角色工作台、教学与成绩体验 |
 
 ## ✨ 它能做什么
 
@@ -28,23 +29,31 @@
 
 ## 🎬 演示
 
-建议按以下路线体验核心闭环：
+最终路演只使用 Web 版。建议按以下路线体验核心闭环：
 
-1. 教师端发布作业或成绩单，并完成一次学生加分。
-2. 班级端查看班级表现和排行。
-3. 家庭端验证只能查看绑定学生的成绩与成长记录。
-4. 银行端创建罚款并执行指定撤销；自治会端查看班级分。
-5. AI 中心查询今日摘要，并观察写操作的确认流程。
+1. 教师切换授权班级，发送课件、发布作业与成绩单，并记录学生分。
+2. 班级端查看课件、作业、学生分排行与班级表现。
+3. 家庭端验证只能查看绑定学生的成绩、成长记录和海豚币信息。
+4. 自治会端查看班级分；银行端处理罚款并对指定记录执行撤销。
+5. AI 中心在当前角色与范围内查询信息，并展示写操作草稿的确认边界。
 
 > 在线体验地址将在完成公网 HTTPS 部署后补充。仓库不提供真实学生数据、演示账号密码或服务端密钥。
+
+路演与提交材料：
+
+- [10 分钟路演讲稿](./docs/十分钟路演讲稿.md)
+- [3–4 分钟实机演示路径与专家问答](./docs/实机演示路径与专家问答.md)
+- [断网、AI 离线与服务器故障备用方案](./docs/故障备用方案.md)
+- [AIY 赛事提交自查](./docs/10-AIY赛事提交自查.md)
 
 ## 🛠 技术与 AI 工具
 
 | 层级 | 技术 |
 | --- | --- |
-| Web 客户端 | React Native、Expo Router、TypeScript |
+| Web 客户端（正式交付） | React Native、Expo Router、TypeScript |
 | 身份与数据 | Supabase Auth、PostgreSQL、RLS、RPC、Storage |
 | AI 运行时 | DeepSeek，经海豚云服务端 AI Gateway 受控接入 |
+| AI 方案验证 | Coze 对话、Agent、Skill 与 Workflow 思路，用于校园场景拆解和助手流程验证 |
 | 质量保障 | Vitest、pgTAP、ESLint、GitHub Actions、Gitleaks |
 | 协作开发 | Git、GitHub、Codex |
 
@@ -86,12 +95,14 @@ pnpm smoke:web
 
 如发现安全问题，请不要在公开 Issue 中粘贴凭据或个人信息，改用仓库维护者提供的私密联系方式报告。
 
-## 📌 后续计划
+## 📌 交付边界与后续计划
 
 - 完成公网 HTTPS Web 部署与可公开访问的体验入口。
 - 完成 DeepSeek AI 网关的公网部署与线上回归。
 - 增加关键业务路径的浏览器端自动化回归。
 - 持续改善无障碍、移动端排版和低网速体验。
+
+本次赛事只正式交付 Web。仓库中保留的其他平台工程与历史构建记录不属于本次提交承诺，也不会在路演中表述为已交付产品。
 
 ## 📄 版权与许可
 
