@@ -27,7 +27,7 @@ function studentCommand(
   overrides: Partial<AuthorizedOperationCommand> = {},
 ): AuthorizedOperationCommand {
   return {
-    kind: 'student_score_adjust',
+    kind: 'student_score_apply',
     actorId: ACTOR_ID,
     actorRole: 'teacher',
     idempotencyKey: 'test-idempotency-student-score' as IdempotencyKey,
@@ -43,7 +43,7 @@ function classCommand(
   overrides: Partial<AuthorizedOperationCommand> = {},
 ): AuthorizedOperationCommand {
   return {
-    kind: 'class_score_adjust',
+    kind: 'class_score_apply',
     actorId: ACTOR_ID,
     actorRole: 'teacher',
     idempotencyKey: 'test-idempotency-class-score' as IdempotencyKey,
@@ -56,7 +56,7 @@ function classCommand(
 }
 
 describe('applyStudentScoreAdjustment', () => {
-  it('produces an applied operation and a credit entry for a positive delta', () => {
+  it('produces a succeeded operation and a credit entry for a positive delta', () => {
     const { operation, entry } = applyStudentScoreAdjustment({
       operationId: OP_ID,
       entryId: ENTRY_ID,
@@ -65,8 +65,8 @@ describe('applyStudentScoreAdjustment', () => {
       studentId: STUDENT_ID,
       now: NOW,
     });
-    expect(operation.status).toBe('applied');
-    expect(operation.kind).toBe('student_score_adjust');
+    expect(operation.status).toBe('succeeded');
+    expect(operation.kind).toBe('student_score_apply');
     expect(entry.kind).toBe('student_score');
     expect(entry.direction).toBe('credit');
     expect(entry.amount).toBe(3);
@@ -122,13 +122,13 @@ describe('applyStudentScoreAdjustment', () => {
     expect(caught?.code).toBe('E_INTEGER_REQUIRED');
   });
 
-  it('rejects command whose kind is not student_score_adjust', () => {
+  it('rejects command whose kind is not student_score_apply', () => {
     let caught: DomainError | undefined;
     try {
       applyStudentScoreAdjustment({
         operationId: OP_ID,
         entryId: ENTRY_ID,
-        command: studentCommand({ kind: 'class_score_adjust' }),
+        command: studentCommand({ kind: 'class_score_apply' }),
         delta: 2,
         studentId: STUDENT_ID,
         now: NOW,
@@ -266,7 +266,7 @@ describe('applyStudentScoreAdjustment', () => {
 });
 
 describe('applyClassScoreAdjustment', () => {
-  it('produces applied operation and a credit entry with class_score kind and classId as subject', () => {
+  it('produces succeeded operation and a credit entry with class_score kind and classId as subject', () => {
     const { operation, entry } = applyClassScoreAdjustment({
       operationId: OP_ID,
       entryId: ENTRY_ID,
@@ -275,8 +275,8 @@ describe('applyClassScoreAdjustment', () => {
       classId: CLASS_ID,
       now: NOW,
     });
-    expect(operation.status).toBe('applied');
-    expect(operation.kind).toBe('class_score_adjust');
+    expect(operation.status).toBe('succeeded');
+    expect(operation.kind).toBe('class_score_apply');
     expect(entry.kind).toBe('class_score');
     expect(entry.direction).toBe('credit');
     expect(entry.amount).toBe(4);
@@ -296,13 +296,13 @@ describe('applyClassScoreAdjustment', () => {
     expect(entry.amount).toBe(6);
   });
 
-  it('rejects command whose kind is not class_score_adjust', () => {
+  it('rejects command whose kind is not class_score_apply', () => {
     let caught: DomainError | undefined;
     try {
       applyClassScoreAdjustment({
         operationId: OP_ID,
         entryId: ENTRY_ID,
-        command: classCommand({ kind: 'student_score_adjust' }),
+        command: classCommand({ kind: 'student_score_apply' }),
         delta: 1,
         classId: CLASS_ID,
         now: NOW,

@@ -13,6 +13,7 @@ import {
   parseWithDomainError,
   reasonSchema,
   scoreDeltaSchema,
+  studentScoreCategoryManageSchema,
   studentScoreEntrySchema,
   uuidSchema,
 } from '../index';
@@ -143,21 +144,21 @@ describe('score delta schema', () => {
 describe('operation request schema (external DTO)', () => {
   it('accepts a well-formed request using adjust naming', () => {
     const request = parseWithDomainError(operationRequestSchema, {
-      kind: 'student_score_adjust',
+      kind: 'student_score_apply',
       idempotencyKey: VALID_IDEMPOTENCY_KEY,
       reason: '值日出勤',
     });
-    expect(request.kind).toBe('student_score_adjust');
+    expect(request.kind).toBe('student_score_apply');
     expect(request.idempotencyKey).toBe(VALID_IDEMPOTENCY_KEY);
   });
 
-  it('accepts negative-intent kind via _adjust naming', () => {
+  it('accepts class score apply kind', () => {
     const request = parseWithDomainError(operationRequestSchema, {
-      kind: 'class_score_adjust',
+      kind: 'class_score_apply',
       idempotencyKey: VALID_IDEMPOTENCY_KEY,
       reason: '晚归扣分',
     });
-    expect(request.kind).toBe('class_score_adjust');
+    expect(request.kind).toBe('class_score_apply');
   });
 
   it('rejects the old grant naming as unknown operation kind', () => {
@@ -188,7 +189,7 @@ describe('operation request schema (external DTO)', () => {
     expectDomainErrorCode(
       () =>
         parseWithDomainError(operationRequestSchema, {
-          kind: 'coin_grant',
+          kind: 'dolphin_grant',
           idempotencyKey: VALID_IDEMPOTENCY_KEY,
           reason: '奖励',
           actorId: VALID_UUID,
@@ -201,7 +202,7 @@ describe('operation request schema (external DTO)', () => {
     expectDomainErrorCode(
       () =>
         parseWithDomainError(operationRequestSchema, {
-          kind: 'coin_grant',
+          kind: 'dolphin_grant',
           idempotencyKey: VALID_IDEMPOTENCY_KEY,
           reason: '奖励',
           role: 'teacher',
@@ -211,7 +212,7 @@ describe('operation request schema (external DTO)', () => {
     expectDomainErrorCode(
       () =>
         parseWithDomainError(operationRequestSchema, {
-          kind: 'coin_grant',
+          kind: 'dolphin_grant',
           idempotencyKey: VALID_IDEMPOTENCY_KEY,
           reason: '奖励',
           scope: 'class:123',
@@ -290,6 +291,67 @@ describe('student and class score entry schemas (no actor in external DTO)', () 
           actorId: VALID_UUID,
         } as unknown),
       'E_INVALID_INPUT',
+    );
+  });
+});
+
+describe('student score category manage schema', () => {
+  it('accepts positive and negative category definitions with integer defaults', () => {
+    expect(() =>
+      parseWithDomainError(studentScoreCategoryManageSchema, {
+        categoryId: null,
+        schoolId: VALID_UUID,
+        slug: 'daily_positive',
+        displayName: '日常加分',
+        description: '课堂表现',
+        kind: 'positive',
+        defaultDelta: 3,
+        isActive: true,
+      }),
+    ).not.toThrow();
+
+    expect(() =>
+      parseWithDomainError(studentScoreCategoryManageSchema, {
+        categoryId: VALID_UUID_ALT,
+        schoolId: VALID_UUID,
+        slug: 'daily_negative',
+        displayName: '日常扣分',
+        description: '纪律扣分',
+        kind: 'negative',
+        defaultDelta: -2,
+        isActive: false,
+      }),
+    ).not.toThrow();
+  });
+
+  it('rejects mismatched sign and fractional defaults', () => {
+    expectDomainErrorCode(
+      () =>
+        parseWithDomainError(studentScoreCategoryManageSchema, {
+          categoryId: null,
+          schoolId: VALID_UUID,
+          slug: 'bad_positive',
+          displayName: '错误加分',
+          description: '',
+          kind: 'positive',
+          defaultDelta: -2,
+          isActive: true,
+        }),
+      'E_INVALID_INPUT',
+    );
+    expectDomainErrorCode(
+      () =>
+        parseWithDomainError(studentScoreCategoryManageSchema, {
+          categoryId: null,
+          schoolId: VALID_UUID,
+          slug: 'bad_fraction',
+          displayName: '错误小数',
+          description: '',
+          kind: 'negative',
+          defaultDelta: -1.5,
+          isActive: true,
+        }),
+      'E_INTEGER_REQUIRED',
     );
   });
 });
