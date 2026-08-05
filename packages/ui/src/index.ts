@@ -7,7 +7,9 @@ export {
 export { RoleHomeScreen } from './RoleHomeScreen';
 export {
   resolveRoleNavigationKey,
+  resolveRolePageHeader,
   ROLE_NAVIGATION_KEYS,
+  type RolePageHeader,
   type RoleNavigationKey,
 } from './roleNavigation';
 export { RoleIcon } from './RoleIcon';

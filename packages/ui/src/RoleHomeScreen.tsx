@@ -34,7 +34,10 @@ import {
 
 import { RoleIcon } from './RoleIcon';
 import { InteractivePressable } from './InteractivePressable';
-import type { RoleNavigationKey } from './roleNavigation';
+import {
+  resolveRolePageHeader,
+  type RoleNavigationKey,
+} from './roleNavigation';
 import { theme } from './theme';
 
 type NavigationItem = {
@@ -87,15 +90,6 @@ const ROLE_NAVIGATION = {
     { icon: Settings, key: 'settings', label: '系统设置' },
   ],
 } as const satisfies Record<RoleCode, readonly NavigationItem[]>;
-
-const ROLE_PAGE_COPY = {
-  teacher: ['教学工作台', '集中处理课堂评价、课件、作业与成绩。'],
-  class_terminal: ['班级工作台', '在公共设备上安全查看课件、作业与班级表现。'],
-  family: ['家庭首页', '查看孩子今天的任务、成长记录与海豚币。'],
-  bank_operator: ['校园银行', '处理账户、罚款单与海豚币流水。'],
-  council: ['自治会工作台', '记录班级表现并处理更正申请。'],
-  admin: ['管理工作台', '掌握账号、班级、权限与系统运行情况。'],
-} as const satisfies Record<RoleCode, readonly [string, string]>;
 
 type RoleHomeScreenProps = {
   readonly activeNavigation?: RoleNavigationKey;
@@ -206,7 +200,7 @@ export function RoleHomeScreen({
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<RoleCode | 'logout' | null>(null);
   const [pendingScopeId, setPendingScopeId] = useState<string | null>(null);
-  const pageCopy = ROLE_PAGE_COPY[role];
+  const pageHeader = resolveRolePageHeader(role, activeNavigation);
   const currentRoleScopes = useMemo(
     () => availableRoleScopes.filter((scope) => scope.role === currentRole),
     [availableRoleScopes, currentRole],
@@ -405,9 +399,9 @@ export function RoleHomeScreen({
           <View style={styles.content}>
             <View style={styles.pageHeading}>
               <View style={styles.headingCopy}>
-                <Text style={styles.eyebrow}>{ROLE_LABELS[role]}</Text>
-                <Text style={styles.pageTitle}>{pageCopy[0]}</Text>
-                <Text style={styles.pageDescription}>{pageCopy[1]}</Text>
+                <Text style={styles.eyebrow}>{pageHeader.eyebrow}</Text>
+                <Text style={styles.pageTitle}>{pageHeader.title}</Text>
+                <Text style={styles.pageDescription}>{pageHeader.description}</Text>
               </View>
               <View style={styles.dateBadge}>
                 <Text style={styles.datePrimary}>{today.date}</Text>
