@@ -52,6 +52,7 @@ const ROLE_NAVIGATION = {
     { icon: FolderUp, key: 'courseware', label: '课件' },
     { icon: ClipboardList, key: 'assignment', label: '作业' },
     { icon: UsersRound, key: 'class', label: '班级' },
+    { icon: Coins, key: 'coins', label: '海豚币' },
     { icon: Bot, key: 'ai', label: 'AI 中心' },
   ],
   class_terminal: [

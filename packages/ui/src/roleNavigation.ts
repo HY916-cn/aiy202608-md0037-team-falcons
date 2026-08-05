@@ -25,7 +25,7 @@ export const ROLE_NAVIGATION_KEYS = {
   class_terminal: ['home', 'courseware', 'assignment', 'class', 'ai'],
   council: ['home', 'class_score', 'inspections', 'appeals', 'ai'],
   family: ['home', 'assignment', 'growth', 'coins', 'ai'],
-  teacher: ['home', 'courseware', 'assignment', 'class', 'ai'],
+  teacher: ['home', 'courseware', 'assignment', 'class', 'coins', 'ai'],
 } as const satisfies Record<RoleCode, readonly RoleNavigationKey[]>;
 
 export type RolePageHeader = {
@@ -86,7 +86,7 @@ const ROLE_PAGE_HEADERS = {
   family: {
     ai: { description: '在当前学生权限范围内使用 AI 助手。', title: 'AI 中心' },
     assignment: { description: '查看当前学生的作业与截止时间。', title: '作业' },
-    coins: { description: '查看并管理当前学生的海豚币。', title: '海豚币' },
+    coins: { description: '查看当前学生的海豚币余额、流水与罚款状态。', title: '海豚币' },
     growth: { description: '查看当前学生的成绩单与成长记录。', title: '成长记录' },
     home: {
       description: '查看孩子今天的任务、成长记录与海豚币。',
@@ -97,6 +97,7 @@ const ROLE_PAGE_HEADERS = {
     ai: { description: '在教师权限范围内使用 AI 助手处理服务。', title: 'AI 中心' },
     assignment: { description: '发布并跟进当前班级的作业。', title: '作业' },
     class: { description: '查看学生档案并向当前班级发布成绩。', title: '班级与成绩' },
+    coins: { description: '查看当前班级学生的海豚币余额、流水与罚款状态。', title: '海豚币' },
     courseware: { description: '向当前班级发送并管理课件。', title: '课件' },
     home: { description: '集中处理课堂评价、课件、作业与成绩。', title: '教学工作台' },
   },
