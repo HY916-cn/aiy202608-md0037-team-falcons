@@ -1,8 +1,8 @@
 export const theme = {
   color: {
     brand: {
-      primary: '#2563EB',
-      secondary: '#3B82F6',
+      primary: '#1677FE',
+      secondary: '#22D2ED',
       onPrimaryMuted: 'rgba(255,255,255,0.14)',
       onPrimaryBorder: 'rgba(255,255,255,0.28)',
     },

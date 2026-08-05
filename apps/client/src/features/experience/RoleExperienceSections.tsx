@@ -241,7 +241,7 @@ function AiExperienceSection({ roleScope }: { readonly roleScope: AuthRoleScope 
           <Bot color={theme.color.brand.secondary} size={20} />
         </View>
         <View style={styles.sectionHeadingCopy}>
-          <Text style={styles.sectionTitle}>海豚助手</Text>
+          <Text style={styles.sectionTitle}>AI 中心</Text>
           <Text style={styles.sectionDescription}>
             查询当前范围内的信息，或让助手协助整理日常事务。
           </Text>
