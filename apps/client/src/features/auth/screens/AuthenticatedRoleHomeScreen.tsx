@@ -29,7 +29,15 @@ export function AuthenticatedRoleHomeScreen({
     );
   };
   const switchRole = async (nextRole: RoleCode) => {
-    await session.switchRole(nextRole);
+    const targetScope = session.availableRoleScopes.find(
+      (scope) => scope.role === nextRole,
+    );
+
+    if (targetScope === undefined) {
+      await session.switchRole(nextRole);
+    } else {
+      await session.switchRoleScope(targetScope.assignmentId);
+    }
     router.replace(ROLE_HOME_PATHS[nextRole] as Href);
   };
 
