@@ -47,8 +47,8 @@ export interface OperationRecord {
 }
 
 const ALLOWED_TRANSITIONS: Readonly<Record<OperationStatus, readonly OperationStatus[]>> = {
-  pending: ['applied', 'failed'],
-  applied: ['reversed'],
+  pending: ['succeeded', 'failed'],
+  succeeded: ['reversed'],
   reversed: [],
   failed: [],
 };
@@ -108,8 +108,8 @@ export function markOperationApplied(
   operation: OperationRecord,
   at: Timestamp,
 ): OperationRecord {
-  assertOperationTransition(operation.status, 'applied');
-  return { ...operation, status: 'applied', appliedAt: at };
+  assertOperationTransition(operation.status, 'succeeded');
+  return { ...operation, status: 'succeeded', appliedAt: at };
 }
 
 export function markOperationFailed(

@@ -12,6 +12,7 @@ import {
   type LedgerKind,
   type OperationKind,
   type OperationTargetType,
+  type StudentScoreCategoryKind,
   type Timestamp,
   type Uuid,
 } from './index';
@@ -45,8 +46,30 @@ export interface ScoreAdjustmentResult {
   readonly entry: LedgerEntry;
 }
 
+export interface StudentScoreCategoryDefinition {
+  readonly id: Uuid;
+  readonly schoolId: Uuid;
+  readonly slug: string;
+  readonly displayName: string;
+  readonly description: string;
+  readonly kind: StudentScoreCategoryKind;
+  readonly defaultDelta: number;
+  readonly isActive: boolean;
+}
+
+export interface StudentScoreCategoryManageInput {
+  readonly categoryId: Uuid | null;
+  readonly schoolId: Uuid;
+  readonly slug: string;
+  readonly displayName: string;
+  readonly description: string;
+  readonly kind: StudentScoreCategoryKind;
+  readonly defaultDelta: number;
+  readonly isActive: boolean;
+}
+
 /**
- * 学生分：kind 必须为 student_score_adjust，subject 为 studentId，
+ * 学生分：kind 必须为 student_score_apply，subject 为 studentId，
  * ledger kind 为 student_score。
  * 授权目标必须 (targetType='student', targetId===studentId)，防止
  * 授权目标与实际写入的流水对象错位。
@@ -55,7 +78,7 @@ export function applyStudentScoreAdjustment(
   input: StudentScoreAdjustmentInput,
 ): ScoreAdjustmentResult {
   return buildScoreAdjustment({
-    expectedKind: 'student_score_adjust',
+    expectedKind: 'student_score_apply',
     expectedTargetType: 'student',
     ledgerKind: 'student_score',
     subjectId: input.studentId,
@@ -68,7 +91,7 @@ export function applyStudentScoreAdjustment(
 }
 
 /**
- * 班级分：kind 必须为 class_score_adjust，subject 为 classId，
+ * 班级分：kind 必须为 class_score_apply，subject 为 classId，
  * ledger kind 为 class_score。
  * 授权目标必须 (targetType='class', targetId===classId)。
  */
@@ -76,7 +99,7 @@ export function applyClassScoreAdjustment(
   input: ClassScoreAdjustmentInput,
 ): ScoreAdjustmentResult {
   return buildScoreAdjustment({
-    expectedKind: 'class_score_adjust',
+    expectedKind: 'class_score_apply',
     expectedTargetType: 'class',
     ledgerKind: 'class_score',
     subjectId: input.classId,

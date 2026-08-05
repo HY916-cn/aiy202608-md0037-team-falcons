@@ -30,34 +30,40 @@ import {
 } from '../index';
 
 describe('domain enums', () => {
-  it('operation kinds use adjust naming that permits negative deltas', () => {
-    expect(OPERATION_KINDS).toContain('student_score_adjust');
-    expect(OPERATION_KINDS).toContain('class_score_adjust');
-    expect(OPERATION_KINDS).not.toContain('student_score_grant');
-    expect(OPERATION_KINDS).not.toContain('class_score_grant');
-    expect(OPERATION_KINDS).toContain('reversal');
+  it('operation kinds match the governance SQL contracts', () => {
+    expect(OPERATION_KINDS).toContain('student_score_category_manage');
+    expect(OPERATION_KINDS).toContain('student_score_apply');
+    expect(OPERATION_KINDS).toContain('student_score_apply_batch');
+    expect(OPERATION_KINDS).toContain('class_score_apply');
+    expect(OPERATION_KINDS).toContain('dolphin_grant');
+    expect(OPERATION_KINDS).toContain('fine_rule_manage');
+    expect(OPERATION_KINDS).toContain('reversal_apply');
   });
 
   it('operation statuses, target types, ledger kinds and ranking windows are frozen sets', () => {
-    expect(OPERATION_STATUSES).toEqual(['pending', 'applied', 'reversed', 'failed']);
+    expect(OPERATION_STATUSES).toEqual(['pending', 'succeeded', 'reversed', 'failed']);
     expect(OPERATION_TARGET_TYPES).toEqual([
       'student',
+      'student_score_category',
       'class',
+      'household',
+      'wallet',
       'fine_order',
+      'fine_rule',
       'operation',
     ]);
     expect(LEDGER_DIRECTIONS).toEqual(['credit', 'debit']);
     expect(LEDGER_KINDS).toEqual(['student_score', 'class_score', 'coin', 'fine']);
     expect(RANKING_WINDOWS).toEqual(['weekly', 'monthly', 'all_time']);
-    expect(FINE_STATUSES).toEqual(['pending', 'settled', 'cancelled']);
+    expect(FINE_STATUSES).toEqual(['pending', 'settled', 'cancelled', 'reversed']);
     expect(ROLE_CODES_FOR_AUTHZ).toContain('teacher');
     expect(ROLE_CODES_FOR_AUTHZ).toContain('admin');
   });
 
   it('guards reject non-members without leaking through', () => {
-    expect(isOperationKind('student_score_adjust')).toBe(true);
+    expect(isOperationKind('student_score_apply')).toBe(true);
     expect(isOperationKind('student_score_grant')).toBe(false);
-    expect(isOperationStatus('applied')).toBe(true);
+    expect(isOperationStatus('succeeded')).toBe(true);
     expect(isOperationStatus('done')).toBe(false);
     expect(isOperationTargetType('student')).toBe(true);
     expect(isOperationTargetType('teacher')).toBe(false);
