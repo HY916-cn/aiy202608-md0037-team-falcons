@@ -2,7 +2,7 @@
 #
 # We extend the upstream default ruleset (which includes generic-api-key and
 # every provider rule) and only append a minimal, exact-string allowlist for
-# eleven historical test fixture idempotency keys that were committed before the
+# twelve historical test fixture idempotency keys that were committed before the
 # fixtures were renamed to `test-idempotency-*-fixture`.
 #
 # Scope of this allowlist:
@@ -30,4 +30,5 @@ regexes = [
   '''\bck-2026-rev-orig-XYZ\b''',
   '''\bcoin-reversal-0001\b''',
   '''\bidem-op-test-fresh-0001\b''',
+  '''\btest-idem-op-fresh-0001\b''',
 ]
