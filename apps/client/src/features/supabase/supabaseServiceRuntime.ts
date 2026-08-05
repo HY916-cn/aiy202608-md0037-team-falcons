@@ -56,6 +56,13 @@ export function createSupabaseServiceRuntime(
   clientFactory: SupabaseClientFactory = defaultClientFactory,
 ): SupabaseServiceRuntime {
   const { anonKey, mockRole, url } = configuration;
+
+  if (process.env.NODE_ENV === 'production') {
+    if (!url || !anonKey || !process.env.EXPO_PUBLIC_AI_GATEWAY_FUNCTION) {
+      throw new Error('PRODUCTION_CONFIG_MISSING: EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY, and EXPO_PUBLIC_AI_GATEWAY_FUNCTION are required in production.');
+    }
+  }
+
   if ((url === undefined) !== (anonKey === undefined)) {
     throw new Error('SUPABASE_CONFIG_INCOMPLETE');
   }
