@@ -1,7 +1,9 @@
 # DolphinCloud Web Deployment Guide
 
+> 当前交付范围仅保留 Web。Android、iOS 与 Windows 桌面安装包不进入本轮构建、验收或发布链。
+
 ## 部署概览
-海豚云 Web 端支持通过 Docker Compose 快速完成静态站点的生产环境部署。构建产物为一个不可变版本 ZIP 包，通过 Nginx 托管提供高性能的分发与 SPA (Single Page Application) 路由回退。
+海豚云 Web 端支持通过 Docker Compose 快速完成静态站点的生产环境部署。CI 同时生成可归档的 Web ZIP；Docker 镜像直接封装同一份静态导出，并由 Nginx 提供缓存、安全响应头与 Expo Router 路由回退。
 
 ## 环境要求
 - Docker (20.10+)

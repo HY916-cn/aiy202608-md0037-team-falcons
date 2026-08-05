@@ -226,9 +226,6 @@ jobs:
           EXPO_PUBLIC_AI_GATEWAY_FUNCTION: "dummy-gateway"
           EXPO_PUBLIC_APP_ENV: "production"
         run: docker compose down -v
-      - name: Export and verify Android
-        run: pnpm smoke:android
-
   web-release-windows:
     name: Web Release (Windows)
     needs:
