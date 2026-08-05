@@ -1,5 +1,7 @@
 # RC1 构建与验收记录
 
+> 当前状态：交付工具与文档骨架。本表中的冻结、四端构建、安装、主演示、彩排和录屏证据尚未完成，因此 #20、#24、#25 必须保持开放；只有全部验收项在精确 RC SHA 上留证后才能关闭。
+
 ## 1. 冻结信息
 
 | 项目 | 记录 |
@@ -27,11 +29,13 @@ pnpm release:preflight -- --database
 
 ### Web
 
-```bash
+Windows PowerShell、macOS 和 Linux 使用同一条命令；脚本通过当前 pnpm 运行时启动导出，并使用仓库内置的确定性 ZIP 写入器，不要求系统安装 `zip`：
+
+```powershell
 pnpm release:web
 ```
 
-输出到 `artifacts/release/`，脚本拒绝脏工作区，自动运行 Web 冒烟、生成 ZIP 和 SHA-256。
+输出到 `artifacts/release/dolphincloud-web-v0.1.0-<sha>.zip` 和 `artifacts/release/checksums-v0.1.0.txt`。脚本拒绝脏工作区，自动运行 Web 冒烟、生成 ZIP 和 SHA-256。
 
 ### Android APK
 

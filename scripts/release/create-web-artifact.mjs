@@ -9,6 +9,9 @@ import {
 } from "node:fs";
 import { basename, join } from "node:path";
 
+import { runPnpmSync } from "./pnpm-command.mjs";
+import { createZipFromDirectory } from "./zip-directory.mjs";
+
 const root = process.cwd();
 const packageJson = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 const fullSha = execFileSync("git", ["rev-parse", "HEAD"], {
@@ -25,7 +28,13 @@ if (status !== "") {
   throw new Error("Refusing to package a dirty worktree. Commit the RC files first.");
 }
 
-execFileSync("pnpm", ["smoke:web"], { cwd: root, stdio: "inherit" });
+const smokeResult = runPnpmSync(["smoke:web"], { cwd: root });
+if (smokeResult.error) {
+  throw smokeResult.error;
+}
+if (smokeResult.status !== 0) {
+  throw new Error(`Web smoke failed with exit code ${smokeResult.status ?? 1}.`);
+}
 
 const exportDirectory = join(root, "apps", "client", "dist", "web");
 if (!existsSync(join(exportDirectory, "index.html"))) {
@@ -38,10 +47,7 @@ mkdirSync(artifactDirectory, { recursive: true });
 const artifactName = `dolphincloud-web-v${packageJson.version}-${shortSha}.zip`;
 const artifactPath = join(artifactDirectory, artifactName);
 rmSync(artifactPath, { force: true });
-execFileSync("zip", ["-q", "-r", artifactPath, "."], {
-  cwd: exportDirectory,
-  stdio: "inherit",
-});
+createZipFromDirectory(exportDirectory, artifactPath);
 
 const digest = createHash("sha256")
   .update(readFileSync(artifactPath))
