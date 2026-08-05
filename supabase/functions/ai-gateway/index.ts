@@ -15826,6 +15826,9 @@ var SupabaseTeachingDemoAdapter = class {
   async createAssignmentDraft(input) {
     await this.assignments.createDraft(input);
   }
+  async createCoursewareDownloadUrl(coursewareId) {
+    return this.courseware.createDownloadUrl(coursewareId);
+  }
   async createGradeDraft(input) {
     const assessment = await this.grades.createAssessmentDraft(input);
     await this.grades.saveGradeDrafts(assessment.id, [input]);
