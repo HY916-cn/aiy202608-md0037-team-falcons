@@ -36,7 +36,7 @@ vi.mock('@dolphincloud/ui', () => ({
   theme: {
     color: {
       border: { default: '#ddd' },
-      brand: { primary: '#0067c0' },
+      brand: { primary: '#1677fe' },
       surface: { card: '#fff', muted: '#eee', primaryTint: '#eef6ff', subtleHover: '#eee' },
       text: { disabled: '#999', primary: '#111', secondary: '#666' },
     },

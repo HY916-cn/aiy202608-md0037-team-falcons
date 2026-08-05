@@ -5,7 +5,6 @@ import type {
 import {
   Bot,
   CheckCircle2,
-  Waves,
 } from 'lucide-react-native';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -27,11 +26,11 @@ export function DolphinMascotCard({ snapshot }: { readonly snapshot: AiExperienc
   return (
     <View style={styles.mascotCard}>
       <View style={styles.mascot}>
-        <Waves
-          accessibilityLabel="海豚吉祥物"
+        <Bot
+          accessibilityLabel="AI 助手状态"
           color={theme.color.brand.secondary}
-          size={24}
-          strokeWidth={2.4}
+          size={22}
+          strokeWidth={2}
         />
       </View>
       <View style={styles.copy}>
