@@ -424,7 +424,7 @@ $$;
 create or replace function public.cancel_fine_order(
   idempotency_key text,
   target_order_id uuid,
-  cancellation_note text
+  p_cancellation_note text
 )
 returns public.fine_orders
 language plpgsql
@@ -442,7 +442,7 @@ begin
   if idempotency_key is null or char_length(btrim(idempotency_key)) not between 16 and 128 then
     raise exception 'INVALID_IDEMPOTENCY_KEY' using errcode = 'P0001';
   end if;
-  if cancellation_note is null or char_length(btrim(cancellation_note)) not between 1 and 200 then
+  if p_cancellation_note is null or char_length(btrim(p_cancellation_note)) not between 1 and 200 then
     raise exception 'INVALID_NOTE' using errcode = 'P0001';
   end if;
 
@@ -468,7 +468,7 @@ begin
 
   canonical_payload := jsonb_build_object(
     'order_id', target_order_id,
-    'note', btrim(cancellation_note)
+    'note', btrim(p_cancellation_note)
   );
 
   select * into op
@@ -501,7 +501,7 @@ begin
     set
       status = 'cancelled',
       cancel_operation_id = op.operation_id,
-      cancellation_note = btrim(cancellation_note),
+      cancellation_note = btrim(p_cancellation_note),
       cancelled_at = now()
     where id = target_order_id
     returning * into order_row;

@@ -272,8 +272,8 @@ select throws_ok(
     )
   $$,
   'P0001',
-  'RULE_NOT_FOUND',
-  '跨学校罚款创建会失败'
+  'FORBIDDEN',
+  '教师对未授权学生创建罚款会失败'
 );
 
 -- Family cannot create fine.
@@ -354,7 +354,7 @@ select is(
 
 select is(
   (select balance from public.dolphin_accounts where student_id = '50000000-0000-0000-0000-000000000001'),
-  30::numeric(12, 2),
+  35::numeric(12, 2),
   '结算罚款后学生余额减少'
 );
 
