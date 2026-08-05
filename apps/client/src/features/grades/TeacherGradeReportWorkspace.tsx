@@ -5,7 +5,7 @@ import { InteractivePressable, theme } from '@dolphincloud/ui';
 import * as DocumentPicker from 'expo-document-picker';
 import { FileSpreadsheet, PencilLine, Save, Send } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
 import { useSupabaseServices } from '../supabase/SupabaseServiceProvider';
 import {
@@ -263,6 +263,7 @@ export function TeacherGradeReportWorkspace({
       setRevisions(await gradeReportService.listValueRevisions(revisionTarget.valueId));
       await loadClassSheets(revised.classId);
       setMessage('成绩已修订，并已保存前后值、原因、时间和操作者。');
+      setRevisionTarget(null);
     } catch (cause) {
       setError(messageForError(cause));
     } finally {
@@ -445,14 +446,23 @@ export function TeacherGradeReportWorkspace({
                 </View>
               ))}
               {revisionTarget === null ? null : (
-                <View style={styles.revisionForm}>
-                  <Text style={styles.savedTitle}>{revisionTarget.studentName} · {revisionTarget.columnName}</Text>
-                  <TextInput inputMode="decimal" onChangeText={setRevisionScore} placeholder="新成绩" style={styles.input} value={revisionScore} />
-                  <TextInput onChangeText={setRevisionComment} placeholder="新评语" style={styles.input} value={revisionComment} />
-                  <TextInput onChangeText={setRevisionReason} placeholder="修订原因（必填）" style={styles.input} value={revisionReason} />
-                  <GradeActionButton disabled={isPending} label="确认修订" onPress={() => void submitRevision()} />
-                  <RevisionHistory revisions={revisions} />
-                </View>
+                <Modal animationType="fade" onRequestClose={() => { if (!isPending) setRevisionTarget(null); }} transparent visible>
+                  <Pressable accessibilityLabel="关闭成绩修订" accessibilityRole="button" onPress={() => { if (!isPending) setRevisionTarget(null); }} style={styles.revisionBackdrop}>
+                    <Pressable onPress={(event) => event.stopPropagation()} style={styles.revisionDialog}>
+                      <ScrollView contentContainerStyle={styles.revisionForm}>
+                        <Text style={styles.savedTitle}>{revisionTarget.studentName} · {revisionTarget.columnName}</Text>
+                        <TextInput inputMode="decimal" onChangeText={setRevisionScore} placeholder="新成绩" style={styles.input} value={revisionScore} />
+                        <TextInput onChangeText={setRevisionComment} placeholder="新评语" style={styles.input} value={revisionComment} />
+                        <TextInput onChangeText={setRevisionReason} placeholder="修订原因（必填）" style={styles.input} value={revisionReason} />
+                        <View style={styles.actions}>
+                          <GradeActionButton disabled={isPending} label="取消" onPress={() => setRevisionTarget(null)} secondary />
+                          <GradeActionButton disabled={isPending} label="确认修订" onPress={() => void submitRevision()} />
+                        </View>
+                        <RevisionHistory revisions={revisions} />
+                      </ScrollView>
+                    </Pressable>
+                  </Pressable>
+                </Modal>
               )}
             </View>
           ) : null}
@@ -472,6 +482,8 @@ const styles = StyleSheet.create({
   libraryHeading: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between' },
   modeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   revisionArea: { borderTopColor: theme.color.border.default, borderTopWidth: 1, gap: 13, paddingTop: 18 },
+  revisionBackdrop: { alignItems: 'center', backgroundColor: 'rgba(15, 23, 42, 0.42)', flex: 1, justifyContent: 'center', padding: 16 },
+  revisionDialog: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: 14, borderWidth: 1, boxShadow: '0 20px 60px rgba(15, 23, 42, 0.24)', maxHeight: '88%', maxWidth: 620, overflow: 'hidden', width: '100%' },
   revisionForm: { backgroundColor: theme.color.surface.muted, borderRadius: 12, gap: 10, padding: 14 },
   savedSheet: { alignItems: 'center', borderBottomColor: theme.color.border.default, borderBottomWidth: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingVertical: 12 },
   savedTitle: { color: theme.color.text.primary, fontSize: 15, fontWeight: '800' },
@@ -479,7 +491,7 @@ const styles = StyleSheet.create({
   scopeSelected: { backgroundColor: theme.color.brand.primary, borderColor: theme.color.brand.primary },
   scopeText: { color: theme.color.text.primary, fontSize: 13, fontWeight: '700' },
   scopeTextSelected: { color: '#ffffff' },
-  section: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, gap: 20, maxWidth: '100%', padding: 20 },
+  section: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, gap: 20, maxWidth: '100%', padding: 20, position: 'relative' },
   sectionCompact: { gap: 16, padding: 16 },
   selectorBlock: { gap: 9 },
   sheetLibrary: { backgroundColor: theme.color.surface.muted, borderRadius: 14, gap: 5, padding: 14 },

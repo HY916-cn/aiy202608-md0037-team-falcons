@@ -90,29 +90,7 @@ export function AiResultCard({ snapshot }: { readonly snapshot: AiExperienceSnap
           <Text style={styles.resultMeta}>由海豚云 AI 网关返回，展示前已通过客户端白名单。</Text>
         </View>
       </View>
-      {snapshot.structuredResult === null ? (
-        <Text style={styles.explanation}>{snapshot.result}</Text>
-      ) : (
-        <View style={styles.structuredResult}>
-          <Text style={styles.structuredKind}>{snapshot.structuredResult.kind}</Text>
-          {Object.entries(
-            snapshot.structuredResult.payload !== null &&
-              typeof snapshot.structuredResult.payload === 'object' &&
-              !Array.isArray(snapshot.structuredResult.payload)
-              ? snapshot.structuredResult.payload as Record<string, unknown>
-              : { result: snapshot.structuredResult.payload },
-          ).map(([key, value]) => (
-            <View key={key} style={styles.structuredRow}>
-              <Text style={styles.structuredLabel}>{key}</Text>
-              <Text style={styles.structuredValue}>
-                {typeof value === 'string' || typeof value === 'number'
-                  ? String(value)
-                  : JSON.stringify(value)}
-              </Text>
-            </View>
-          ))}
-        </View>
-      )}
+      <Text style={styles.explanation}>{snapshot.result}</Text>
       <View style={styles.noticeBox}>
         <Text style={styles.notice}>查询结果不会绕过当前角色范围；写操作会单独进入预览与确认。</Text>
       </View>

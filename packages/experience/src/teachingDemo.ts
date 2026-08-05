@@ -41,6 +41,7 @@ export type TeachingFilePayload = {
 };
 
 export interface TeachingDemoAdapter {
+  createCoursewareDownloadUrl(coursewareId: string): Promise<string>;
   createAssignmentDraft(input: {
     readonly classId: string;
     readonly content: string;
@@ -96,6 +97,10 @@ export class MockTeachingDemoAdapter implements TeachingDemoAdapter {
   private courseware: TeachingCourseware[] = [];
   private assignments: Assignment[] = [];
   private grades: TeachingGrade[] = [];
+
+  async createCoursewareDownloadUrl(coursewareId: string): Promise<string> {
+    return `https://example.invalid/courseware/${encodeURIComponent(coursewareId)}`;
+  }
   private sequence = 1;
 
   constructor({ seedData = false }: { readonly seedData?: boolean } = {}) {

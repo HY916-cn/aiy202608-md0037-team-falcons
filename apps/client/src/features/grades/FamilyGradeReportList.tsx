@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
   publishedBadge: { backgroundColor: '#E8F8F0', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
   publishedText: { color: '#16834A', fontSize: 12, fontWeight: '800' },
   score: { color: theme.color.brand.primary, fontSize: 24, fontWeight: '900' },
-  section: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, gap: 18, maxWidth: '100%', padding: 20 },
+  section: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, gap: 18, maxWidth: '100%', padding: 20, position: 'relative' },
   sectionCompact: { gap: 16, padding: 16 },
   selector: { gap: 8 },
   sheet: { borderColor: theme.color.border.default, borderRadius: 14, borderWidth: 1, gap: 14, padding: 16 },

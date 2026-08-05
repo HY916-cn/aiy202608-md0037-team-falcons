@@ -46,18 +46,25 @@ function WriteActionPreviewCardContent({
   const confirm = async () => {
     const action = controller.confirm();
     setState(controller.getState());
-    await action;
-    setState(controller.getState());
+    try {
+      await action;
+    } finally {
+      setState(controller.getState());
+    }
+  };
+
+  const dismiss = () => {
+    if (!isPending) onCancel();
   };
 
   return (
     <Modal
       animationType="fade"
-      onRequestClose={onCancel}
+      onRequestClose={dismiss}
       transparent
       visible
     >
-      <Pressable accessibilityRole="button" accessibilityLabel="关闭确认窗口" onPress={onCancel} style={styles.backdrop}>
+      <Pressable accessibilityRole="button" accessibilityLabel="关闭确认窗口" onPress={dismiss} style={styles.backdrop}>
         <Pressable onPress={(event) => event.stopPropagation()} style={styles.dialog}>
           <ScrollView contentContainerStyle={styles.card}>
       <View style={styles.heading}>

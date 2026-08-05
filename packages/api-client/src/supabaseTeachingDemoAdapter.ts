@@ -43,6 +43,10 @@ export class SupabaseTeachingDemoAdapter implements TeachingDemoAdapter {
     await this.assignments.createDraft(input);
   }
 
+  async createCoursewareDownloadUrl(coursewareId: string): Promise<string> {
+    return this.courseware.createDownloadUrl(coursewareId);
+  }
+
   async createGradeDraft(input: {
     readonly classId: string;
     readonly comment: string;

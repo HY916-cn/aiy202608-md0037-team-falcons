@@ -7,7 +7,7 @@ import type { TeachingStudent } from '@dolphincloud/experience';
 import { InteractivePressable, theme } from '@dolphincloud/ui';
 import { Check, FileUp, Plus, RefreshCw, Send, Trash2 } from 'lucide-react-native';
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import type {
   GradeReportColumnForm,
@@ -362,21 +362,25 @@ export function PublishConfirmation({
   readonly sheet: GradeReportSheet;
 }) {
   return (
-    <View style={styles.confirmation}>
-      <Text style={styles.subtitle}>确认发布整张成绩单？</Text>
-      <Text style={styles.hint}>
-        “{sheet.title}”包含 {sheet.columns.length} 个成绩项目、{sheet.rows.length} 名学生。发布后绑定家庭可见本人数据。
-      </Text>
-      <View style={styles.actions}>
-        <GradeActionButton label="取消" onPress={onCancel} secondary />
-        <GradeActionButton
-          disabled={disabled}
-          icon={<Send color="#ffffff" size={15} />}
-          label="确认整表发布"
-          onPress={onConfirm}
-        />
-      </View>
-    </View>
+    <Modal animationType="fade" onRequestClose={onCancel} transparent visible>
+      <Pressable accessibilityLabel="关闭成绩单发布确认" accessibilityRole="button" onPress={disabled ? undefined : onCancel} style={styles.confirmationBackdrop}>
+        <Pressable onPress={(event) => event.stopPropagation()} style={styles.confirmation}>
+          <Text style={styles.subtitle}>确认发布整张成绩单？</Text>
+          <Text style={styles.hint}>
+            “{sheet.title}”包含 {sheet.columns.length} 个成绩项目、{sheet.rows.length} 名学生。发布后绑定家庭可见本人数据。
+          </Text>
+          <View style={styles.actions}>
+            <GradeActionButton disabled={disabled} label="取消" onPress={onCancel} secondary />
+            <GradeActionButton
+              disabled={disabled}
+              icon={<Send color="#ffffff" size={15} />}
+              label="确认整表发布"
+              onPress={onConfirm}
+            />
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
@@ -417,13 +421,14 @@ const styles = StyleSheet.create({
   columnEditor: { backgroundColor: theme.color.surface.muted, borderColor: theme.color.border.default, borderRadius: 12, borderWidth: 1, flex: 1, gap: 8, minWidth: 190, padding: 12 },
   columnEditors: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   columnNumber: { color: theme.color.text.secondary, fontSize: 12, fontWeight: '700' },
-  confirmation: { backgroundColor: '#fff8e8', borderColor: '#edb955', borderRadius: 14, borderWidth: 1, gap: 12, padding: 16 },
+  confirmation: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: 14, borderWidth: 1, boxShadow: '0 20px 60px rgba(15, 23, 42, 0.24)', gap: 12, maxWidth: 560, padding: 20, width: '100%' },
+  confirmationBackdrop: { alignItems: 'center', backgroundColor: 'rgba(15, 23, 42, 0.42)', flex: 1, justifyContent: 'center', padding: 16 },
   description: { color: theme.color.text.secondary, fontSize: 14, lineHeight: 21 },
   disabled: { opacity: 0.5 },
   empty: { color: theme.color.text.disabled, fontSize: 14, paddingVertical: 12 },
   failure: { backgroundColor: '#fff3f2', borderColor: '#efb2ad' },
   failureText: { color: '#C2413B', flex: 1, fontSize: 14 },
-  feedback: { alignItems: 'center', borderRadius: 12, borderWidth: 1, flexDirection: 'row', gap: 10, justifyContent: 'space-between', padding: 12 },
+  feedback: { alignItems: 'center', borderRadius: 12, borderWidth: 1, boxShadow: '0 10px 30px rgba(15, 23, 42, 0.16)', flexDirection: 'row', gap: 10, justifyContent: 'space-between', left: 16, maxWidth: 420, padding: 12, position: 'absolute', right: 16, top: 16, zIndex: 30 },
   field: { flex: 1, gap: 7, minWidth: 210 },
   focused: { borderColor: theme.color.brand.secondary, borderWidth: 2 },
   grow: { flex: 1 },

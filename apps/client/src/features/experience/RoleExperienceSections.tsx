@@ -10,7 +10,6 @@ import type {
 } from '@dolphincloud/experience';
 import type { CoursewareFileMetadata } from '@dolphincloud/domain';
 import {
-  AiResultCard,
   AiAuditResultCard,
   DolphinMascotCard,
   InteractivePressable,
@@ -30,7 +29,7 @@ import {
   UsersRound,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { Linking, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { useExperience } from './ExperienceProvider';
 import {
@@ -334,7 +333,6 @@ function AiExperienceSection({ roleScope }: { readonly roleScope: AuthRoleScope 
             ))
         )}
       </View>
-      <AiResultCard snapshot={snapshot} />
       <AiAuditResultCard snapshot={snapshot} />
       {!isScopeReady || snapshot.actionPreview === null ? null : (
         <WriteActionPreviewCard
@@ -533,6 +531,16 @@ function TeachingDemoSection({
     }
   };
 
+  const openCourseware = async (coursewareId: string) => {
+    setError(null);
+    try {
+      const url = await teachingAdapter.createCoursewareDownloadUrl(coursewareId);
+      await Linking.openURL(url);
+    } catch {
+      setError('课件打开失败，请刷新后重试。');
+    }
+  };
+
   if (isLoading) {
     return <Text style={styles.helper}>正在加载教学数据……</Text>;
   }
@@ -548,13 +556,15 @@ function TeachingDemoSection({
           <Text style={styles.sectionDescription}>{presentation.description}</Text>
         </View>
       </View>
-      {error === null ? null : (
-        <View style={styles.feedbackBox}>
-          <Text style={styles.error}>{error}</Text>
-          <ActionButton label="重试" onPress={() => void load(selectedClassId)} />
-        </View>
-      )}
-      {feedback === null ? null : <Text style={styles.success}>{feedback}</Text>}
+      <View style={styles.statusRegion}>
+        {error === null ? null : (
+          <View style={styles.feedbackBox}>
+            <Text style={styles.error}>{error}</Text>
+            <ActionButton label="重试" onPress={() => void load(selectedClassId)} />
+          </View>
+        )}
+        {feedback === null ? null : <Text style={styles.success}>{feedback}</Text>}
+      </View>
       {snapshot.classes.length === 0 ? <Text style={styles.helper}>当前角色暂无教学数据。</Text> : null}
 
       {pendingWrite === null ? null : (
@@ -653,6 +663,7 @@ function TeachingDemoSection({
                     </View>
                     <Text style={styles.itemMeta}>{item.subject} · {item.originalFilename} · {formatFileSize(item.sizeBytes)}</Text>
                     <Text style={styles.itemMeta}>发送于 {formatDateTime(item.createdAt)}</Text>
+                    <View style={styles.actions}><ActionButton label="打开课件" onPress={() => void openCourseware(item.id)} secondary /></View>
                   </View>
                 ))
               )}
@@ -798,6 +809,7 @@ function TeachingDemoSection({
                 </View>
                 <Text style={styles.itemMeta}>{item.subject} · {item.originalFilename} · {formatFileSize(item.sizeBytes)}</Text>
                 <Text style={styles.itemMeta}>发送于 {formatDateTime(item.createdAt)}</Text>
+                <View style={styles.actions}><ActionButton label="打开课件" onPress={() => void openCourseware(item.id)} /></View>
               </View>
             ))
           )}
@@ -999,6 +1011,7 @@ const styles = StyleSheet.create({
   sectionIcon: { alignItems: 'center', borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, height: 40, justifyContent: 'center', width: 40 },
   sectionTitle: { color: theme.color.text.primary, fontSize: theme.text.size.lg, fontWeight: '800' },
   success: { color: theme.color.brand.primary, fontSize: theme.text.size.sm, fontWeight: '700' },
+  statusRegion: { justifyContent: 'center', minHeight: 48 },
   statusBadge: { backgroundColor: theme.color.surface.primaryTint, borderRadius: theme.radius.pill, color: theme.color.brand.primary, fontSize: theme.text.size.xs, fontWeight: '800', overflow: 'hidden', paddingHorizontal: theme.space.sm, paddingVertical: 4 },
   statusBadgeMuted: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.pill, borderWidth: 1, color: theme.color.text.secondary, fontSize: theme.text.size.xs, fontWeight: '800', overflow: 'hidden', paddingHorizontal: theme.space.sm, paddingVertical: 4 },
   suggestionButton: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, justifyContent: 'center', minHeight: 40, paddingHorizontal: theme.space.base },
