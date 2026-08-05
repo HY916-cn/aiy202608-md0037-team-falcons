@@ -2,7 +2,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(44);
+select plan(48);
 
 -- Bootstrap fixture for cross-school batch validation (before switching to authenticated).
 insert into public.schools (id, name) values ('10000000-0000-0000-0000-000000000077', '其他学校');
@@ -577,11 +577,37 @@ select is(
 );
 
 -- Ranking respects privacy: family only sees their bound student rows.
+-- Ensure someone else is rank 1 so that student 1 is rank 2 or lower.
+select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000001', true);
+select is(
+  (select r.delta from public.apply_student_score(
+    'ss-make-student-2-first',
+    '50000000-0000-0000-0000-000000000002',
+    '90000000-0000-0000-0000-000000000001',
+    20,
+    '让学生2成为第一名'
+  ) as r),
+  20::numeric(9, 2),
+  '为学生 02 加 20 分以使其成为第一'
+);
+
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000021', true);
 select is(
   (select count(*) from public.compute_student_ranking('20000000-0000-0000-0000-000000000001', 'all_time', now())),
   1::bigint,
   '家庭端排行 RPC 仅返回绑定学生本人'
+);
+select ok(
+  (select rank_position from public.compute_student_ranking('20000000-0000-0000-0000-000000000001', 'all_time', now())) > 1,
+  '家庭端查询 all_time 排名，真实名次应大于 1'
+);
+select ok(
+  (select rank_position from public.compute_student_ranking('20000000-0000-0000-0000-000000000001', 'weekly', now())) > 1,
+  '家庭端查询 weekly 排名，真实名次应大于 1'
+);
+select ok(
+  (select rank_position from public.compute_student_ranking('20000000-0000-0000-0000-000000000001', 'monthly', now())) > 1,
+  '家庭端查询 monthly 排名，真实名次应大于 1'
 );
 -- Ranking for unauthorized class raises FORBIDDEN.
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000021', true);
