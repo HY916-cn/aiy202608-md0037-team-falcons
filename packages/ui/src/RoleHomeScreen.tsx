@@ -258,6 +258,7 @@ export function RoleHomeScreen({
   const isWide = width >= 960;
   const isCompactMobile = width < 480;
   const [isAccountOpen, setIsAccountOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<RoleCode | 'logout' | null>(null);
   const [pendingScopeId, setPendingScopeId] = useState<string | null>(null);
   const pageHeader = resolveRolePageHeader(role, activeNavigation);
@@ -392,6 +393,23 @@ export function RoleHomeScreen({
     </View>
   ) : null;
 
+  const notificationMenu = isNotificationsOpen ? (
+    <View style={[styles.notificationMenu, !isWide && styles.notificationMenuMobile]}>
+      <View style={styles.notificationHeading}>
+        <Text style={styles.accountName}>通知中心</Text>
+        <Text style={styles.notificationCount}>0 条未读</Text>
+      </View>
+      <View style={styles.menuDivider} />
+      <View style={styles.notificationEmpty}>
+        <Bell color={theme.color.text.disabled} size={22} />
+        <Text style={styles.notificationEmptyTitle}>当前没有新通知</Text>
+        <Text style={styles.notificationEmptyText}>
+          后续业务提醒只会显示在当前角色与权限范围内。
+        </Text>
+      </View>
+    </View>
+  ) : null;
+
   const topBar = (
     <View style={[styles.topBar, isCompactMobile && styles.topBarCompact]}>
       {!isWide ? <BrandLockup compact={isCompactMobile} /> : <View />}
@@ -399,6 +417,11 @@ export function RoleHomeScreen({
         <InteractivePressable
           accessibilityLabel="通知"
           accessibilityRole="button"
+          accessibilityState={{ expanded: isNotificationsOpen }}
+          onPress={() => {
+            setIsAccountOpen(false);
+            setIsNotificationsOpen((value) => !value);
+          }}
           style={({ focused, hovered, pressed }) => [
             styles.iconButton,
             hovered && styles.interactiveHover,
@@ -407,13 +430,15 @@ export function RoleHomeScreen({
           ]}
         >
           <Bell color={theme.color.text.primary} size={20} />
-          <View style={styles.notificationDot} />
         </InteractivePressable>
         <InteractivePressable
           accessibilityLabel="账号与角色"
           accessibilityRole="button"
           accessibilityState={{ expanded: isAccountOpen }}
-          onPress={() => setIsAccountOpen((value) => !value)}
+          onPress={() => {
+            setIsNotificationsOpen(false);
+            setIsAccountOpen((value) => !value);
+          }}
           style={({ focused, hovered, pressed }) => [
             styles.accountButton,
             hovered && styles.interactiveHover,
@@ -431,6 +456,7 @@ export function RoleHomeScreen({
           <ChevronDown color={theme.color.text.secondary} size={17} />
         </InteractivePressable>
       </View>
+      {notificationMenu}
       {accountMenu}
     </View>
   );
@@ -513,7 +539,13 @@ const styles = StyleSheet.create({
   topBarCompact: { minHeight: 64, paddingHorizontal: theme.space.md },
   topBarActions: { alignItems: 'center', flexDirection: 'row', gap: theme.space.sm },
   iconButton: { alignItems: 'center', borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, height: 42, justifyContent: 'center', position: 'relative', width: 42 },
-  notificationDot: { backgroundColor: theme.color.brand.secondary, borderColor: theme.color.surface.card, borderRadius: 5, borderWidth: 2, height: 9, position: 'absolute', right: 8, top: 7, width: 9 },
+  notificationMenu: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, elevation: 8, gap: theme.space.sm, padding: theme.space.md, position: 'absolute', right: 190, top: 62, width: 300, zIndex: 40 },
+  notificationMenuMobile: { right: 72, top: 60, width: 260 },
+  notificationHeading: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
+  notificationCount: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, fontWeight: '700' },
+  notificationEmpty: { alignItems: 'center', gap: theme.space.xs, paddingHorizontal: theme.space.sm, paddingVertical: theme.space.lg },
+  notificationEmptyTitle: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '800' },
+  notificationEmptyText: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, lineHeight: 18, textAlign: 'center' },
   accountButton: { alignItems: 'center', borderRadius: theme.radius.control, flexDirection: 'row', gap: theme.space.sm, minHeight: 46, paddingHorizontal: theme.space.sm },
   avatar: { alignItems: 'center', backgroundColor: theme.color.surface.primaryTint, borderRadius: theme.radius.pill, height: 36, justifyContent: 'center', width: 36 },
   avatarText: { color: theme.color.brand.primary, fontSize: theme.text.size.sm, fontWeight: '800' },
