@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
   metricLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, marginTop: 4 },
   metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm },
   metricValue: { color: theme.color.text.primary, fontSize: theme.text.size.xl, fontWeight: '800' },
-  focused: { borderColor: theme.color.brand.primary, shadowColor: theme.color.brand.primary, shadowOpacity: 0.2, shadowRadius: 4 },
+  focused: { borderColor: theme.color.brand.primary, boxShadow: '0 0 0 3px rgba(22, 119, 254, 0.18)' },
   pressed: { opacity: 0.72, transform: [{ scale: 0.985 }] },
   retryButton: { alignItems: 'center', alignSelf: 'flex-start', backgroundColor: theme.color.brand.primary, borderRadius: theme.radius.control, justifyContent: 'center', marginTop: theme.space.base, minHeight: 42, paddingHorizontal: theme.space.lg },
   retryButtonHover: { opacity: 0.88 },

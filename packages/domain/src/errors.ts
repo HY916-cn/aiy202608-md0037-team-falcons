@@ -1,4 +1,4 @@
-import { MIN_BALANCE } from './index';
+import { MIN_BALANCE } from './constants';
 
 export const DOMAIN_ERROR_CODES = [
   'E_INTEGER_REQUIRED',

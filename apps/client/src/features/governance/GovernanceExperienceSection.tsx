@@ -502,7 +502,7 @@ const styles = StyleSheet.create({
   feedback: { alignItems: 'center', backgroundColor: theme.color.surface.secondaryTint, borderRadius: theme.radius.control, flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm, padding: theme.space.base },
   fieldGroup: { flex: 1, gap: theme.space.xs, minWidth: 180 },
   fieldLabel: { color: theme.color.text.primary, fontSize: theme.text.size.xs, fontWeight: '800' },
-  focused: { borderColor: theme.color.brand.secondary, shadowColor: theme.color.brand.primary, shadowOpacity: 0.2, shadowRadius: 4 },
+  focused: { borderColor: theme.color.brand.secondary, boxShadow: '0 0 0 3px rgba(22, 119, 254, 0.18)' },
   formRow: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm },
   headingCopy: { flex: 1, minWidth: 0 },
   heroMetric: { alignItems: 'flex-start', backgroundColor: theme.color.surface.primaryTint, borderRadius: theme.radius.control, padding: theme.space.lg },

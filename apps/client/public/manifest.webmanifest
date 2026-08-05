@@ -1,0 +1,17 @@
+{
+  "name": "海豚云",
+  "short_name": "海豚云",
+  "description": "校园教学、成长与治理协作平台",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFFFFF",
+  "theme_color": "#1677FE",
+  "icons": [
+    {
+      "src": "/pwa-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

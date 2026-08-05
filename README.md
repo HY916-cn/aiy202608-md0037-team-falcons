@@ -93,13 +93,14 @@ pnpm smoke:web
 pnpm smoke:android
 ```
 
-默认启动后会进入 Mock 登录页，可依次选择教师端、班级端、家庭端、银行端、自治会端和管理端，验证角色切换、退出与路由守卫：
+Web 运行必须配置完整的 Supabase 公开地址与匿名密钥。缺失或只配置一项时，登录页会保持在“服务尚未配置”状态，不会加载测试身份或合成数据：
 
 ```bash
+cp apps/client/.env.example apps/client/.env
 pnpm web
 ```
 
-开发阶段也可在 `apps/client/.env` 设置 `EXPO_PUBLIC_MOCK_ROLE` 为 `teacher`、`class_terminal`、`family`、`bank_operator`、`council` 或 `admin`，自动进入对应角色首页。该变量只控制客户端 Mock 演示入口，不作为服务端授权依据；删除该变量即可恢复未登录入口。
+登录后的角色与数据范围全部来自服务端会话和 RLS。测试 Mock 只能由单元测试显式导入，生产 runtime 不包含自动 fallback。
 
 认证与跨端导出验证命令：
 

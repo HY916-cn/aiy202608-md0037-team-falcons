@@ -607,7 +607,7 @@ const styles = StyleSheet.create({
   emptyTitle: { color: theme.color.text.primary, fontSize: theme.text.size.md, fontWeight: '800', marginBottom: theme.space.xs },
   errorText: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '700', lineHeight: 21 },
   feedback: { color: theme.color.brand.primary, fontSize: theme.text.size.sm, fontWeight: '700' },
-  focused: { borderColor: theme.color.brand.primary, borderWidth: 1, shadowColor: theme.color.brand.primary, shadowOpacity: 0.2, shadowRadius: 4 },
+  focused: { borderColor: theme.color.brand.primary, borderWidth: 1, boxShadow: '0 0 0 3px rgba(22, 119, 254, 0.18)' },
   headerCell: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, fontWeight: '800' },
   permissionCell: { flex: 1, minWidth: 0 },
   pressed: { opacity: 0.72, transform: [{ scale: 0.985 }] },

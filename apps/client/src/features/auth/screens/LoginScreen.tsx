@@ -1,9 +1,8 @@
 import type { AuthLoginInput } from '@dolphincloud/auth';
-import { DolphinCloudLogo, theme } from '@dolphincloud/ui';
+import { DolphinCloudLogo, InteractivePressable, theme } from '@dolphincloud/ui';
 import { ArrowRight, CheckCircle2, LockKeyhole, Mail } from 'lucide-react-native';
 import { useState } from 'react';
 import {
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -24,6 +23,7 @@ export function LoginScreen({ configurationIssue, onLogin }: LoginScreenProps) {
   const [password, setPassword] = useState('');
   const [isPending, setIsPending] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [focusedField, setFocusedField] = useState<'email' | 'password' | null>(null);
 
   const handleLogin = async () => {
     setErrorMessage(null);
@@ -96,7 +96,7 @@ export function LoginScreen({ configurationIssue, onLogin }: LoginScreenProps) {
 
           <View style={styles.form}>
             <Text style={styles.fieldLabel}>账号</Text>
-            <View style={styles.inputFrame}>
+            <View style={[styles.inputFrame, focusedField === 'email' && styles.inputFrameFocused]}>
               <Mail color={theme.color.text.disabled} size={18} />
               <TextInput
                 autoCapitalize="none"
@@ -104,6 +104,8 @@ export function LoginScreen({ configurationIssue, onLogin }: LoginScreenProps) {
                 editable={!isPending && !isUnavailable}
                 inputMode="email"
                 onChangeText={setEmail}
+                onBlur={() => setFocusedField(null)}
+                onFocus={() => setFocusedField('email')}
                 placeholder="name@school.example"
                 placeholderTextColor={theme.color.text.disabled}
                 style={styles.input}
@@ -111,13 +113,15 @@ export function LoginScreen({ configurationIssue, onLogin }: LoginScreenProps) {
               />
             </View>
             <Text style={styles.fieldLabel}>密码</Text>
-            <View style={styles.inputFrame}>
+            <View style={[styles.inputFrame, focusedField === 'password' && styles.inputFrameFocused]}>
               <LockKeyhole color={theme.color.text.disabled} size={18} />
               <TextInput
                 autoCapitalize="none"
                 autoComplete="current-password"
                 editable={!isPending && !isUnavailable}
                 onChangeText={setPassword}
+                onBlur={() => setFocusedField(null)}
+                onFocus={() => setFocusedField('password')}
                 placeholder="请输入密码"
                 placeholderTextColor={theme.color.text.disabled}
                 secureTextEntry
@@ -125,16 +129,22 @@ export function LoginScreen({ configurationIssue, onLogin }: LoginScreenProps) {
                 value={password}
               />
             </View>
-            <Pressable
+            <InteractivePressable
               accessibilityRole="button"
               accessibilityState={{ busy: isPending, disabled: !canSubmit }}
               disabled={!canSubmit}
               onPress={() => void handleLogin()}
-              style={({ pressed }) => [styles.loginButton, pressed && styles.pressed, !canSubmit && styles.disabled]}
+              style={({ focused, hovered, pressed }) => [
+                styles.loginButton,
+                hovered && canSubmit && styles.loginButtonHover,
+                focused && styles.loginButtonFocused,
+                pressed && styles.pressed,
+                !canSubmit && styles.disabled,
+              ]}
             >
               <Text style={styles.loginButtonLabel}>{isPending ? '正在登录…' : '登录'}</Text>
               <ArrowRight color={theme.color.surface.card} size={19} />
-            </Pressable>
+            </InteractivePressable>
           </View>
 
           {errorMessage === null ? null : (
@@ -177,8 +187,11 @@ const styles = StyleSheet.create({
   form: { gap: theme.space.sm },
   fieldLabel: { color: theme.color.text.primary, fontSize: theme.text.size.xs, fontWeight: '700', marginTop: theme.space.xs },
   inputFrame: { alignItems: 'center', borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, flexDirection: 'row', gap: theme.space.sm, minHeight: 48, paddingHorizontal: theme.space.base },
+  inputFrameFocused: { borderColor: theme.color.brand.primary, borderWidth: 2 },
   input: { color: theme.color.text.primary, flex: 1, fontSize: theme.text.size.sm, minHeight: 46 },
   loginButton: { alignItems: 'center', backgroundColor: theme.color.brand.primary, borderRadius: theme.radius.control, flexDirection: 'row', gap: theme.space.sm, justifyContent: 'center', marginTop: theme.space.sm, minHeight: 50, paddingHorizontal: theme.space.md },
+  loginButtonFocused: { borderColor: theme.color.surface.card, borderWidth: 2 },
+  loginButtonHover: { opacity: 0.88, transform: [{ translateY: -1 }] },
   loginButtonLabel: { color: theme.color.surface.card, fontSize: theme.text.size.sm, fontWeight: '800' },
   error: { backgroundColor: theme.color.surface.muted, borderRadius: theme.radius.control, color: theme.color.text.primary, fontSize: theme.text.size.sm, lineHeight: 21, padding: theme.space.base },
   securityNotice: { color: theme.color.text.disabled, fontSize: theme.text.size.xs, lineHeight: 18 },

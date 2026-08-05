@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const platform = process.argv[2];
@@ -30,6 +30,23 @@ if (platform === "web") {
 
   requireFile(join(webDist, "index.html"));
   requireFile(join(webDist, "_expo", ".routes.json"));
+  requireFile(join(webDist, "manifest.webmanifest"));
+  requireFile(join(webDist, "pwa-icon-512.png"));
+  requireFile(join(webDist, "apple-touch-icon.png"));
+  requireFile(join(webDist, "favicon-32.png"));
+  requireFile(join(webDist, "favicon-16.png"));
+  [
+    "pwa-icon-512.png",
+    "apple-touch-icon.png",
+    "favicon-32.png",
+    "favicon-16.png",
+  ].forEach((icon) => {
+    const exported = readFileSync(join(webDist, icon));
+    const source = readFileSync(join(process.cwd(), "apps", "client", "assets", icon));
+    if (!exported.equals(source)) {
+      throw new Error(`Exported Web icon does not match the product asset: ${icon}`);
+    }
+  });
   roleRoutes.forEach((role) =>
     requireFile(join(webDist, `(${role})`, "index.html")),
   );
@@ -38,7 +55,24 @@ if (platform === "web") {
   if (!bundles.some((file) => file.endsWith(".js") && statSync(file).size > 0)) {
     throw new Error("Web export does not contain a JavaScript bundle.");
   }
-  console.log("Web smoke passed: root, six role routes, route manifest and bundle exist.");
+  const bundleSource = bundles
+    .filter((file) => file.endsWith(".js"))
+    .map((file) => readFileSync(file, "utf8"))
+    .join("\n");
+  const forbiddenRuntimeMarkers = [
+    "EXPO_PUBLIC_MOCK_ROLE",
+    "MockAiExperienceAdapter",
+    "MockAuthSessionAdapter",
+    "MockGovernanceService",
+    "MockGradeReportSheetService",
+    "MockTeachingDemoAdapter",
+  ];
+  forbiddenRuntimeMarkers.forEach((marker) => {
+    if (bundleSource.includes(marker)) {
+      throw new Error(`Production Web bundle contains test-only runtime marker: ${marker}`);
+    }
+  });
+  console.log("Web smoke passed: routes, production icons, manifest and Mock-free bundle exist.");
 } else if (platform === "android") {
   const androidDist = join(clientDist, "android");
   if (!existsSync(androidDist)) {
