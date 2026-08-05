@@ -12,6 +12,7 @@ import {
   type LedgerKind,
   type OperationKind,
   type OperationTargetType,
+  type StudentScoreCategoryKind,
   type Timestamp,
   type Uuid,
 } from './index';
@@ -43,6 +44,28 @@ export interface ClassScoreAdjustmentInput extends ScoreAdjustmentInput {
 export interface ScoreAdjustmentResult {
   readonly operation: OperationRecord;
   readonly entry: LedgerEntry;
+}
+
+export interface StudentScoreCategoryDefinition {
+  readonly id: Uuid;
+  readonly schoolId: Uuid;
+  readonly slug: string;
+  readonly displayName: string;
+  readonly description: string;
+  readonly kind: StudentScoreCategoryKind;
+  readonly defaultDelta: number;
+  readonly isActive: boolean;
+}
+
+export interface StudentScoreCategoryManageInput {
+  readonly categoryId: Uuid | null;
+  readonly schoolId: Uuid;
+  readonly slug: string;
+  readonly displayName: string;
+  readonly description: string;
+  readonly kind: StudentScoreCategoryKind;
+  readonly defaultDelta: number;
+  readonly isActive: boolean;
 }
 
 /**

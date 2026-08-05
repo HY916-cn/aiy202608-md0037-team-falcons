@@ -2,7 +2,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(32);
+select plan(42);
 
 -- Bootstrap fixture for cross-school batch validation (before switching to authenticated).
 insert into public.schools (id, name) values ('10000000-0000-0000-0000-000000000077', '其他学校');
@@ -10,10 +10,126 @@ insert into public.classes (id, school_id, grade, name)
 values ('20000000-0000-0000-0000-000000000077', '10000000-0000-0000-0000-000000000077', '九', '其他');
 insert into public.students (id, student_no, class_id, display_name)
 values ('50000000-0000-0000-0000-000000000077', 'OUT-001', '20000000-0000-0000-0000-000000000077', '外校学生');
-insert into public.student_score_categories (id, school_id, slug, display_name)
-values ('90000000-0000-0000-0000-000000000077', '10000000-0000-0000-0000-000000000077', 'homework', '外校');
+insert into public.student_score_categories (id, school_id, slug, display_name, kind, default_delta)
+values ('90000000-0000-0000-0000-000000000077', '10000000-0000-0000-0000-000000000077', 'homework', '外校', 'positive', 3);
 
 set local role authenticated;
+
+-- Teacher can create a positive student score category with default delta.
+select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000001', true);
+select is(
+  (
+    select c.default_delta
+    from public.manage_student_score_category(
+      'ss-category-create-0001',
+      '10000000-0000-0000-0000-000000000001',
+      null,
+      'reading_star',
+      '阅读之星',
+      'positive',
+      4,
+      '阅读奖励',
+      true
+    ) as c
+  ),
+  4::numeric(9, 2),
+  '教师可创建加分条目并保存默认分数'
+);
+
+-- Teacher can edit and disable an existing category.
+select is(
+  (
+    select c.is_active
+    from public.manage_student_score_category(
+      'ss-category-disable-0001',
+      '10000000-0000-0000-0000-000000000001',
+      (select id from public.student_score_categories where school_id = '10000000-0000-0000-0000-000000000001' and slug = 'reading_star'),
+      'reading_star',
+      '阅读之星',
+      'positive',
+      4,
+      '阅读奖励-停用',
+      false
+    ) as c
+  ),
+  false,
+  '教师可停用学生分条目'
+);
+select is(
+  (
+    select c.kind::text
+    from public.manage_student_score_category(
+      'ss-category-reenable-0001',
+      '10000000-0000-0000-0000-000000000001',
+      (select id from public.student_score_categories where school_id = '10000000-0000-0000-0000-000000000001' and slug = 'reading_star'),
+      'reading_star',
+      '阅读之星',
+      'positive',
+      6,
+      '阅读奖励-启用',
+      true
+    ) as c
+  ),
+  'positive',
+  '教师可重新启用并更新默认分数'
+);
+
+select throws_ok(
+  $$
+    select public.manage_student_score_category(
+      'ss-category-cross-school-0001',
+      '10000000-0000-0000-0000-000000000077',
+      null,
+      'foreign_category',
+      '外校条目',
+      'positive',
+      2,
+      '外校',
+      true
+    )
+  $$,
+  'P0001',
+  'FORBIDDEN',
+  '教师不能管理外校学生分条目'
+);
+
+select throws_ok(
+  $$
+    select public.manage_student_score_category(
+      'ss-category-sign-0001',
+      '10000000-0000-0000-0000-000000000001',
+      null,
+      'bad_sign',
+      '错误符号',
+      'positive',
+      -2,
+      '符号错误',
+      true
+    )
+  $$,
+  'P0001',
+  'CATEGORY_DELTA_SIGN_MISMATCH',
+  '默认分数与条目符号不一致会被拒绝'
+);
+
+select throws_ok(
+  $$
+    select public.manage_student_score_category(
+      'ss-category-fraction-0001',
+      '10000000-0000-0000-0000-000000000001',
+      null,
+      'bad_fraction',
+      '错误小数',
+      'negative',
+      -1.5,
+      '小数错误',
+      true
+    )
+  $$,
+  'P0001',
+  'INVALID_DEFAULT_DELTA',
+  '默认分数为小数会被拒绝'
+);
 
 -- Teacher applies a single student score.
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000001', true);
@@ -41,7 +157,7 @@ select is(
     jsonb_build_array(
       jsonb_build_object('student_id', '50000000-0000-0000-0000-000000000001', 'category_id', '90000000-0000-0000-0000-000000000001', 'delta', 2),
       jsonb_build_object('student_id', '50000000-0000-0000-0000-000000000002', 'category_id', '90000000-0000-0000-0000-000000000001', 'delta', 3),
-      jsonb_build_object('student_id', '50000000-0000-0000-0000-000000000003', 'category_id', '90000000-0000-0000-0000-000000000001', 'delta', -1)
+      jsonb_build_object('student_id', '50000000-0000-0000-0000-000000000003', 'category_id', '90000000-0000-0000-0000-000000000002', 'delta', -1)
     ),
     '批量加减分'
   )),
@@ -56,7 +172,7 @@ select is(
     jsonb_build_array(
       jsonb_build_object('student_id', '50000000-0000-0000-0000-000000000001', 'category_id', '90000000-0000-0000-0000-000000000001', 'delta', 2),
       jsonb_build_object('student_id', '50000000-0000-0000-0000-000000000002', 'category_id', '90000000-0000-0000-0000-000000000001', 'delta', 3),
-      jsonb_build_object('student_id', '50000000-0000-0000-0000-000000000003', 'category_id', '90000000-0000-0000-0000-000000000001', 'delta', -1)
+      jsonb_build_object('student_id', '50000000-0000-0000-0000-000000000003', 'category_id', '90000000-0000-0000-0000-000000000002', 'delta', -1)
     ),
     '批量加减分'
   )),
@@ -138,6 +254,67 @@ select ok(
     group by rank_position
   ) as ranks where c > 1) >= 1,
   '排行榜产生至少一个并列名次'
+);
+
+-- Runtime delta can override category default when sign remains consistent.
+select is(
+  (
+    select r.delta
+    from public.apply_student_score(
+      'ss-category-override-0001',
+      '50000000-0000-0000-0000-000000000006',
+      (select id from public.student_score_categories where school_id = '10000000-0000-0000-0000-000000000001' and slug = 'reading_star'),
+      9,
+      '覆盖默认值'
+    ) as r
+  ),
+  9::numeric(9, 2),
+  '本次学生分可覆盖条目默认值'
+);
+
+select throws_ok(
+  $$
+    select public.apply_student_score(
+      'ss-category-inactive-0001',
+      '50000000-0000-0000-0000-000000000007',
+      (select id from public.student_score_categories where school_id = '10000000-0000-0000-0000-000000000001' and slug = 'reading_star'),
+      4,
+      '停用条目'
+    )
+  $$,
+  'P0001',
+  'CATEGORY_NOT_FOUND',
+  '停用条目不能用于新学生分'
+);
+
+select throws_ok(
+  $$
+    select public.apply_student_score(
+      'ss-category-sign-runtime-0001',
+      '50000000-0000-0000-0000-000000000006',
+      '90000000-0000-0000-0000-000000000001',
+      -4,
+      '符号冲突'
+    )
+  $$,
+  'P0001',
+  'CATEGORY_DELTA_SIGN_MISMATCH',
+  '本次分值与加分条目符号不一致会被拒绝'
+);
+
+select throws_ok(
+  $$
+    select public.apply_student_score(
+      'ss-category-fraction-runtime-0001',
+      '50000000-0000-0000-0000-000000000006',
+      '90000000-0000-0000-0000-000000000001',
+      1.5,
+      '小数分值'
+    )
+  $$,
+  'P0001',
+  'INVALID_DELTA',
+  '本次学生分为小数会被拒绝'
 );
 
 -- Council cannot apply student score (only teacher can).

@@ -5,6 +5,7 @@
 -- public schema, derive actor/role from auth.uid(), and route through these helpers.
 
 create type public.governance_operation_kind as enum (
+  'student_score_category_manage',
   'student_score_apply',
   'student_score_apply_batch',
   'class_score_apply',
@@ -29,6 +30,7 @@ create type public.governance_operation_status as enum (
 
 create type public.governance_target_type as enum (
   'student',
+  'student_score_category',
   'class',
   'household',
   'wallet',
@@ -426,19 +428,64 @@ stable
 security definer
 set search_path = ''
 as $$
+  select public._governance_can_teacher_access_student(p_student_id)
+    or public._governance_can_class_terminal_access_student(p_student_id);
+$$;
+
+create or replace function public._governance_can_teacher_access_student(
+  p_student_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
   select exists (
     select 1
     from public.students as student
     where student.id = p_student_id
-      and (
-        exists (
-          select 1
-          from public.teacher_class_assignments as assignment
-          where assignment.teacher_id = auth.uid()
-            and assignment.class_id = student.class_id
-        )
-        or public.has_role('class_terminal', 'class', student.class_id)
+      and exists (
+        select 1
+        from public.teacher_class_assignments as assignment
+        where assignment.teacher_id = auth.uid()
+          and assignment.class_id = student.class_id
       )
+  );
+$$;
+
+create or replace function public._governance_can_class_terminal_access_student(
+  p_student_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+    from public.students as student
+    where student.id = p_student_id
+      and public.has_role('class_terminal', 'class', student.class_id)
+  );
+$$;
+
+create or replace function public._governance_can_teacher_manage_school(
+  p_school_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+    from public.teacher_class_assignments as assignment
+    join public.classes as class on class.id = assignment.class_id
+    where assignment.teacher_id = auth.uid()
+      and class.school_id = p_school_id
   );
 $$;
 
@@ -522,7 +569,7 @@ as $$
     join public.classes as class on class.id = student.class_id
     where student.id = p_student_id
       and (
-        public._governance_can_manage_student_score(student.id)
+        public._governance_can_teacher_access_student(student.id)
         or public.has_role('bank_operator', 'school', class.school_id)
         or exists (
           select 1
@@ -536,64 +583,6 @@ as $$
         )
       )
   );
-$$;
-
-create or replace function public._governance_can_view_fine_order(
-  p_order_id uuid
-)
-returns boolean
-language sql
-stable
-security definer
-set search_path = ''
-as $$
-  select exists (
-    select 1
-    from public.fine_orders as fine_order
-    join public.operations as create_op on create_op.id = fine_order.create_operation_id
-    where fine_order.id = p_order_id
-      and (
-        public.has_role('bank_operator', 'school', fine_order.school_id)
-        or create_op.actor_id = auth.uid()
-        or exists (
-          select 1
-          from public.role_assignments as assignment
-          join public.household_students as household_student
-            on household_student.household_id = assignment.scope_id
-          where assignment.user_id = auth.uid()
-            and assignment.role = 'family'
-            and assignment.scope_type = 'household'
-            and household_student.student_id = fine_order.student_id
-        )
-      )
-  );
-$$;
-
-create or replace function public._governance_can_view_operation(
-  p_target_type public.governance_target_type,
-  p_target_id uuid
-)
-returns boolean
-language sql
-stable
-security definer
-set search_path = ''
-as $$
-  select case
-    when p_target_type = 'student' then public._governance_can_view_student_governance(p_target_id)
-    when p_target_type = 'class' then public._governance_can_view_class_score(p_target_id)
-    when p_target_type = 'household' then public.can_access_household(p_target_id)
-    when p_target_type = 'wallet' then public._governance_can_view_wallet(p_target_id)
-    when p_target_type = 'fine_order' then public._governance_can_view_fine_order(p_target_id)
-    when p_target_type = 'fine_rule' then public.has_role('bank_operator', 'school', p_target_id)
-    when p_target_type = 'operation' then exists (
-      select 1
-      from public.operations as op
-      where op.id = p_target_id
-        and public._governance_can_view_operation(op.target_type, op.target_id)
-    )
-    else false
-  end;
 $$;
 
 
@@ -620,9 +609,10 @@ revoke all on function public._governance_begin_operation(text, public.governanc
 revoke all on function public._governance_succeed_operation(uuid, jsonb) from public;
 revoke all on function public._governance_fail_operation(uuid, jsonb) from public;
 revoke all on function public._governance_can_manage_student_score(uuid) from public;
+revoke all on function public._governance_can_teacher_access_student(uuid) from public;
+revoke all on function public._governance_can_class_terminal_access_student(uuid) from public;
+revoke all on function public._governance_can_teacher_manage_school(uuid) from public;
 revoke all on function public._governance_can_view_student_governance(uuid) from public;
 revoke all on function public._governance_can_manage_class_score(uuid) from public;
 revoke all on function public._governance_can_view_class_score(uuid) from public;
 revoke all on function public._governance_can_view_wallet(uuid) from public;
-revoke all on function public._governance_can_view_fine_order(uuid) from public;
-revoke all on function public._governance_can_view_operation(public.governance_target_type, uuid) from public;

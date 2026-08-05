@@ -104,7 +104,7 @@ create or replace function public._governance_apply_dolphin_delta(
   kind public.governance_operation_kind,
   tx_kind public.dolphin_transaction_kind,
   action_name text,
-  required_role public.app_role,
+  actor_mode text,
   idempotency_key text,
   target_student_id uuid,
   delta numeric,
@@ -145,13 +145,28 @@ begin
 
   select ctx.actor_role, ctx.scope_type, ctx.scope_id into actor
   from public._governance_actor_context(target_school_id) as ctx
-  where ctx.actor_role = required_role
-    and (
-      ctx.scope_type = 'school'
-      and ctx.scope_id = target_school_id
-    )
+  where (
+    actor_mode = 'bank_only'
+    and ctx.actor_role = 'bank_operator'
+    and ctx.scope_type = 'school'
+    and ctx.scope_id = target_school_id
+  ) or (
+    actor_mode = 'teacher_or_bank'
+    and ctx.actor_role = 'teacher'
+    and public._governance_can_teacher_access_student(target_student_id)
+  ) or (
+    actor_mode = 'teacher_or_bank'
+    and ctx.actor_role = 'bank_operator'
+    and ctx.scope_type = 'school'
+    and ctx.scope_id = target_school_id
+  )
+  order by case ctx.actor_role
+    when 'teacher' then 1
+    when 'bank_operator' then 2
+    else 99
+  end
   limit 1;
-  if actor.actor_role is null or actor.actor_role <> required_role then
+  if actor.actor_role is null then
     raise exception 'FORBIDDEN' using errcode = 'P0001';
   end if;
 
@@ -243,7 +258,7 @@ begin
     'dolphin_grant',
     'grant',
     'dolphin.grant',
-    'bank_operator',
+    'teacher_or_bank',
     idempotency_key,
     target_student_id,
     amount,
@@ -272,7 +287,7 @@ begin
     'dolphin_deduct',
     'deduct',
     'dolphin.deduct',
-    'bank_operator',
+    'bank_only',
     idempotency_key,
     target_student_id,
     -amount,
@@ -301,7 +316,7 @@ begin
     'dolphin_adjust',
     'adjust',
     'dolphin.adjust',
-    'bank_operator',
+    'bank_only',
     idempotency_key,
     target_student_id,
     delta,
@@ -321,7 +336,7 @@ grant select on public.dolphin_transactions to authenticated;
 
 revoke all on function public._governance_get_or_create_account(uuid, uuid) from public;
 revoke all on function public._governance_write_dolphin_transaction(uuid, uuid, public.dolphin_transaction_kind, numeric, numeric, text, uuid) from public;
-revoke all on function public._governance_apply_dolphin_delta(public.governance_operation_kind, public.dolphin_transaction_kind, text, public.app_role, text, uuid, numeric, text) from public;
+revoke all on function public._governance_apply_dolphin_delta(public.governance_operation_kind, public.dolphin_transaction_kind, text, text, text, uuid, numeric, text) from public;
 revoke all on function public.apply_dolphin_grant(text, uuid, numeric, text) from public;
 revoke all on function public.apply_dolphin_deduct(text, uuid, numeric, text) from public;
 revoke all on function public.apply_dolphin_adjust(text, uuid, numeric, text) from public;

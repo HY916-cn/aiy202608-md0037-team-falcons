@@ -3,19 +3,39 @@
 -- Direct DML is denied for authenticated users; only the RPCs (SECURITY DEFINER)
 -- can insert entries, keeping the audit + idempotency invariants intact.
 
+create type public.student_score_category_kind as enum (
+  'positive',
+  'negative'
+);
+
 create table public.student_score_categories (
   id uuid primary key default gen_random_uuid(),
   school_id uuid not null references public.schools (id) on delete restrict,
   slug text not null check (slug ~ '^[a-z][a-z0-9_]{1,39}$'),
   display_name text not null check (char_length(btrim(display_name)) between 1 and 60),
   description text not null default '' check (char_length(description) <= 200),
+  kind public.student_score_category_kind not null,
+  default_delta numeric(9, 2) not null check (
+    default_delta = trunc(default_delta)
+    and default_delta <> 0
+    and default_delta >= -1000
+    and default_delta <= 1000
+    and (
+      (kind = 'positive' and default_delta > 0)
+      or (kind = 'negative' and default_delta < 0)
+    )
+  ),
   is_active boolean not null default true,
   created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
   constraint uq_student_score_categories__school_slug unique (school_id, slug)
 );
 
 create index idx_student_score_categories__school
   on public.student_score_categories (school_id, is_active);
+create trigger student_score_categories__set_updated_at
+before update on public.student_score_categories
+for each row execute function public.set_updated_at();
 
 create table public.student_score_entries (
   id uuid primary key default gen_random_uuid(),
@@ -235,6 +255,179 @@ begin
 end;
 $$;
 
+create or replace function public.manage_student_score_category(
+  idempotency_key text,
+  target_school_id uuid,
+  target_category_id uuid,
+  slug text,
+  display_name text,
+  kind public.student_score_category_kind,
+  default_delta numeric,
+  description text,
+  is_active boolean
+)
+returns public.student_score_categories
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  op record;
+  actor record;
+  category public.student_score_categories;
+  canonical_payload jsonb;
+begin
+  if idempotency_key is null or char_length(btrim(idempotency_key)) not between 16 and 128 then
+    raise exception 'INVALID_IDEMPOTENCY_KEY' using errcode = 'P0001';
+  end if;
+  if slug is null or slug !~ '^[a-z][a-z0-9_]{1,39}$' then
+    raise exception 'INVALID_SLUG' using errcode = 'P0001';
+  end if;
+  if display_name is null or char_length(btrim(display_name)) not between 1 and 60 then
+    raise exception 'INVALID_DISPLAY_NAME' using errcode = 'P0001';
+  end if;
+  if description is null or char_length(description) > 200 then
+    raise exception 'INVALID_DESCRIPTION' using errcode = 'P0001';
+  end if;
+  if default_delta is null
+    or default_delta <> trunc(default_delta)
+    or default_delta = 0
+    or default_delta < -1000
+    or default_delta > 1000 then
+    raise exception 'INVALID_DEFAULT_DELTA' using errcode = 'P0001';
+  end if;
+  if (kind = 'positive' and default_delta < 0)
+    or (kind = 'negative' and default_delta > 0) then
+    raise exception 'CATEGORY_DELTA_SIGN_MISMATCH' using errcode = 'P0001';
+  end if;
+
+  select ctx.actor_role, ctx.scope_type, ctx.scope_id
+  into actor
+  from public._governance_actor_context(target_school_id) as ctx
+  where ctx.actor_role = 'teacher'
+  limit 1;
+  if actor.actor_role is null or not public._governance_can_teacher_manage_school(target_school_id) then
+    raise exception 'FORBIDDEN' using errcode = 'P0001';
+  end if;
+
+  if target_category_id is not null then
+    select * into category
+    from public.student_score_categories
+    where id = target_category_id;
+    if category.id is null or category.school_id <> target_school_id then
+      raise exception 'CATEGORY_NOT_FOUND' using errcode = 'P0001';
+    end if;
+  end if;
+
+  canonical_payload := jsonb_build_object(
+    'school_id', target_school_id,
+    'category_id', target_category_id,
+    'slug', slug,
+    'display_name', btrim(display_name),
+    'kind', kind,
+    'default_delta', default_delta,
+    'description', description,
+    'is_active', is_active
+  );
+
+  select * into op
+  from public._governance_begin_operation(
+    idempotency_key,
+    'student_score_category_manage',
+    canonical_payload,
+    actor.actor_role,
+    actor.scope_type,
+    actor.scope_id,
+    target_school_id,
+    'student_score_category',
+    target_school_id,
+    null,
+    false
+  );
+  if op.is_conflict then
+    raise exception 'IDEMPOTENCY_FINGERPRINT_MISMATCH' using errcode = 'P0001';
+  end if;
+  if op.is_pending then
+    raise exception 'IDEMPOTENCY_IN_PROGRESS' using errcode = 'P0001';
+  end if;
+  if op.is_replay then
+    if target_category_id is not null then
+      select * into category from public.student_score_categories where id = target_category_id;
+    else
+      select * into category
+      from public.student_score_categories
+      where school_id = target_school_id
+        and slug = manage_student_score_category.slug;
+    end if;
+    return category;
+  end if;
+
+  begin
+    if target_category_id is null then
+      insert into public.student_score_categories (
+        school_id,
+        slug,
+        display_name,
+        description,
+        kind,
+        default_delta,
+        is_active
+      )
+      values (
+        target_school_id,
+        slug,
+        btrim(display_name),
+        description,
+        kind,
+        default_delta,
+        is_active
+      )
+      returning * into category;
+    else
+      update public.student_score_categories
+      set
+        slug = manage_student_score_category.slug,
+        display_name = btrim(manage_student_score_category.display_name),
+        description = manage_student_score_category.description,
+        kind = manage_student_score_category.kind,
+        default_delta = manage_student_score_category.default_delta,
+        is_active = manage_student_score_category.is_active
+      where id = target_category_id
+      returning * into category;
+    end if;
+
+    perform public._governance_succeed_operation(
+      op.operation_id,
+      jsonb_build_object(
+        'category_id', category.id,
+        'operation_id', op.operation_id
+      )
+    );
+
+    perform public._governance_write_audit(
+      op.operation_id,
+      target_school_id,
+      actor.actor_role,
+      'student_score_category.manage',
+      'student_score_category',
+      target_school_id,
+      'success',
+      canonical_payload
+    );
+
+    return category;
+  exception
+    when unique_violation then
+      perform public._governance_fail_operation(op.operation_id, jsonb_build_object('error', 'DUPLICATE_SLUG'));
+      raise exception 'DUPLICATE_SLUG' using errcode = 'P0001';
+    when others then
+      perform public._governance_fail_operation(op.operation_id, jsonb_build_object('error', SQLERRM));
+      raise;
+  end;
+end;
+$$;
+
 create or replace function public.apply_student_score(
   idempotency_key text,
   target_student_id uuid,
@@ -282,6 +475,10 @@ begin
   where cat.id = target_category_id;
   if category.id is null or category.school_id <> target_school_id or not category.is_active then
     raise exception 'CATEGORY_NOT_FOUND' using errcode = 'P0001';
+  end if;
+  if (category.kind = 'positive' and delta < 0)
+    or (category.kind = 'negative' and delta > 0) then
+    raise exception 'CATEGORY_DELTA_SIGN_MISMATCH' using errcode = 'P0001';
   end if;
 
   select ctx.actor_role, ctx.scope_type, ctx.scope_id
@@ -457,6 +654,10 @@ begin
     if category.id is null or category.school_id <> student_school or not category.is_active then
       raise exception 'CATEGORY_NOT_FOUND' using errcode = 'P0001';
     end if;
+    if (category.kind = 'positive' and delta_value < 0)
+      or (category.kind = 'negative' and delta_value > 0) then
+      raise exception 'CATEGORY_DELTA_SIGN_MISMATCH' using errcode = 'P0001';
+    end if;
 
     if not public._governance_can_manage_student_score(target_student_id) then
       raise exception 'FORBIDDEN' using errcode = 'P0001';
@@ -583,10 +784,12 @@ grant select on public.student_score_weekly to authenticated;
 grant select on public.student_score_monthly to authenticated;
 
 revoke all on function public._governance_write_student_score_entry(uuid, uuid, uuid, numeric, text) from public;
+revoke all on function public.manage_student_score_category(text, uuid, uuid, text, text, public.student_score_category_kind, numeric, text, boolean) from public;
 revoke all on function public.apply_student_score(text, uuid, uuid, numeric, text) from public;
 revoke all on function public.apply_student_score_batch(text, jsonb, text) from public;
 revoke all on function public.compute_student_ranking(uuid, public.student_ranking_scope, timestamptz) from public;
 
+grant execute on function public.manage_student_score_category(text, uuid, uuid, text, text, public.student_score_category_kind, numeric, text, boolean) to authenticated;
 grant execute on function public.apply_student_score(text, uuid, uuid, numeric, text) to authenticated;
 grant execute on function public.apply_student_score_batch(text, jsonb, text) to authenticated;
 grant execute on function public.compute_student_ranking(uuid, public.student_ranking_scope, timestamptz) to authenticated;

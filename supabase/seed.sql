@@ -494,14 +494,16 @@ values (
 on conflict (id) do nothing;
 
 -- Governance seed: fixed slugs & categories used by pgTAP fixtures.
-insert into public.student_score_categories (id, school_id, slug, display_name, description)
+insert into public.student_score_categories (id, school_id, slug, display_name, description, kind, default_delta)
 values
-  ('90000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'homework', '作业表现', '合成演示学生分类目：作业'),
-  ('90000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000001', 'discipline', '课堂纪律', '合成演示学生分类目：纪律'),
-  ('90000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000001', 'volunteer', '志愿服务', '合成演示学生分类目：志愿')
+  ('90000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'homework', '作业表现', '合成演示学生分类目：作业', 'positive', 5),
+  ('90000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000001', 'discipline', '课堂纪律', '合成演示学生分类目：纪律', 'negative', -2),
+  ('90000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000001', 'volunteer', '志愿服务', '合成演示学生分类目：志愿', 'positive', 3)
 on conflict (school_id, slug) do update set
   display_name = excluded.display_name,
-  description = excluded.description;
+  description = excluded.description,
+  kind = excluded.kind,
+  default_delta = excluded.default_delta;
 
 insert into public.class_score_categories (id, school_id, slug, display_name, description)
 values

@@ -31,6 +31,7 @@ import {
 
 describe('domain enums', () => {
   it('operation kinds match the governance SQL contracts', () => {
+    expect(OPERATION_KINDS).toContain('student_score_category_manage');
     expect(OPERATION_KINDS).toContain('student_score_apply');
     expect(OPERATION_KINDS).toContain('student_score_apply_batch');
     expect(OPERATION_KINDS).toContain('class_score_apply');
@@ -43,6 +44,7 @@ describe('domain enums', () => {
     expect(OPERATION_STATUSES).toEqual(['pending', 'succeeded', 'reversed', 'failed']);
     expect(OPERATION_TARGET_TYPES).toEqual([
       'student',
+      'student_score_category',
       'class',
       'household',
       'wallet',

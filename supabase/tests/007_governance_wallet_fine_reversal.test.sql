@@ -2,7 +2,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(31);
+select plan(46);
 
 set local role authenticated;
 
@@ -58,20 +58,30 @@ select throws_ok(
   '扣币超出余额被拒绝'
 );
 
--- Teacher cannot grant.
+-- Teacher can grant for authorized students.
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000001', true);
+select is(
+  (select r.balance_after from public.apply_dolphin_grant(
+    'coin-teacher-0001',
+    '50000000-0000-0000-0000-000000000001',
+    5,
+    '教师奖励'
+  ) as r),
+  45::numeric(12, 2),
+  '教师可对所教学生发放奖励'
+);
 select throws_ok(
   $$
     select public.apply_dolphin_grant(
-      'coin-teacher-0001',
-      '50000000-0000-0000-0000-000000000001',
+      'coin-teacher-cross-class-0001',
+      '50000000-0000-0000-0000-000000000077',
       5,
-      '教师发币被禁'
+      '教师跨校奖励'
     )
   $$,
   'P0001',
   'FORBIDDEN',
-  '教师不能发币'
+  '教师不能对非授权学生发放奖励'
 );
 
 -- Council cannot grant.
@@ -88,6 +98,22 @@ select throws_ok(
   'P0001',
   'FORBIDDEN',
   '自治会不能发币'
+);
+
+-- Admin cannot grant.
+select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000051', true);
+select throws_ok(
+  $$
+    select public.apply_dolphin_grant(
+      'coin-admin-0001',
+      '50000000-0000-0000-0000-000000000001',
+      5,
+      '管理员发币被禁'
+    )
+  $$,
+  'P0001',
+  'FORBIDDEN',
+  '管理员不能发币'
 );
 
 -- Bank operator can adjust.
@@ -115,6 +141,19 @@ select is(
   0::bigint,
   '班级端不能读取任何 dolphin_transactions'
 );
+select throws_ok(
+  $$
+    select public.apply_dolphin_grant(
+      'coin-terminal-0001',
+      '50000000-0000-0000-0000-000000000001',
+      3,
+      '班级端发币被禁'
+    )
+  $$,
+  'P0001',
+  'FORBIDDEN',
+  '班级端不能调用发币 RPC'
+);
 
 -- Teacher can read wallets for authorized students.
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000001', true);
@@ -122,12 +161,63 @@ select ok(
   (select count(*) from public.dolphin_accounts where student_id = '50000000-0000-0000-0000-000000000001') = 1,
   '教师可读取授权学生的 dolphin_accounts'
 );
+select is(
+  (select count(*) from public.dolphin_accounts where student_id = '50000000-0000-0000-0000-000000000077'),
+  0::bigint,
+  '教师不能读取未授权学生的钱包'
+);
+select ok(
+  (select count(*) from public.dolphin_transactions as tx
+    join public.dolphin_accounts as account on account.id = tx.account_id
+    where account.student_id = '50000000-0000-0000-0000-000000000001') >= 1,
+  '教师可读取授权学生的交易流水'
+);
 
 -- Family can read wallet of their student.
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000021', true);
 select ok(
   (select count(*) from public.dolphin_accounts where student_id = '50000000-0000-0000-0000-000000000001') = 1,
   '家庭端可读取绑定学生的 dolphin_accounts'
+);
+select is(
+  (select count(*) from public.dolphin_accounts where student_id = '50000000-0000-0000-0000-000000000002'),
+  0::bigint,
+  '家庭端不能读取未绑定学生的钱包'
+);
+select ok(
+  (select count(*) from public.dolphin_transactions as tx
+    join public.dolphin_accounts as account on account.id = tx.account_id
+    where account.student_id = '50000000-0000-0000-0000-000000000001') >= 1,
+  '家庭端可读取绑定学生的交易流水'
+);
+select is(
+  (select count(*) from public.fine_orders where student_id = '50000000-0000-0000-0000-000000000001'),
+  0::bigint,
+  '未创建前家庭端看不到罚款单'
+);
+
+-- Council and admin cannot read wallets or transactions.
+select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000041', true);
+select is(
+  (select count(*) from public.dolphin_accounts),
+  0::bigint,
+  '自治会不能读取任何 dolphin_accounts'
+);
+select is(
+  (select count(*) from public.dolphin_transactions),
+  0::bigint,
+  '自治会不能读取任何 dolphin_transactions'
+);
+select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000051', true);
+select is(
+  (select count(*) from public.dolphin_accounts),
+  0::bigint,
+  '管理员不能读取任何 dolphin_accounts'
+);
+select is(
+  (select count(*) from public.dolphin_transactions),
+  0::bigint,
+  '管理员不能读取任何 dolphin_transactions'
 );
 
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000031', true);
@@ -183,6 +273,51 @@ select throws_ok(
   'P0001',
   'FORBIDDEN',
   '家庭不能创建罚款'
+);
+select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000011', true);
+select throws_ok(
+  $$
+    select public.create_fine_order(
+      'fine-terminal-forbid-0001',
+      '50000000-0000-0000-0000-000000000001',
+      '92000000-0000-0000-0000-000000000001',
+      5,
+      '班级端不允许'
+    )
+  $$,
+  'P0001',
+  'FORBIDDEN',
+  '班级端不能创建罚款'
+);
+select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000041', true);
+select throws_ok(
+  $$
+    select public.create_fine_order(
+      'fine-council-forbid-0001',
+      '50000000-0000-0000-0000-000000000001',
+      '92000000-0000-0000-0000-000000000001',
+      5,
+      '自治会不允许'
+    )
+  $$,
+  'P0001',
+  'FORBIDDEN',
+  '自治会不能创建罚款'
+);
+select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000051', true);
+select throws_ok(
+  $$
+    select public.create_fine_order(
+      'fine-admin-forbid-0001',
+      '50000000-0000-0000-0000-000000000001',
+      '92000000-0000-0000-0000-000000000001',
+      5,
+      '管理员不允许'
+    )
+  $$,
+  'P0001',
+  'FORBIDDEN',
+  '管理员不能创建罚款'
 );
 
 -- Settle by bank operator.

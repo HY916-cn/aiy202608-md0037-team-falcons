@@ -14,6 +14,7 @@ import {
   RANKING_WINDOWS,
   SCORE_DELTA_MAX,
   SCORE_DELTA_MIN,
+  STUDENT_SCORE_CATEGORY_KINDS,
   isDomainErrorCode,
   type DomainErrorCode,
   type IdempotencyKey,
@@ -91,6 +92,16 @@ export const rankingWindowSchema = z.enum(RANKING_WINDOWS, {
   message: tag('E_UNKNOWN_RANKING_WINDOW', 'unknown ranking window'),
 });
 
+export const studentScoreCategoryKindSchema = z.enum(
+  STUDENT_SCORE_CATEGORY_KINDS,
+  {
+    message: tag(
+      'E_UNKNOWN_LEDGER_DIRECTION',
+      'unknown student score category kind',
+    ),
+  },
+);
+
 export const scoreDeltaSchema = z
   .number({
     message: tag('E_INTEGER_REQUIRED', 'delta must be a number'),
@@ -155,6 +166,42 @@ export const studentScoreEntrySchema = z
   })
   .strict();
 export type StudentScoreEntryInput = z.infer<typeof studentScoreEntrySchema>;
+
+export const studentScoreCategoryManageSchema = z
+  .object({
+    categoryId: uuidSchema.nullable(),
+    schoolId: uuidSchema,
+    slug: z
+      .string()
+      .trim()
+      .regex(/^[a-z][a-z0-9_]{1,39}$/, {
+        message: tag('E_INVALID_INPUT', 'invalid category slug'),
+      }),
+    displayName: z.string().trim().min(1).max(60),
+    description: z.string().max(200),
+    kind: studentScoreCategoryKindSchema,
+    defaultDelta: scoreDeltaSchema,
+    isActive: z.boolean(),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (
+      (value.kind === 'positive' && value.defaultDelta < 0)
+      || (value.kind === 'negative' && value.defaultDelta > 0)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: tag(
+          'E_INVALID_INPUT',
+          'student score category defaultDelta sign mismatch',
+        ),
+        path: ['defaultDelta'],
+      });
+    }
+  });
+export type StudentScoreCategoryManageInput = z.infer<
+  typeof studentScoreCategoryManageSchema
+>;
 
 export const classScoreEntrySchema = z
   .object({

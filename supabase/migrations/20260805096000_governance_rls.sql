@@ -2,6 +2,68 @@
 -- transitions must go through the SECURITY DEFINER RPCs. class_terminal must NOT be
 -- able to read wallets or fine orders. admin reads audit_events, other roles cannot.
 
+create or replace function public._governance_can_view_fine_order(
+  p_order_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+    from public.fine_orders as fine_order
+    join public.operations as create_op on create_op.id = fine_order.create_operation_id
+    where fine_order.id = p_order_id
+      and (
+        public.has_role('bank_operator', 'school', fine_order.school_id)
+        or (
+          create_op.actor_role = 'teacher'
+          and create_op.actor_id = auth.uid()
+        )
+        or exists (
+          select 1
+          from public.role_assignments as assignment
+          join public.household_students as household_student
+            on household_student.household_id = assignment.scope_id
+          where assignment.user_id = auth.uid()
+            and assignment.role = 'family'
+            and assignment.scope_type = 'household'
+            and household_student.student_id = fine_order.student_id
+        )
+      )
+  );
+$$;
+
+create or replace function public._governance_can_view_operation(
+  p_target_type public.governance_target_type,
+  p_target_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select case
+    when p_target_type = 'student' then public._governance_can_view_student_governance(p_target_id)
+    when p_target_type = 'student_score_category' then public._governance_can_teacher_manage_school(p_target_id)
+    when p_target_type = 'class' then public._governance_can_view_class_score(p_target_id)
+    when p_target_type = 'household' then public.can_access_household(p_target_id)
+    when p_target_type = 'wallet' then public._governance_can_view_wallet(p_target_id)
+    when p_target_type = 'fine_order' then public._governance_can_view_fine_order(p_target_id)
+    when p_target_type = 'fine_rule' then public.has_role('bank_operator', 'school', p_target_id)
+    when p_target_type = 'operation' then exists (
+      select 1
+      from public.operations as op
+      where op.id = p_target_id
+        and public._governance_can_view_operation(op.target_type, op.target_id)
+    )
+    else false
+  end;
+$$;
+
 -- operations: visible by target authorization scope rather than actor/admin identity.
 create policy operations__select__authorized_target
 on public.operations for select to authenticated
@@ -101,3 +163,6 @@ using (
       and public._governance_can_view_fine_order(fine_order.id)
   )
 );
+
+revoke all on function public._governance_can_view_fine_order(uuid) from public;
+revoke all on function public._governance_can_view_operation(public.governance_target_type, uuid) from public;
