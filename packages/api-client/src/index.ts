@@ -19,5 +19,7 @@ export * from './apiError';
 export * from './assignmentService';
 export * from './coursewareService';
 export * from './gradeService';
+export * from './gradeReportImport';
+export * from './gradeReportSheetService';
 export * from './supabaseTeachingDemoAdapter';
 export * from './supabaseAiExperienceAdapter';
