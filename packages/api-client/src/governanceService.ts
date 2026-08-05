@@ -218,6 +218,21 @@ function assertRole(scope: AuthRoleScope, roles: readonly RoleCode[]): void {
   if (!roles.includes(scope.role)) throw new ApiClientError('FORBIDDEN');
 }
 
+function governanceRpcError(error: unknown): ApiClientError {
+  if (typeof error === 'object' && error !== null) {
+    const message = 'message' in error ? String(error.message) : '';
+    if (message === 'FORBIDDEN') return new ApiClientError('FORBIDDEN', { cause: error });
+    if (
+      message.startsWith('INVALID_') ||
+      message.endsWith('_NOT_FOUND') ||
+      message === 'RULE_NOT_FOUND'
+    ) {
+      return new ApiClientError('VALIDATION_ERROR', { cause: error });
+    }
+  }
+  return new ApiClientError('INTERNAL_ERROR', { cause: error });
+}
+
 export class SupabaseGovernanceService implements GovernanceService {
   constructor(private readonly client: SupabaseClient) {}
 
@@ -358,7 +373,33 @@ export class SupabaseGovernanceService implements GovernanceService {
       return { classes: this.mapClasses(classRows), students: this.mapStudents(studentRows) };
     }
     const classQuery = this.client.from('classes').select('id, school_id, name');
-    const classResult = await (scope.type === 'class' ? classQuery.eq('id', scope.id) : classQuery.eq('school_id', scope.id)).order('name');
+    let classResult: QueryResult;
+    if (scope.type === 'class') {
+      classResult = await classQuery.eq('id', scope.id).order('name');
+    } else if (scope.role === 'teacher') {
+      const {
+        data: { user },
+        error: userError,
+      } = await this.client.auth.getUser();
+      if (userError !== null || user === null) {
+        throw new ApiClientError('UNAUTHENTICATED', { cause: userError });
+      }
+      const assignmentRows = rows(
+        await this.client
+          .from('teacher_class_assignments')
+          .select('class_id')
+          .eq('teacher_id', user.id),
+      );
+      const classIds = assignmentRows.map((row) =>
+        stringValue(row.class_id),
+      );
+      classResult =
+        classIds.length === 0
+          ? { data: [], error: null }
+          : await classQuery.in('id', classIds).order('name');
+    } else {
+      classResult = await classQuery.eq('school_id', scope.id).order('name');
+    }
     const classRows = rows(classResult);
     const studentRows = scope.role === 'council' ? [] : await this.selectByIds('students', 'class_id', classRows.map((row) => stringValue(row.id)), 'id, class_id, display_name');
     return { classes: this.mapClasses(classRows), students: this.mapStudents(studentRows) };
@@ -387,7 +428,7 @@ export class SupabaseGovernanceService implements GovernanceService {
 
   private async call(functionName: string, params: Record<string, unknown>): Promise<void> {
     const result = await this.client.rpc(functionName, params);
-    if (result.error !== null) throw new ApiClientError('INTERNAL_ERROR', { cause: result.error });
+    if (result.error !== null) throw governanceRpcError(result.error);
   }
 
   private schoolScope(scope: AuthRoleScope): string {

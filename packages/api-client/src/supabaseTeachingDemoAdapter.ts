@@ -108,10 +108,33 @@ export class SupabaseTeachingDemoAdapter implements TeachingDemoAdapter {
         throw new ApiClientError('FORBIDDEN');
       }
       const classQuery = this.client.from('classes').select('id, name');
-      classResult = await (roleScope.type === 'class'
-        ? classQuery.eq('id', roleScope.id)
-        : classQuery.eq('school_id', roleScope.id)
-      ).order('name');
+      if (roleScope.type === 'class') {
+        classResult = await classQuery.eq('id', roleScope.id).order('name');
+      } else {
+        const {
+          data: { user },
+          error: userError,
+        } = await this.client.auth.getUser();
+        if (userError !== null || user === null) {
+          throw new ApiClientError('UNAUTHENTICATED', { cause: userError });
+        }
+        const assignmentResult = await this.client
+          .from('teacher_class_assignments')
+          .select('class_id')
+          .eq('teacher_id', user.id);
+        if (assignmentResult.error !== null) {
+          throw new ApiClientError('FORBIDDEN', {
+            cause: assignmentResult.error,
+          });
+        }
+        const assignedClassIds = (assignmentResult.data ?? []).map(
+          (row) => row.class_id as string,
+        );
+        classResult =
+          assignedClassIds.length === 0
+            ? { data: [], error: null }
+            : await classQuery.in('id', assignedClassIds).order('name');
+      }
       const classIds = (classResult.data ?? []).map((row) => row.id);
       studentResult =
         classIds.length === 0

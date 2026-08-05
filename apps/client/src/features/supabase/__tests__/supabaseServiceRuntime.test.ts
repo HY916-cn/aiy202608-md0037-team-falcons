@@ -56,6 +56,16 @@ function createSessionAwareClient() {
         }),
       };
     }
+    if (table === 'teacher_class_assignments') {
+      return {
+        select: () => ({
+          eq: vi.fn().mockResolvedValue({
+            data: [{ class_id: 'class-1' }],
+            error: null,
+          }),
+        }),
+      };
+    }
     if (table === 'classes' || table === 'students') {
       const chain = {
         eq: vi.fn(() => chain),
@@ -148,11 +158,12 @@ describe('createSupabaseServiceRuntime', () => {
     });
     expect(fake.teachingRequestTokens.at(-1)).toBe('refreshed-token');
 
+    const requestCountBeforeLogout = fake.teachingRequestTokens.length;
     await runtime.authAdapter.logout();
     await expect(runtime.teachingAdapter.load(teacherScope)).rejects.toMatchObject({
-      code: 'FORBIDDEN',
+      code: 'UNAUTHENTICATED',
     });
-    expect(fake.teachingRequestTokens.at(-1)).toBeNull();
+    expect(fake.teachingRequestTokens).toHaveLength(requestCountBeforeLogout);
     expect(clientFactory).toHaveBeenCalledTimes(1);
     expect(runtime.client).toBe(fake.client);
     unsubscribe?.();

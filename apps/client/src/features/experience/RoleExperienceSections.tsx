@@ -1,4 +1,5 @@
 import { ROLE_LABELS, type AuthRoleScope, type RoleCode } from '@dolphincloud/auth';
+import { ApiClientError } from '@dolphincloud/api-client';
 import { resolveLoadableState } from '@dolphincloud/experience';
 import type {
   AiExperienceSnapshot,
@@ -8,7 +9,7 @@ import type {
   WriteActionExecutionAdapter,
   WriteActionPreview,
 } from '@dolphincloud/experience';
-import type { CoursewareFileMetadata } from '@dolphincloud/domain';
+import { coursewareFileMetadataSchema } from '@dolphincloud/validation';
 import {
   AiAuditResultCard,
   AiResultCard,
@@ -65,6 +66,18 @@ type PendingWriteAction = {
   readonly preview: WriteActionPreview;
   readonly successMessage: string;
 };
+
+function teachingWriteError(cause: unknown): string {
+  if (cause instanceof ApiClientError) {
+    if (cause.code === 'FORBIDDEN') {
+      return '当前账号没有所选班级的写入权限，请切换班级或联系管理员授权。';
+    }
+    if (cause.code === 'VALIDATION_ERROR') {
+      return '文件或表单内容不符合要求，请检查文件类型、大小和必填项。';
+    }
+  }
+  return '操作失败，请检查网络、文件和当前班级权限后重试。';
+}
 
 function ActionButton({
   disabled = false,
@@ -423,7 +436,7 @@ function TeachingDemoSection({
         setFeedback(successMessage);
         await load(selectedClassId);
       } catch (cause) {
-        setError('操作失败，请检查输入后重试。');
+        setError(teachingWriteError(cause));
         throw cause;
       } finally {
         setIsPending(false);
@@ -506,16 +519,25 @@ function TeachingDemoSection({
       if (asset === undefined) return;
       const body =
         asset.file ?? (await (await fetch(asset.uri)).arrayBuffer());
+      const metadata = {
+        mimeType: asset.mimeType ?? 'application/octet-stream',
+        originalFilename: asset.name,
+        sizeBytes:
+          asset.size ?? (body instanceof Blob ? body.size : body.byteLength),
+      };
+      const parsedMetadata = coursewareFileMetadataSchema.safeParse(metadata);
+      if (!parsedMetadata.success) {
+        setSelectedFile(null);
+        setError(
+          `${parsedMetadata.error.issues[0]?.message ?? '文件不符合要求'}。支持 PDF、Office、TXT、CSV、图片和 ZIP，单文件不超过 50 MB。`,
+        );
+        return;
+      }
       setSelectedFile({
         body,
-        metadata: {
-          mimeType: (asset.mimeType ??
-            'application/pdf') as CoursewareFileMetadata['mimeType'],
-          originalFilename: asset.name,
-          sizeBytes:
-            asset.size ?? (body instanceof Blob ? body.size : body.byteLength),
-        },
+        metadata: parsedMetadata.data,
       });
+      setError(null);
       setFeedback(`已选择文件：${asset.name}`);
     } catch {
       setError('文件读取失败，请重新选择。');
