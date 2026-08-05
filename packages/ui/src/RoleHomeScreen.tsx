@@ -22,8 +22,15 @@ import {
   UsersRound,
   type LucideIcon,
 } from 'lucide-react-native';
-import type { ReactNode } from 'react';
-import { useMemo, useState } from 'react';
+import type { ReactNode, RefObject } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -46,6 +53,27 @@ type NavigationItem = {
   readonly key: RoleNavigationKey;
   readonly label: string;
 };
+
+export type RoleHomeMenu = 'account' | 'more' | 'notifications' | null;
+
+export type RoleHomeMenuAction =
+  | { readonly menu: Exclude<RoleHomeMenu, null>; readonly type: 'toggle' }
+  | { readonly type: 'context-changed' | 'dismiss' | 'escape' };
+
+export function reduceRoleHomeMenu(
+  current: RoleHomeMenu,
+  action: RoleHomeMenuAction,
+): RoleHomeMenu {
+  if (action.type !== 'toggle') return null;
+  return current === action.menu ? null : action.menu;
+}
+
+export function resolveRoleHomeLayout(width: number) {
+  return {
+    isCompactMobile: width < 480,
+    isWide: width >= 960,
+  } as const;
+}
 
 const ROLE_NAVIGATION = {
   teacher: [
@@ -127,19 +155,28 @@ function BrandLockup({ compact = false }: { readonly compact?: boolean }) {
 function Navigation({
   activeNavigation,
   compact,
+  isOverflowOpen,
   onNavigate,
+  onOverflowToggle,
+  onRequestClose,
+  overflowMenuRef,
+  overflowTriggerRef,
   role,
 }: {
   readonly activeNavigation: RoleNavigationKey;
   readonly compact: boolean;
+  readonly isOverflowOpen: boolean;
   readonly onNavigate: ((key: RoleNavigationKey) => void) | undefined;
+  readonly onOverflowToggle: () => void;
+  readonly onRequestClose: () => void;
+  readonly overflowMenuRef: RefObject<View | null>;
+  readonly overflowTriggerRef: RefObject<View | null>;
   readonly role: RoleCode;
 }) {
   const items = ROLE_NAVIGATION[role];
   const hasOverflow = compact && items.length > 5;
   const visibleItems = hasOverflow ? items.slice(0, 4) : items;
   const overflowItems = hasOverflow ? items.slice(4) : [];
-  const [isOverflowOpen, setIsOverflowOpen] = useState(false);
   const isOverflowActive = overflowItems.some(
     (item) => item.key === activeNavigation,
   );
@@ -154,7 +191,7 @@ function Navigation({
         accessibilityState={{ selected: isActive }}
         key={item.label}
         onPress={() => {
-          setIsOverflowOpen(false);
+          onRequestClose();
           onNavigate?.(item.key);
         }}
         style={({ focused, hovered, pressed }) => [
@@ -194,7 +231,7 @@ function Navigation({
   return (
     <View style={compact ? styles.mobileNavigation : styles.navigation}>
       {isOverflowOpen ? (
-        <View style={styles.mobileOverflowMenu}>
+        <View ref={overflowMenuRef} style={styles.mobileOverflowMenu}>
           <Text style={styles.mobileOverflowLabel}>更多功能</Text>
           {overflowItems.map((item) => (
             <View key={item.key} style={styles.mobileOverflowRow}>
@@ -205,36 +242,38 @@ function Navigation({
       ) : null}
       {visibleItems.map((item) => renderItem(item))}
       {hasOverflow ? (
-        <InteractivePressable
-          accessibilityLabel="更多"
-          accessibilityRole="button"
-          accessibilityState={{ expanded: isOverflowOpen, selected: isOverflowActive }}
-          onPress={() => setIsOverflowOpen((value) => !value)}
-          style={({ focused, hovered, pressed }) => [
-            styles.mobileNavItem,
-            isOverflowActive && styles.mobileNavItemActive,
-            hovered && styles.interactiveHover,
-            focused && styles.interactiveFocus,
-            pressed && styles.pressed,
-          ]}
-        >
-          <Ellipsis
-            color={
-              isOverflowActive
-                ? theme.color.brand.primary
-                : theme.color.text.secondary
-            }
-            size={22}
-          />
-          <Text
-            style={[
-              styles.mobileNavLabel,
-              isOverflowActive && styles.navLabelActive,
+        <View ref={overflowTriggerRef} style={styles.mobileNavSlot}>
+          <InteractivePressable
+            accessibilityLabel="更多"
+            accessibilityRole="button"
+            accessibilityState={{ expanded: isOverflowOpen, selected: isOverflowActive }}
+            onPress={onOverflowToggle}
+            style={({ focused, hovered, pressed }) => [
+              styles.mobileNavItem,
+              isOverflowActive && styles.mobileNavItemActive,
+              hovered && styles.interactiveHover,
+              focused && styles.interactiveFocus,
+              pressed && styles.pressed,
             ]}
           >
-            更多
-          </Text>
-        </InteractivePressable>
+            <Ellipsis
+              color={
+                isOverflowActive
+                  ? theme.color.brand.primary
+                  : theme.color.text.secondary
+              }
+              size={22}
+            />
+            <Text
+              style={[
+                styles.mobileNavLabel,
+                isOverflowActive && styles.navLabelActive,
+              ]}
+            >
+              更多
+            </Text>
+          </InteractivePressable>
+        </View>
       ) : null}
     </View>
   );
@@ -255,10 +294,14 @@ export function RoleHomeScreen({
   user,
 }: RoleHomeScreenProps) {
   const { width } = useWindowDimensions();
-  const isWide = width >= 960;
-  const isCompactMobile = width < 480;
-  const [isAccountOpen, setIsAccountOpen] = useState(false);
-  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const { isCompactMobile, isWide } = resolveRoleHomeLayout(width);
+  const [openMenu, dispatchMenu] = useReducer(reduceRoleHomeMenu, null);
+  const accountMenuRef = useRef<View>(null);
+  const accountTriggerRef = useRef<View>(null);
+  const notificationMenuRef = useRef<View>(null);
+  const notificationTriggerRef = useRef<View>(null);
+  const overflowMenuRef = useRef<View>(null);
+  const overflowTriggerRef = useRef<View>(null);
   const [pendingAction, setPendingAction] = useState<RoleCode | 'logout' | null>(null);
   const [pendingScopeId, setPendingScopeId] = useState<string | null>(null);
   const pageHeader = resolveRolePageHeader(role, activeNavigation);
@@ -274,13 +317,60 @@ export function RoleHomeScreen({
       weekday: `星期${'日一二三四五六'[date.getDay()]}`,
     };
   }, []);
+  const closeMenus = useCallback(
+    () => dispatchMenu({ type: 'dismiss' }),
+    [],
+  );
+
+  useEffect(() => {
+    dispatchMenu({ type: 'context-changed' });
+  }, [activeNavigation, currentRole, role, roleScope?.assignmentId]);
+
+  useEffect(() => {
+    if (openMenu === null || typeof document === 'undefined') return undefined;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') dispatchMenu({ type: 'escape' });
+    };
+    const handlePointerDown = (event: Event) => {
+      const target = event.target;
+      const containsTarget = (ref: RefObject<View | null>) => {
+        const node = ref.current as unknown as {
+          contains?: (candidate: EventTarget | null) => boolean;
+        } | null;
+        return node?.contains?.(target) === true;
+      };
+      if ([
+        accountMenuRef,
+        accountTriggerRef,
+        notificationMenuRef,
+        notificationTriggerRef,
+        overflowMenuRef,
+        overflowTriggerRef,
+      ].some(containsTarget)) {
+        return;
+      }
+      closeMenus();
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('pointerdown', handlePointerDown, true);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('pointerdown', handlePointerDown, true);
+    };
+  }, [closeMenus, openMenu]);
+
+  const isAccountOpen = openMenu === 'account';
+  const isNotificationsOpen = openMenu === 'notifications';
+  const isOverflowOpen = openMenu === 'more';
 
   const handleSwitchRole = async (nextRole: RoleCode) => {
     if (onSwitchRole === undefined || nextRole === currentRole) return;
+    closeMenus();
     setPendingAction(nextRole);
     try {
       await onSwitchRole(nextRole);
-      setIsAccountOpen(false);
     } finally {
       setPendingAction(null);
     }
@@ -288,6 +378,7 @@ export function RoleHomeScreen({
 
   const handleLogout = async () => {
     if (onLogout === undefined) return;
+    closeMenus();
     setPendingAction('logout');
     try {
       await onLogout();
@@ -303,17 +394,20 @@ export function RoleHomeScreen({
     ) {
       return;
     }
+    closeMenus();
     setPendingScopeId(roleAssignmentId);
     try {
       await onSwitchRoleScope(roleAssignmentId);
-      setIsAccountOpen(false);
     } finally {
       setPendingScopeId(null);
     }
   };
 
   const accountMenu = isAccountOpen ? (
-    <View style={[styles.accountMenu, !isWide && styles.accountMenuMobile]}>
+    <View
+      ref={accountMenuRef}
+      style={[styles.accountMenu, !isWide && styles.accountMenuMobile]}
+    >
       <Text style={styles.accountName}>{user?.displayName ?? '当前用户'}</Text>
       <Text style={styles.accountScope}>{roleScope?.label ?? ROLE_LABELS[role]}</Text>
       <View style={styles.menuDivider} />
@@ -394,7 +488,10 @@ export function RoleHomeScreen({
   ) : null;
 
   const notificationMenu = isNotificationsOpen ? (
-    <View style={[styles.notificationMenu, !isWide && styles.notificationMenuMobile]}>
+    <View
+      ref={notificationMenuRef}
+      style={[styles.notificationMenu, !isWide && styles.notificationMenuMobile]}
+    >
       <View style={styles.notificationHeading}>
         <Text style={styles.accountName}>通知中心</Text>
         <Text style={styles.notificationCount}>0 条未读</Text>
@@ -414,47 +511,45 @@ export function RoleHomeScreen({
     <View style={[styles.topBar, isCompactMobile && styles.topBarCompact]}>
       {!isWide ? <BrandLockup compact={isCompactMobile} /> : <View />}
       <View style={styles.topBarActions}>
-        <InteractivePressable
-          accessibilityLabel="通知"
-          accessibilityRole="button"
-          accessibilityState={{ expanded: isNotificationsOpen }}
-          onPress={() => {
-            setIsAccountOpen(false);
-            setIsNotificationsOpen((value) => !value);
-          }}
-          style={({ focused, hovered, pressed }) => [
-            styles.iconButton,
-            hovered && styles.interactiveHover,
-            focused && styles.interactiveFocus,
-            pressed && styles.pressed,
-          ]}
-        >
-          <Bell color={theme.color.text.primary} size={20} />
-        </InteractivePressable>
-        <InteractivePressable
-          accessibilityLabel="账号与角色"
-          accessibilityRole="button"
-          accessibilityState={{ expanded: isAccountOpen }}
-          onPress={() => {
-            setIsNotificationsOpen(false);
-            setIsAccountOpen((value) => !value);
-          }}
-          style={({ focused, hovered, pressed }) => [
-            styles.accountButton,
-            hovered && styles.interactiveHover,
-            focused && styles.interactiveFocus,
-            pressed && styles.pressed,
-          ]}
-        >
-          <View style={styles.avatar}><Text style={styles.avatarText}>{userInitial}</Text></View>
-          {isWide ? (
-            <View style={styles.accountCopy}>
-              <Text numberOfLines={1} style={styles.accountButtonName}>{user?.displayName ?? '当前用户'}</Text>
-              <Text style={styles.accountButtonRole}>{ROLE_LABELS[role]}</Text>
-            </View>
-          ) : null}
-          <ChevronDown color={theme.color.text.secondary} size={17} />
-        </InteractivePressable>
+        <View ref={notificationTriggerRef}>
+          <InteractivePressable
+            accessibilityLabel="通知"
+            accessibilityRole="button"
+            accessibilityState={{ expanded: isNotificationsOpen }}
+            onPress={() => dispatchMenu({ menu: 'notifications', type: 'toggle' })}
+            style={({ focused, hovered, pressed }) => [
+              styles.iconButton,
+              hovered && styles.interactiveHover,
+              focused && styles.interactiveFocus,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Bell color={theme.color.text.primary} size={20} />
+          </InteractivePressable>
+        </View>
+        <View ref={accountTriggerRef}>
+          <InteractivePressable
+            accessibilityLabel="账号与角色"
+            accessibilityRole="button"
+            accessibilityState={{ expanded: isAccountOpen }}
+            onPress={() => dispatchMenu({ menu: 'account', type: 'toggle' })}
+            style={({ focused, hovered, pressed }) => [
+              styles.accountButton,
+              hovered && styles.interactiveHover,
+              focused && styles.interactiveFocus,
+              pressed && styles.pressed,
+            ]}
+          >
+            <View style={styles.avatar}><Text style={styles.avatarText}>{userInitial}</Text></View>
+            {isWide ? (
+              <View style={styles.accountCopy}>
+                <Text numberOfLines={1} style={styles.accountButtonName}>{user?.displayName ?? '当前用户'}</Text>
+                <Text style={styles.accountButtonRole}>{ROLE_LABELS[role]}</Text>
+              </View>
+            ) : null}
+            <ChevronDown color={theme.color.text.secondary} size={17} />
+          </InteractivePressable>
+        </View>
       </View>
       {notificationMenu}
       {accountMenu}
@@ -463,21 +558,28 @@ export function RoleHomeScreen({
 
   return (
     <View style={styles.shell}>
-      {isAccountOpen || isNotificationsOpen ? (
+      {openMenu !== null ? (
         <InteractivePressable
           accessibilityLabel="关闭弹出菜单"
           accessibilityRole="button"
-          onPress={() => {
-            setIsAccountOpen(false);
-            setIsNotificationsOpen(false);
-          }}
+          onPress={closeMenus}
           style={styles.menuDismissLayer}
         />
       ) : null}
       {isWide ? (
         <View style={styles.sidebar}>
           <BrandLockup />
-          <Navigation activeNavigation={activeNavigation} compact={false} onNavigate={onNavigate} role={role} />
+          <Navigation
+            activeNavigation={activeNavigation}
+            compact={false}
+            isOverflowOpen={false}
+            onNavigate={onNavigate}
+            onOverflowToggle={closeMenus}
+            onRequestClose={closeMenus}
+            overflowMenuRef={overflowMenuRef}
+            overflowTriggerRef={overflowTriggerRef}
+            role={role}
+          />
           <View style={styles.sidebarFooter}>
             <View style={styles.scopeBadge}>
               <RoleIcon role={role} size={18} />
@@ -498,6 +600,7 @@ export function RoleHomeScreen({
             isCompactMobile && styles.pageCompact,
           ]}
           showsVerticalScrollIndicator={false}
+          style={styles.scrollArea}
         >
           <View style={[styles.content, isCompactMobile && styles.contentCompact]}>
             <View
@@ -519,14 +622,26 @@ export function RoleHomeScreen({
             {children}
           </View>
         </ScrollView>
-        {!isWide ? <Navigation activeNavigation={activeNavigation} compact onNavigate={onNavigate} role={role} /> : null}
+        {!isWide ? (
+          <Navigation
+            activeNavigation={activeNavigation}
+            compact
+            isOverflowOpen={isOverflowOpen}
+            onNavigate={onNavigate}
+            onOverflowToggle={() => dispatchMenu({ menu: 'more', type: 'toggle' })}
+            onRequestClose={closeMenus}
+            overflowMenuRef={overflowMenuRef}
+            overflowTriggerRef={overflowTriggerRef}
+            role={role}
+          />
+        ) : null}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  shell: { backgroundColor: theme.color.surface.page, flex: 1, flexDirection: 'row' },
+  shell: { backgroundColor: theme.color.surface.page, flex: 1, flexDirection: 'row', minHeight: 0, position: 'relative' },
   sidebar: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRightWidth: 1, padding: theme.space.lg, width: 244 },
   brandLockup: { alignItems: 'center', flexDirection: 'row', gap: theme.space.base },
   brandMark: { alignItems: 'center', backgroundColor: theme.color.surface.card, borderRadius: 13, height: 42, justifyContent: 'center', width: 42 },
@@ -545,7 +660,7 @@ const styles = StyleSheet.create({
   scopeCopy: { flex: 1 },
   scopeRole: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '700' },
   scopeLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, marginTop: 2 },
-  main: { flex: 1, minWidth: 0 },
+  main: { flex: 1, minHeight: 0, minWidth: 0 },
   topBar: { alignItems: 'center', backgroundColor: theme.color.surface.card, borderBottomColor: theme.color.border.default, borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', minHeight: 72, paddingHorizontal: theme.space.lg, position: 'relative', zIndex: 20 },
   topBarCompact: { minHeight: 64, paddingHorizontal: theme.space.md },
   topBarActions: { alignItems: 'center', flexDirection: 'row', gap: theme.space.sm },
@@ -576,6 +691,7 @@ const styles = StyleSheet.create({
   scopeOptionMarker: { backgroundColor: theme.color.brand.primary, borderRadius: theme.radius.pill, height: 7, width: 7 },
   logoutButton: { alignItems: 'center', flexDirection: 'row', gap: theme.space.sm, minHeight: 40, paddingHorizontal: theme.space.sm },
   logoutLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.sm, fontWeight: '600' },
+  scrollArea: { flex: 1, minHeight: 0 },
   page: { alignItems: 'center', paddingBottom: 56, paddingHorizontal: theme.space.xl, paddingTop: 36 },
   pageCompact: { paddingBottom: 40, paddingHorizontal: theme.space.md, paddingTop: theme.space.lg },
   content: { gap: 28, maxWidth: 1180, width: '100%' },
@@ -592,13 +708,14 @@ const styles = StyleSheet.create({
   dateSecondary: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, marginTop: 2 },
   mobileNavigation: { backgroundColor: theme.color.surface.card, borderTopColor: theme.color.border.default, borderTopWidth: 1, flexDirection: 'row', paddingBottom: theme.space.sm, paddingHorizontal: theme.space.xs, paddingTop: theme.space.sm, position: 'relative', zIndex: 30 },
   mobileNavItem: { alignItems: 'center', flex: 1, gap: 3, justifyContent: 'center', minHeight: 50 },
+  mobileNavSlot: { flex: 1 },
   mobileNavItemActive: { backgroundColor: theme.color.surface.primaryTint, borderRadius: theme.radius.control },
   mobileNavLabel: { color: theme.color.text.secondary, fontSize: 10, fontWeight: '600' },
   mobileNavLabelActive: { color: theme.color.brand.primary },
   mobileOverflowLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, fontWeight: '800', paddingHorizontal: theme.space.base, paddingTop: theme.space.sm },
   mobileOverflowItem: { alignItems: 'center', borderRadius: theme.radius.control, flex: 1, flexDirection: 'row', gap: theme.space.sm, minHeight: 48, paddingHorizontal: theme.space.base },
   mobileOverflowItemLabel: { color: theme.color.text.primary, flex: 1, fontSize: theme.text.size.sm, fontWeight: '700' },
-  mobileOverflowMenu: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, bottom: 70, elevation: 10, gap: theme.space.xs, padding: theme.space.xs, position: 'absolute', right: theme.space.sm, width: 190 },
+  mobileOverflowMenu: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, bottom: 70, elevation: 10, gap: theme.space.xs, padding: theme.space.xs, position: 'absolute', right: theme.space.sm, width: 190, zIndex: 40 },
   mobileOverflowRow: { minHeight: 52 },
-  menuDismissLayer: { bottom: 0, left: 0, position: 'absolute', right: 0, top: 72, zIndex: 19 },
+  menuDismissLayer: { bottom: 0, left: 0, position: 'absolute', right: 0, top: 0, zIndex: 19 },
 });

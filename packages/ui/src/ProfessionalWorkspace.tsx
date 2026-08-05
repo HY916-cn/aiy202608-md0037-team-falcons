@@ -7,7 +7,13 @@ import {
   SlidersHorizontal,
 } from 'lucide-react-native';
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  TextInput,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 
 import { InteractivePressable } from './InteractivePressable';
 import { theme } from './theme';
@@ -16,6 +22,13 @@ export type WorkspaceOption<Value extends string> = {
   readonly label: string;
   readonly value: Value;
 };
+
+export function resolveWorkspaceLayout(width: number) {
+  return {
+    isCompact: width < 640,
+    isTablet: width >= 640 && width < 960,
+  } as const;
+}
 
 type WorkspaceSurfaceProps = {
   readonly children: ReactNode;
@@ -30,8 +43,10 @@ export function WorkspaceSurface({
   eyebrow,
   title,
 }: WorkspaceSurfaceProps) {
+  const { width } = useWindowDimensions();
+  const { isCompact } = resolveWorkspaceLayout(width);
   return (
-    <View style={styles.surface}>
+    <View style={[styles.surface, isCompact && styles.surfaceCompact]}>
       <View style={styles.surfaceHeading}>
         {eyebrow === undefined ? null : (
           <Text style={styles.eyebrow}>{eyebrow}</Text>
@@ -52,12 +67,21 @@ export type InsightStripItem = {
 };
 
 export function InsightStrip({ items }: { readonly items: readonly InsightStripItem[] }) {
+  const { width } = useWindowDimensions();
+  const { isCompact } = resolveWorkspaceLayout(width);
   return (
-    <View style={styles.insightStrip}>
+    <View style={[styles.insightStrip, isCompact && styles.insightStripCompact]}>
       {items.map((item, index) => (
         <View
           key={item.label}
-          style={[styles.insightItem, index > 0 && styles.insightItemSeparated]}
+          style={[
+            styles.insightItem,
+            isCompact && styles.insightItemCompact,
+            index > 0 &&
+              (isCompact
+                ? styles.insightItemSeparatedCompact
+                : styles.insightItemSeparated),
+          ]}
         >
           <Text style={styles.insightValue}>{item.value}</Text>
           <Text style={styles.insightLabel}>{item.label}</Text>
@@ -148,6 +172,8 @@ export function WorkspaceToolbar<Filter extends string, Sort extends string>({
   sort,
   sortOptions,
 }: WorkspaceToolbarProps<Filter, Sort>) {
+  const { width } = useWindowDimensions();
+  const { isCompact } = resolveWorkspaceLayout(width);
   const nextSortIndex = (sortOptions.findIndex((option) => option.value === sort) + 1) %
     sortOptions.length;
   const nextSort = sortOptions[nextSortIndex]?.value ?? sort;
@@ -167,8 +193,11 @@ export function WorkspaceToolbar<Filter extends string, Sort extends string>({
           value={query}
         />
       </View>
-      <View style={styles.toolbarRow}>
-        <View accessibilityLabel="状态筛选" style={styles.filterGroup}>
+      <View style={[styles.toolbarRow, isCompact && styles.toolbarRowCompact]}>
+        <View
+          accessibilityLabel="状态筛选"
+          style={[styles.filterGroup, isCompact && styles.filterGroupCompact]}
+        >
           <SlidersHorizontal color={theme.color.text.secondary} size={17} />
           {filterOptions.map((option) => {
             const isSelected = option.value === filter;
@@ -204,6 +233,7 @@ export function WorkspaceToolbar<Filter extends string, Sort extends string>({
           onPress={() => onSortChange(nextSort)}
           style={({ focused, hovered, pressed }) => [
             styles.toolbarButton,
+            isCompact && styles.toolbarControlCompact,
             hovered && styles.hovered,
             focused && styles.focused,
             pressed && styles.pressed,
@@ -219,6 +249,7 @@ export function WorkspaceToolbar<Filter extends string, Sort extends string>({
           onPress={onExport}
           style={({ focused, hovered, pressed }) => [
             styles.exportButton,
+            isCompact && styles.toolbarControlCompact,
             exportDisabled && styles.disabled,
             hovered && !exportDisabled && styles.exportButtonHovered,
             focused && styles.focused,
@@ -251,20 +282,24 @@ const styles = StyleSheet.create({
   filterButton: { alignItems: 'center', borderRadius: theme.radius.pill, justifyContent: 'center', minHeight: 36, paddingHorizontal: theme.space.base },
   filterButtonSelected: { backgroundColor: theme.color.surface.primaryTint },
   filterGroup: { alignItems: 'center', borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.xs, minHeight: 44, paddingHorizontal: theme.space.xs },
+  filterGroupCompact: { width: '100%' },
   filterLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, fontWeight: '700' },
   filterLabelSelected: { color: theme.color.brand.primary },
   focused: { borderColor: theme.color.brand.primary, borderWidth: 1, boxShadow: '0 0 0 3px rgba(22, 119, 254, 0.18)' },
   hovered: { backgroundColor: theme.color.surface.primaryTint },
   insightItem: { flex: 1, minWidth: 110, paddingHorizontal: theme.space.md, paddingVertical: theme.space.base },
+  insightItemCompact: { minWidth: 0, width: '100%' },
   insightItemSeparated: { borderLeftColor: theme.color.border.default, borderLeftWidth: 1 },
+  insightItemSeparatedCompact: { borderTopColor: theme.color.border.default, borderTopWidth: 1 },
   insightLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, marginTop: 3 },
   insightStrip: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, flexDirection: 'row', flexWrap: 'wrap', overflow: 'hidden' },
+  insightStripCompact: { flexDirection: 'column' },
   insightValue: { color: theme.color.text.primary, fontSize: theme.text.size.lg, fontWeight: '800' },
   pressed: { opacity: 0.72, transform: [{ scale: 0.985 }] },
   resultMeta: { alignItems: 'center', flexDirection: 'row', gap: theme.space.xs },
   resultMetaText: { color: theme.color.text.secondary, fontSize: theme.text.size.xs },
   searchControl: { alignItems: 'center', backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, flexDirection: 'row', gap: theme.space.sm, minHeight: 46, paddingHorizontal: theme.space.base },
-  searchInput: { color: theme.color.text.primary, flex: 1, fontSize: theme.text.size.sm, minWidth: 180, paddingVertical: 0 },
+  searchInput: { color: theme.color.text.primary, flex: 1, fontSize: theme.text.size.sm, minWidth: 0, paddingVertical: 0 },
   statusDot: { backgroundColor: theme.color.text.disabled, borderRadius: theme.radius.pill, height: 7, width: 7 },
   statusDotPrimary: { backgroundColor: theme.color.brand.primary },
   statusDotSecondary: { backgroundColor: theme.color.brand.secondary },
@@ -274,10 +309,13 @@ const styles = StyleSheet.create({
   statusTagPrimary: { backgroundColor: theme.color.surface.primaryTint },
   statusTagSecondary: { backgroundColor: theme.color.surface.secondaryTint, borderColor: theme.color.brand.secondary, borderWidth: 1 },
   surface: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, gap: theme.space.md, overflow: 'hidden', padding: theme.space.lg },
+  surfaceCompact: { padding: theme.space.md },
   surfaceHeading: { maxWidth: 760 },
   title: { color: theme.color.text.primary, fontSize: theme.text.size.lg, fontWeight: '800' },
   toolbar: { gap: theme.space.sm },
   toolbarButton: { alignItems: 'center', borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, flexDirection: 'row', gap: theme.space.sm, minHeight: 44, paddingHorizontal: theme.space.base },
   toolbarButtonLabel: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '700' },
+  toolbarControlCompact: { justifyContent: 'center', width: '100%' },
   toolbarRow: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm },
+  toolbarRowCompact: { alignItems: 'stretch', flexDirection: 'column' },
 });

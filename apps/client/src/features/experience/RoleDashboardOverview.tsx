@@ -8,12 +8,17 @@ import {
   ChartColumn,
   ClipboardList,
   Coins,
+  FileClock,
   FolderUp,
+  History,
+  Landmark,
+  ReceiptText,
+  Settings,
   ShieldCheck,
   UserRoundCheck,
   type LucideIcon,
 } from 'lucide-react-native';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { useExperience } from './ExperienceProvider';
@@ -32,17 +37,71 @@ type NavigateAction = {
   readonly label: string;
 };
 
+export function resolveDashboardLayout(width: number) {
+  return { isNarrow: width < 640 } as const;
+}
+
+export function resolveDashboardActions(role: RoleCode): readonly NavigateAction[] {
+  switch (role) {
+    case 'teacher':
+      return [
+        { icon: FolderUp, key: 'courseware', label: '发送课件' },
+        { icon: ClipboardList, key: 'assignment', label: '发布作业' },
+        { icon: UserRoundCheck, key: 'class', label: '班级与成绩' },
+        { icon: Coins, key: 'coins', label: '学生分与罚款' },
+        { icon: Bot, key: 'ai', label: '进入 AI 中心' },
+      ];
+    case 'class_terminal':
+      return [
+        { icon: FolderUp, key: 'courseware', label: '查看课件' },
+        { icon: ClipboardList, key: 'assignment', label: '查看作业' },
+        { icon: UserRoundCheck, key: 'class', label: '班级表现' },
+        { icon: Bot, key: 'ai', label: '进入 AI 中心' },
+      ];
+    case 'family':
+      return [
+        { icon: ClipboardList, key: 'assignment', label: '查看作业' },
+        { icon: ChartColumn, key: 'growth', label: '查看成长记录' },
+        { icon: Coins, key: 'coins', label: '查看海豚币' },
+        { icon: Bot, key: 'ai', label: '进入 AI 中心' },
+      ];
+    case 'bank_operator':
+      return [
+        { icon: Landmark, key: 'accounts', label: '账户' },
+        { icon: ReceiptText, key: 'fines', label: '罚款单' },
+        { icon: History, key: 'transactions', label: '账户流水' },
+        { icon: Bot, key: 'ai', label: '进入 AI 中心' },
+      ];
+    case 'council':
+      return [
+        { icon: ShieldCheck, key: 'class_score', label: '班级分' },
+        { icon: FileClock, key: 'inspections', label: '检查记录' },
+        { icon: ClipboardList, key: 'appeals', label: '更正申请' },
+        { icon: Bot, key: 'ai', label: '进入 AI 中心' },
+      ];
+    case 'admin':
+      return [
+        { icon: UserRoundCheck, key: 'users', label: '账号与班级' },
+        { icon: ShieldCheck, key: 'permissions', label: '权限与规则' },
+        { icon: History, key: 'audit', label: '操作审计' },
+        { icon: Settings, key: 'settings', label: '系统设置' },
+      ];
+  }
+}
+
 const ROLE_SERVICE_COPY = {
-  admin: ['管理工作区', '账号、权限与审计继续沿用现有管理服务边界。'],
+  admin: ['管理工作区', '查看当前学校的账号、权限、审计与服务状态。'],
   bank_operator: ['校园银行工作区', '进入账户、罚款单或流水页面处理当前学校范围的真实数据。'],
   council: ['自治会工作区', '进入班级分或更正申请页面记录变动并处理申请。'],
 } as const;
 
 function ActionButton({
   action,
+  isNarrow,
   onNavigate,
 }: {
   readonly action: NavigateAction;
+  readonly isNarrow: boolean;
   readonly onNavigate: (key: RoleNavigationKey) => void;
 }) {
   const Icon = action.icon;
@@ -53,6 +112,7 @@ function ActionButton({
       onPress={() => onNavigate(action.key)}
       style={({ focused, hovered, pressed }) => [
         styles.actionButton,
+        isNarrow && styles.actionButtonNarrow,
         hovered && styles.actionButtonHover,
         focused && styles.focused,
         pressed && styles.pressed,
@@ -102,22 +162,8 @@ function TeachingWorkspace({
   readonly snapshot: TeachingDemoSnapshot;
 }) {
   const { width } = useWindowDimensions();
-  const isNarrow = width < 640;
-  const actions = useMemo<readonly NavigateAction[]>(() => {
-    if (role === 'family') {
-      return [
-        { icon: ClipboardList, key: 'assignment', label: '查看作业' },
-        { icon: ChartColumn, key: 'growth', label: '查看成长记录' },
-        { icon: Bot, key: 'ai', label: '进入 AI 中心' },
-      ];
-    }
-    return [
-      { icon: FolderUp, key: 'courseware', label: role === 'teacher' ? '发送课件' : '查看课件' },
-      { icon: ClipboardList, key: 'assignment', label: role === 'teacher' ? '发布作业' : '查看作业' },
-      { icon: UserRoundCheck, key: 'class', label: role === 'teacher' ? '班级与成绩' : '班级表现' },
-      { icon: Bot, key: 'ai', label: '进入 AI 中心' },
-    ];
-  }, [role]);
+  const { isNarrow } = resolveDashboardLayout(width);
+  const actions = resolveDashboardActions(role);
 
   const publishedAssignments = snapshot.assignments.filter(
     (item) => item.status === 'published',
@@ -126,10 +172,10 @@ function TeachingWorkspace({
 
   return (
     <View style={styles.workspace}>
-      <View style={styles.scopeBar}>
+      <View style={[styles.scopeBar, isNarrow && styles.scopeBarNarrow]}>
         <View style={styles.scopeIdentity}>
           <UserRoundCheck color={theme.color.brand.primary} size={19} />
-          <View>
+          <View style={styles.scopeCopy}>
             <Text style={styles.scopeEyebrow}>当前权限范围</Text>
             <Text style={styles.scopeLabel}>{roleScope.label}</Text>
           </View>
@@ -137,9 +183,9 @@ function TeachingWorkspace({
         <Text style={styles.scopeHint}>账号菜单中可切换</Text>
       </View>
 
-      <View style={styles.metrics}>
+      <View style={[styles.metrics, isNarrow && styles.metricsNarrow]}>
         <Metric label="可见班级" value={String(snapshot.classes.length)} />
-        <Metric label="已发课件" separated value={String(snapshot.courseware.length)} />
+        <Metric label="已发课件" separated={!isNarrow} stacked={isNarrow} value={String(snapshot.courseware.length)} />
         <Metric
           label="已发作业"
           separated={!isNarrow}
@@ -155,17 +201,17 @@ function TeachingWorkspace({
       </View>
 
       <View style={styles.contentGrid}>
-        <View style={styles.surface}>
+        <View style={[styles.surface, isNarrow && styles.surfaceNarrow]}>
           <Text style={styles.surfaceTitle}>常用操作</Text>
           <Text style={styles.surfaceDescription}>继续处理当前班级的教学事务</Text>
-          <View style={styles.actionGrid}>
+          <View style={[styles.actionGrid, isNarrow && styles.actionGridNarrow]}>
             {actions.map((action) => (
-              <ActionButton action={action} key={action.key} onNavigate={onNavigate} />
+              <ActionButton action={action} isNarrow={isNarrow} key={action.key} onNavigate={onNavigate} />
             ))}
           </View>
         </View>
 
-        <View style={styles.surface}>
+        <View style={[styles.surface, isNarrow && styles.surfaceNarrow]}>
           <Text style={styles.surfaceTitle}>班级概况</Text>
           <Text style={styles.surfaceDescription}>当前权限范围内的最新数据</Text>
           {snapshot.classes.length === 0 ? (
@@ -198,40 +244,28 @@ function ServiceWorkspace({
   readonly role: 'admin' | 'bank_operator' | 'council';
   readonly roleScope: AuthRoleScope;
 }) {
+  const { width } = useWindowDimensions();
+  const { isNarrow } = resolveDashboardLayout(width);
   const [title, description] = ROLE_SERVICE_COPY[role];
-  const actions: readonly NavigateAction[] =
-    role === 'bank_operator'
-      ? [
-          { icon: Coins, key: 'accounts', label: '账户' },
-          { icon: ClipboardList, key: 'fines', label: '罚款单' },
-        ]
-      : role === 'council'
-        ? [
-            { icon: ShieldCheck, key: 'class_score', label: '班级分' },
-            { icon: ClipboardList, key: 'appeals', label: '更正申请' },
-          ]
-        : [
-            { icon: UserRoundCheck, key: 'users', label: '账号与班级' },
-            { icon: ShieldCheck, key: 'permissions', label: '权限与规则' },
-          ];
+  const actions = resolveDashboardActions(role);
 
   return (
     <View style={styles.workspace}>
-      <View style={styles.scopeBar}>
+      <View style={[styles.scopeBar, isNarrow && styles.scopeBarNarrow]}>
         <View style={styles.scopeIdentity}>
           <UserRoundCheck color={theme.color.brand.primary} size={19} />
-          <View>
+          <View style={styles.scopeCopy}>
             <Text style={styles.scopeEyebrow}>当前权限范围</Text>
             <Text style={styles.scopeLabel}>{roleScope.label}</Text>
           </View>
         </View>
       </View>
-      <View style={styles.surface}>
+      <View style={[styles.surface, isNarrow && styles.surfaceNarrow]}>
         <Text style={styles.surfaceTitle}>{title}</Text>
         <Text style={styles.emptyText}>{description}</Text>
-        <View style={styles.actionGrid}>
+        <View style={[styles.actionGrid, isNarrow && styles.actionGridNarrow]}>
           {actions.map((action) => (
-            <ActionButton action={action} key={action.key} onNavigate={onNavigate} />
+            <ActionButton action={action} isNarrow={isNarrow} key={action.key} onNavigate={onNavigate} />
           ))}
         </View>
         <Text style={styles.boundaryNote}>所有操作均按当前权限范围校验并记录</Text>
@@ -272,7 +306,12 @@ export function RoleDashboardOverview({
   }, [load]);
 
   if (isLoading) {
-    return <Text style={styles.emptyText}>正在读取当前权限范围……</Text>;
+    return (
+      <View style={styles.surface}>
+        <Text style={styles.surfaceTitle}>正在加载工作台</Text>
+        <Text style={styles.emptyText}>正在读取当前权限范围……</Text>
+      </View>
+    );
   }
   if (loadFailed) {
     return (
@@ -316,8 +355,10 @@ export function RoleDashboardOverview({
 
 const styles = StyleSheet.create({
   actionButton: { alignItems: 'center', backgroundColor: theme.color.surface.muted, borderRadius: theme.radius.control, flexDirection: 'row', gap: theme.space.sm, minHeight: 50, paddingHorizontal: theme.space.base },
+  actionButtonNarrow: { minWidth: 0, width: '100%' },
   actionButtonHover: { backgroundColor: theme.color.surface.primaryTint, transform: [{ translateX: 2 }] },
   actionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm, marginTop: theme.space.base },
+  actionGridNarrow: { flexDirection: 'column' },
   actionLabel: { color: theme.color.text.primary, flex: 1, fontSize: theme.text.size.sm, fontWeight: '700', minWidth: 110 },
   boundaryNote: { color: theme.color.text.disabled, fontSize: 11, lineHeight: 18, marginTop: theme.space.base },
   contentGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.md },
@@ -331,6 +372,7 @@ const styles = StyleSheet.create({
   metricStacked: { borderTopColor: theme.color.border.default, borderTopWidth: 1 },
   metricLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, marginTop: 4 },
   metrics: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, flexDirection: 'row', flexWrap: 'wrap', overflow: 'hidden' },
+  metricsNarrow: { flexDirection: 'column' },
   metricValue: { color: theme.color.text.primary, fontSize: theme.text.size.xl, fontWeight: '800' },
   focused: { borderColor: theme.color.brand.primary, boxShadow: '0 0 0 3px rgba(22, 119, 254, 0.18)' },
   pressed: { opacity: 0.72, transform: [{ scale: 0.985 }] },
@@ -338,11 +380,14 @@ const styles = StyleSheet.create({
   retryButtonHover: { opacity: 0.88 },
   retryLabel: { color: theme.color.surface.card, fontSize: theme.text.size.sm, fontWeight: '700' },
   scopeBar: { alignItems: 'center', borderBottomColor: theme.color.border.default, borderBottomWidth: 1, flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.base, justifyContent: 'space-between', minHeight: 52, paddingBottom: theme.space.base },
+  scopeBarNarrow: { alignItems: 'flex-start', flexDirection: 'column' },
+  scopeCopy: { flex: 1, minWidth: 0 },
   scopeEyebrow: { color: theme.color.text.secondary, fontSize: 10, fontWeight: '700', lineHeight: 14 },
   scopeHint: { color: theme.color.text.secondary, fontSize: theme.text.size.xs },
   scopeIdentity: { alignItems: 'center', flexDirection: 'row', gap: theme.space.sm },
   scopeLabel: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '800', lineHeight: 20, marginTop: 2 },
   surface: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, flex: 1, minWidth: 290, padding: theme.space.lg },
+  surfaceNarrow: { minWidth: 0, padding: theme.space.md, width: '100%' },
   surfaceDescription: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, lineHeight: 18, marginTop: 4 },
   surfaceTitle: { color: theme.color.text.primary, fontSize: theme.text.size.lg, fontWeight: '700' },
   workspace: { gap: theme.space.md },
