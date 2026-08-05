@@ -458,7 +458,7 @@ function StudentScorePanel({
               <Field label="记录原因" multiline onChange={setReason} placeholder="说明这次加分或减分的具体原因" value={reason} />
               {!deltaMatchesDirection ? (
                 <Text style={styles.validationText}>
-                  {scoreDirection === 'positive' ? '加分必须填写 1–1000 的正整数。' : '减分必须填写 -1–-1000 的负整数。'}
+                  {scoreDirection === 'positive' ? '加分必须填写 1–1000 的正整数。' : '减分必须填写 -1 到 -1000 的负整数。'}
                 </Text>
               ) : null}
             </View>
@@ -561,7 +561,7 @@ function StudentScorePanel({
               setCategoryDefault(String(kind === 'negative' ? -amount : amount));
             }} options={[{ id: 'positive', label: '加分条目' }, { id: 'negative', label: '减分条目' }]} value={categoryKind} />
             <Button
-              disabled={!validInteger(categoryDefault) || categoryName.trim() === '' || categorySlug.trim() === '' || snapshot.classes[0] === undefined}
+              disabled={!validInteger(categoryDefault) || categoryName.trim() === '' || categorySlug.trim() === '' || snapshot.classes[0] === undefined || (categoryKind === 'positive' ? Number(categoryDefault) < 1 || Number(categoryDefault) > 1000 : Number(categoryDefault) > -1 || Number(categoryDefault) < -1000)}
               label="预览并保存条目"
               secondary
               onPress={() => requestWrite({
@@ -658,13 +658,30 @@ function WalletPanel({ requestWrite, roleScope, snapshot }: { readonly requestWr
     return (
       <>
         <Panel description={isFamily ? '仅显示当前家庭 scope 绑定学生的余额与流水。' : '教师可查看当前授权班级学生的余额与流水，但不能直接调整账户。'} icon={CircleDollarSign} title="海豚币账户">
-          {isFamily ? <View style={styles.heroMetric}><Text style={styles.heroValue}>{account?.balance ?? 0}</Text><Text style={styles.metricLabel}>当前余额（海豚币）</Text></View> : snapshot.accounts.map((item) => <View key={item.id} style={styles.record}><Text style={styles.recordTitle}>{studentName(snapshot, item.studentId)}</Text><Text style={styles.recordMeta}>余额 {item.balance} 海豚币</Text></View>)}
-          {snapshot.accounts.length === 0 ? <Text style={styles.empty}>当前范围暂无海豚币账户。</Text> : null}
-          {snapshot.transactions.map((item) => <View key={item.id} style={styles.record}><Text style={styles.recordTitle}>{item.delta > 0 ? '+' : ''}{item.delta} · {transactionKind(item.kind)}</Text><Text style={styles.recordMeta}>{item.reason} · 余额 {item.balanceAfter}</Text></View>)}
+        {isFamily ? <View style={styles.heroMetric}><Text style={styles.heroValue}>{account?.balance ?? 0}</Text><Text style={styles.metricLabel}>当前余额（海豚币）</Text></View> : snapshot.accounts.map((item) => <View key={item.id} style={styles.record}><Text style={styles.recordTitle}>{studentName(snapshot, item.studentId)}</Text><Text style={styles.recordMeta}>余额 {item.balance} 海豚币</Text></View>)}
+        {snapshot.accounts.length === 0 ? <Text style={styles.empty}>当前范围暂无海豚币账户。</Text> : null}
+        {snapshot.transactions.map((item) => <View key={item.id} style={styles.record}><Text style={styles.recordTitle}>{item.delta > 0 ? '+' : ''}{item.delta} · {transactionKind(item.kind)}</Text><Text style={styles.recordMeta}>{item.reason} · 余额 {item.balanceAfter}</Text></View>)}
+      </Panel>
+      {roleScope.role === 'teacher' ? (
+        <Panel description="教师可选择班级内学生并关联罚款规则创建罚款单，结算或撤销由校园银行端执行。" icon={ReceiptText} title="罚款单">
+          <Selector label="选择学生" onChange={setStudentId} options={snapshot.students.map((item) => ({ id: item.id, label: item.name }))} value={studentId} />
+          <Selector label="适用规则" onChange={(id) => {
+            setRuleSlug(id);
+            const rule = snapshot.fineRules.find((item) => item.id === id);
+            if (rule !== undefined) {
+              setAmount(String(rule.defaultAmount));
+              setReason(rule.description);
+            }
+          }} options={snapshot.fineRules.filter((item) => item.isActive).map((item) => ({ id: item.id, label: `${item.displayName}（默认 ${item.defaultAmount}）` }))} value={ruleSlug} />
+          <View style={styles.formRow}><Field label="本次罚款金额" onChange={setAmount} value={amount} /><Field label="补充说明" onChange={setReason} value={reason} /></View>
+          <Button disabled={studentId === '' || ruleSlug === '' || !validPositiveInteger(amount)} label="预览并开具罚单" onPress={() => requestWrite({ execute: () => service.createFine(roleScope, { amount: Number(amount), reason, ruleId: ruleSlug, studentId }), impact: ['开具待处理罚款单，不直接扣除余额'], isDangerous: true, operationType: '创建罚款单', parameters: [`金额：${amount}`, `说明：${reason}`], targets: [selectedStudent?.name ?? '所选学生'] }, '罚款单已开具')} />
+          {snapshot.fineOrders.length === 0 ? <Text style={styles.empty}>当前范围暂无罚款单记录。</Text> : snapshot.fineOrders.map((order) => <View key={order.id} style={styles.record}><Text style={styles.recordTitle}>{studentName(snapshot, order.studentId)} · {order.amount} 币 · {order.reason}</Text><Text style={styles.status}>{fineStatus(order.status)}</Text></View>)}
         </Panel>
-        <Panel description={isFamily ? '家庭端只读取绑定学生的罚款状态，不能结算、取消或撤销。' : '教师可查看已创建罚款单的处理状态；结算、取消和撤销由银行端执行。'} icon={ReceiptText} title="罚款状态">
-          {snapshot.fineOrders.length === 0 ? <Text style={styles.empty}>{isFamily ? '当前学生' : '当前范围'}暂无罚款单。</Text> : snapshot.fineOrders.map((order) => <View key={order.id} style={styles.record}><Text style={styles.recordTitle}>{isFamily ? '' : `${studentName(snapshot, order.studentId)} · `}{order.amount} 币 · {order.reason}</Text><Text style={styles.status}>{fineStatus(order.status)}</Text></View>)}
+      ) : (
+        <Panel description="家庭端只读取绑定学生的罚款状态，不能结算、取消或撤销。" icon={ReceiptText} title="罚款状态">
+          {snapshot.fineOrders.length === 0 ? <Text style={styles.empty}>当前学生暂无罚款单。</Text> : snapshot.fineOrders.map((order) => <View key={order.id} style={styles.record}><Text style={styles.recordTitle}>{order.amount} 币 · {order.reason}</Text><Text style={styles.status}>{fineStatus(order.status)}</Text></View>)}
         </Panel>
+      )}
       </>
     );
   }
