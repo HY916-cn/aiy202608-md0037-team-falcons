@@ -3,6 +3,7 @@
     "name": "DolphinCloud",
     "slug": "dolphin-cloud",
     "version": "0.1.0",
+    "icon": "./assets/app-icon-1024.png",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "scheme": "dolphincloud",
@@ -12,10 +13,21 @@
     },
     "web": {
       "bundler": "metro",
-      "output": "static"
+      "output": "static",
+      "favicon": "./assets/favicon-32.png"
     },
     "android": {
-      "package": "cn.hy916.dolphincloud"
+      "adaptiveIcon": {
+        "backgroundColor": "#1677FF",
+        "foregroundImage": "./assets/adaptive-icon-foreground.png"
+      },
+      "package": "cn.hy916.dolphincloud",
+      "versionCode": 1
+    },
+    "ios": {
+      "buildNumber": "1",
+      "bundleIdentifier": "cn.hy916.dolphincloud",
+      "supportsTablet": true
     }
   }
 }

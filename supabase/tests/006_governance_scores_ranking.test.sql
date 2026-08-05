@@ -2,7 +2,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(44);
+select plan(47);
 
 -- Bootstrap fixture for cross-school batch validation (before switching to authenticated).
 insert into public.schools (id, name) values ('10000000-0000-0000-0000-000000000077', '其他学校');
@@ -577,11 +577,71 @@ select is(
 );
 
 -- Ranking respects privacy: family only sees their bound student rows.
+select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000001', true);
+create temporary table family_rank_fixture as
+select *
+from public.apply_student_score(
+  'family-rank-fixture-0001',
+  '50000000-0000-0000-0000-000000000002',
+  '90000000-0000-0000-0000-000000000001',
+  25,
+  '家庭真实名次测试基准'
+);
+
+create temporary table expected_family_ranks as
+select 'weekly'::text as ranking_scope, result.rank_position
+from public.compute_student_ranking(
+  '20000000-0000-0000-0000-000000000001',
+  'weekly',
+  now()
+) as result
+where result.student_id = '50000000-0000-0000-0000-000000000001'
+union all
+select 'monthly'::text, result.rank_position
+from public.compute_student_ranking(
+  '20000000-0000-0000-0000-000000000001',
+  'monthly',
+  now()
+) as result
+where result.student_id = '50000000-0000-0000-0000-000000000001'
+union all
+select 'all_time'::text, result.rank_position
+from public.compute_student_ranking(
+  '20000000-0000-0000-0000-000000000001',
+  'all_time',
+  now()
+) as result
+where result.student_id = '50000000-0000-0000-0000-000000000001';
+
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000021', true);
 select is(
   (select count(*) from public.compute_student_ranking('20000000-0000-0000-0000-000000000001', 'all_time', now())),
   1::bigint,
   '家庭端排行 RPC 仅返回绑定学生本人'
+);
+select is(
+  (
+    select rank_position
+    from public.compute_student_ranking('20000000-0000-0000-0000-000000000001', 'weekly', now())
+  ),
+  (select rank_position from expected_family_ranks where ranking_scope = 'weekly'),
+  '家庭端周榜仅返回本人且保留真实班内名次'
+);
+select is(
+  (
+    select rank_position
+    from public.compute_student_ranking('20000000-0000-0000-0000-000000000001', 'monthly', now())
+  ),
+  (select rank_position from expected_family_ranks where ranking_scope = 'monthly'),
+  '家庭端月榜仅返回本人且保留真实班内名次'
+);
+select is(
+  (
+    select rank_position
+    from public.compute_student_ranking('20000000-0000-0000-0000-000000000001', 'all_time', now())
+  ),
+  (select rank_position from expected_family_ranks where ranking_scope = 'all_time'),
+  '家庭端总榜仅返回本人且保留真实班内名次'
 );
 -- Ranking for unauthorized class raises FORBIDDEN.
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000021', true);

@@ -1,0 +1,20 @@
+{
+  "cli": {
+    "requireCommit": true,
+    "version": ">= 21.5.0"
+  },
+  "build": {
+    "preview": {
+      "android": {
+        "buildType": "apk"
+      },
+      "distribution": "internal"
+    },
+    "simulator": {
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      }
+    }
+  }
+}

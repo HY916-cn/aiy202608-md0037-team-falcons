@@ -19,6 +19,16 @@ const EXPECTED_LABELS = {
   admin: ['用户', '审计', '异常', '系统状态'],
 } as const;
 
+function roleScope(role: (typeof ROLE_CODES)[number]) {
+  return {
+    assignmentId: `assignment-${role}`,
+    id: role === 'family' ? 'household-1' : role === 'class_terminal' ? 'class-1' : 'school-1',
+    label: `scope-${role}`,
+    role,
+    type: role === 'family' ? 'household' as const : role === 'class_terminal' ? 'class' as const : 'school' as const,
+  };
+}
+
 describe('createDemoTodaySummary', () => {
   it.each(ROLE_CODES)('只为 %s 返回本角色摘要字段', (role) => {
     const summary = createDemoTodaySummary(role);
@@ -114,9 +124,9 @@ describe('TeachingTodaySummaryDataSource', () => {
       () => new Date('2026-08-04T08:00:00.000Z'),
     );
 
-    const summary = await source.load('teacher');
+    const summary = await source.load(roleScope('teacher'));
 
-    expect(load).toHaveBeenCalledWith('teacher');
+    expect(load).toHaveBeenCalledWith(roleScope('teacher'));
     expect(summary.dataMode).toBe('live');
     expect(summary.items.map(({ value }) => value)).toEqual([
       '1 项',
@@ -135,7 +145,7 @@ describe('TeachingTodaySummaryDataSource', () => {
         () => new Date('2026-08-04T08:00:00.000Z'),
       );
 
-      const summary = await source.load(role);
+      const summary = await source.load(roleScope(role));
 
       expect(load).not.toHaveBeenCalled();
       expect(summary.title).toContain('数据待接入');

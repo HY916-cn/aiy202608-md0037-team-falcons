@@ -1,5 +1,17 @@
 export { AiResultCard, DolphinMascotCard } from './AiExperienceCards';
+export {
+  InteractivePressable,
+  type InteractivePressableProps,
+  type InteractivePressableState,
+} from './InteractivePressable';
 export { RoleHomeScreen } from './RoleHomeScreen';
+export {
+  resolveRoleNavigationKey,
+  resolveRolePageHeader,
+  ROLE_NAVIGATION_KEYS,
+  type RolePageHeader,
+  type RoleNavigationKey,
+} from './roleNavigation';
 export { RoleIcon } from './RoleIcon';
 export { TodaySummaryCard } from './TodaySummaryCard';
 export { theme } from './theme';

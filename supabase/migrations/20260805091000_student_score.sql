@@ -127,9 +127,13 @@ stable
 security definer
 set search_path = ''
 as $$
+declare
+  can_view_full_class boolean;
 begin
+  can_view_full_class := public._governance_can_view_class_score(target_class_id);
+
   if not (
-    public._governance_can_view_class_score(target_class_id)
+    can_view_full_class
     or exists (
       select 1
       from public.students as student
@@ -140,82 +144,48 @@ begin
     raise exception 'FORBIDDEN' using errcode = 'P0001';
   end if;
 
-  if ranking_scope = 'weekly' then
-    return query
+  return query
+    with scored as (
       select
-        student.id,
-        case
-          when public._governance_can_view_class_score(target_class_id) then student.display_name
-          else null::text
-        end,
+        student.id as student_id,
+        student.display_name,
         student.class_id,
-        date_trunc('week', reference_time),
-        coalesce(sum(entry.delta) filter (
-          where entry.applied_at >= date_trunc('week', reference_time)
-            and entry.applied_at < date_trunc('week', reference_time) + interval '1 week'
-        ), 0)::numeric(12, 2) as score,
-        rank() over (
-          order by coalesce(sum(entry.delta) filter (
+        case ranking_scope
+          when 'weekly' then date_trunc('week', reference_time)
+          when 'monthly' then date_trunc('month', reference_time)
+          else null::timestamptz
+        end as period_start,
+        case ranking_scope
+          when 'weekly' then coalesce(sum(entry.delta) filter (
             where entry.applied_at >= date_trunc('week', reference_time)
               and entry.applied_at < date_trunc('week', reference_time) + interval '1 week'
-          ), 0) desc
-        )
-      from public.students as student
-      left join public.student_score_entries as entry on entry.student_id = student.id
-      where student.class_id = target_class_id
-      group by student.id, student.display_name, student.class_id
-      having public._governance_can_view_class_score(target_class_id)
-        or public.can_access_student(student.id)
-      order by rank_position, student.id;
-  elsif ranking_scope = 'monthly' then
-    return query
-      select
-        student.id,
-        case
-          when public._governance_can_view_class_score(target_class_id) then student.display_name
-          else null::text
-        end,
-        student.class_id,
-        date_trunc('month', reference_time),
-        coalesce(sum(entry.delta) filter (
-          where entry.applied_at >= date_trunc('month', reference_time)
-            and entry.applied_at < date_trunc('month', reference_time) + interval '1 month'
-        ), 0)::numeric(12, 2) as score,
-        rank() over (
-          order by coalesce(sum(entry.delta) filter (
+          ), 0)::numeric(12, 2)
+          when 'monthly' then coalesce(sum(entry.delta) filter (
             where entry.applied_at >= date_trunc('month', reference_time)
               and entry.applied_at < date_trunc('month', reference_time) + interval '1 month'
-          ), 0) desc
-        )
+          ), 0)::numeric(12, 2)
+          else coalesce(sum(entry.delta), 0)::numeric(12, 2)
+        end as score
       from public.students as student
       left join public.student_score_entries as entry on entry.student_id = student.id
       where student.class_id = target_class_id
       group by student.id, student.display_name, student.class_id
-      having public._governance_can_view_class_score(target_class_id)
-        or public.can_access_student(student.id)
-      order by rank_position, student.id;
-  else
-    return query
+    ), ranked as (
       select
-        student.id,
-        case
-          when public._governance_can_view_class_score(target_class_id) then student.display_name
-          else null::text
-        end,
-        student.class_id,
-        null::timestamptz,
-        coalesce(sum(entry.delta), 0)::numeric(12, 2) as score,
-        rank() over (
-          order by coalesce(sum(entry.delta), 0) desc
-        )
-      from public.students as student
-      left join public.student_score_entries as entry on entry.student_id = student.id
-      where student.class_id = target_class_id
-      group by student.id, student.display_name, student.class_id
-      having public._governance_can_view_class_score(target_class_id)
-        or public.can_access_student(student.id)
-      order by rank_position, student.id;
-  end if;
+        scored.*,
+        rank() over (order by scored.score desc) as rank_position
+      from scored
+    )
+    select
+      ranked.student_id,
+      case when can_view_full_class then ranked.display_name else null::text end,
+      ranked.class_id,
+      ranked.period_start,
+      ranked.score,
+      ranked.rank_position
+    from ranked
+    where can_view_full_class or public.can_access_student(ranked.student_id)
+    order by ranked.rank_position, ranked.student_id;
 end;
 $$;
 

@@ -1,4 +1,4 @@
-import type { RoleCode } from '@dolphincloud/auth';
+import type { AuthRoleScope } from '@dolphincloud/auth';
 import type {
   Assignment,
   CoursewareFileMetadata,
@@ -56,7 +56,7 @@ export interface TeachingDemoAdapter {
     readonly subject: string;
     readonly title: string;
   }): Promise<void>;
-  load(role: RoleCode): Promise<TeachingDemoSnapshot>;
+  load(roleScope: AuthRoleScope): Promise<TeachingDemoSnapshot>;
   publishAssignment(assignmentId: string): Promise<void>;
   publishGrade(gradeId: string): Promise<void>;
   reviseGrade(input: {
@@ -80,6 +80,7 @@ export interface TeachingDemoAdapter {
 const CLASS_ONE = '20000000-0000-0000-0000-000000000001';
 const CLASS_TWO = '20000000-0000-0000-0000-000000000002';
 const STUDENT_ONE = '50000000-0000-0000-0000-000000000001';
+const STUDENT_OTHER = '50000000-0000-0000-0000-000000000002';
 const STUDENT_TWO = '50000000-0000-0000-0000-000000000009';
 
 export class MockTeachingDemoAdapter implements TeachingDemoAdapter {
@@ -89,12 +90,17 @@ export class MockTeachingDemoAdapter implements TeachingDemoAdapter {
   ];
   private readonly students: TeachingStudent[] = [
     { classId: CLASS_ONE, id: STUDENT_ONE, name: '演示学生01' },
+    { classId: CLASS_ONE, id: STUDENT_OTHER, name: '演示学生02' },
     { classId: CLASS_TWO, id: STUDENT_TWO, name: '演示学生09' },
   ];
   private courseware: TeachingCourseware[] = [];
   private assignments: Assignment[] = [];
   private grades: TeachingGrade[] = [];
   private sequence = 1;
+
+  constructor({ seedData = false }: { readonly seedData?: boolean } = {}) {
+    if (seedData) this.seedDemoData();
+  }
 
   async createAssignmentDraft(input: {
     readonly classId: string;
@@ -152,10 +158,11 @@ export class MockTeachingDemoAdapter implements TeachingDemoAdapter {
     ];
   }
 
-  async load(role: RoleCode): Promise<TeachingDemoSnapshot> {
+  async load(roleScope: AuthRoleScope): Promise<TeachingDemoSnapshot> {
+    const role = roleScope.role;
     if (role === 'class_terminal') {
-      const snapshot = this.snapshotForClasses([CLASS_ONE], true);
-      return { ...snapshot, grades: [], students: [] };
+      const snapshot = this.snapshotForClasses([roleScope.id], true);
+      return { ...snapshot, grades: [] };
     }
     if (role === 'family') {
       const snapshot = this.snapshotForClasses([CLASS_ONE], true);
@@ -167,7 +174,11 @@ export class MockTeachingDemoAdapter implements TeachingDemoAdapter {
       };
     }
     if (role === 'teacher') {
-      return this.snapshotForClasses(this.classes.map((item) => item.id), false, true);
+      const classIds =
+        roleScope.type === 'class'
+          ? [roleScope.id]
+          : this.classes.map((item) => item.id);
+      return this.snapshotForClasses(classIds, false, true);
     }
     return { assignments: [], classes: [], courseware: [], grades: [], students: [] };
   }
@@ -255,5 +266,35 @@ export class MockTeachingDemoAdapter implements TeachingDemoAdapter {
       }),
       students: this.students.filter((item) => classIds.includes(item.classId)),
     };
+  }
+
+  private seedDemoData(): void {
+    const now = new Date().toISOString();
+    this.courseware = Array.from({ length: 3 }, (_, index) => ({
+      classId: CLASS_ONE,
+      createdAt: now,
+      id: `demo-seed-courseware-${index + 1}`,
+      mimeType: 'application/pdf',
+      originalFilename: `演示课件${index + 1}.pdf`,
+      sizeBytes: 1024 + index,
+      status: 'published',
+      storagePath: `mock/${CLASS_ONE}/seed-${index + 1}`,
+      subject: '数学',
+      teacherId: 'demo-teacher',
+      title: `演示课件 ${index + 1}`,
+    }));
+    this.assignments = Array.from({ length: 2 }, (_, index) => ({
+      classId: CLASS_ONE,
+      content: `完成演示练习 ${index + 1}`,
+      createdAt: now,
+      dueAt: now,
+      id: `demo-seed-assignment-${index + 1}`,
+      publishedAt: now,
+      status: 'published',
+      subject: '数学',
+      teacherId: 'demo-teacher',
+      title: `今日作业 ${index + 1}`,
+      updatedAt: now,
+    }));
   }
 }

@@ -1,14 +1,15 @@
 # Gitleaks configuration.
 #
-# We extend the upstream default ruleset and add the smallest possible history
-# allowlists for three known false-positive governance fixtures reported by the
-# `generic-api-key` rule in SARIF.
+# We extend the upstream default ruleset (which includes generic-api-key and
+# every provider rule) and only append a minimal, exact-string allowlist for
+# twelve historical test fixture idempotency keys that were committed before the
+# fixtures were renamed to `test-idempotency-*-fixture`.
 #
 # Scope of this allowlist:
-#   * It applies ONLY when BOTH the exact historical commit and exact file path
-#     match the known false-positive governance fixtures.
-#   * It covers the two synthetic pgTAP files that repeatedly trip history scans.
-#   * All other commits, files, and strings are still scanned normally.
+#   * It matches ONLY the exact literal strings listed below.
+#   * It DOES NOT disable the generic-api-key rule, any other rule, or any
+#     directory / path. Every new secret and every other occurrence of a
+#     high-entropy token is still detected.
 
 title = "dolphin-cloud gitleaks configuration"
 
@@ -16,17 +17,18 @@ title = "dolphin-cloud gitleaks configuration"
 useDefault = true
 
 [allowlist]
-description = "Historical false positives in governance pgTAP fixtures"
-condition = "AND"
-commits = [
-  '''c2876ccec550431fa46c77a73eb1a7418231f20f''',
-  '''42515530a2236eb8c7c4b7366d9d205df1b6ee85''',
-  '''d59335ac967ee15d264725b35567a31733724ceb''',
-  '''7075acdb7269c4c7e4c0d6736d4c3a5aa817ad5b''',
-  '''3f6ade5e5a52df4f14d37aad7e81685536235c3c''',
-  '''2ef28612bd7c90dd9806fa5ab2de1ab3ff6d31fc''',
-]
-paths = [
-  '''^supabase/tests/005_governance_operations_idempotency\.test\.sql$''',
-  '''^supabase/tests/007_governance_wallet_fine_reversal\.test\.sql$''',
+description = "Legacy test-fixture idempotency keys present in historical commits only"
+regexes = [
+  '''\bck-2026-idem-a-XYZ\b''',
+  '''\bck-2026-rev-1st-XYZ\b''',
+  '''\bck-2026-rev-2nd-XYZ\b''',
+  '''\bck-2026-rev-fail-XYZ\b''',
+  '''\bck-2026-rev-mism-XYZ\b''',
+  '''\bck-2026-rev-nested-XYZ\b''',
+  '''\bck-2026-rev-ok-XYZ\b''',
+  '''\bck-2026-rev-op-XYZ\b''',
+  '''\bck-2026-rev-orig-XYZ\b''',
+  '''\bcoin-reversal-0001\b''',
+  '''\bidem-op-test-fresh-0001\b''',
+  '''\btest-idem-op-fresh-0001\b''',
 ]
