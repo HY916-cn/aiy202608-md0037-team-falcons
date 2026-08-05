@@ -3,7 +3,7 @@ import type { GradeReportSheet } from '@dolphincloud/domain';
 import type { TeachingStudent } from '@dolphincloud/experience';
 import { InteractivePressable, theme } from '@dolphincloud/ui';
 import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { useSupabaseServices } from '../supabase/SupabaseServiceProvider';
 import {
@@ -18,6 +18,8 @@ export function FamilyGradeReportList({
 }: {
   readonly roleScope: AuthRoleScope;
 }) {
+  const { width } = useWindowDimensions();
+  const compact = width < 600;
   const { gradeReportService, teachingAdapter } = useSupabaseServices();
   const [students, setStudents] = useState<readonly TeachingStudent[]>([]);
   const [state, setState] = useState<FamilyGradeReportState>(beginFamilyScopeLoad);
@@ -69,7 +71,7 @@ export function FamilyGradeReportList({
   }, [loadScope]);
 
   return (
-    <View style={styles.section}>
+    <View style={[styles.section, compact && styles.sectionCompact]}>
       <GradeReportHeader
         description="这里只展示当前家庭权限范围绑定学生本人的已发布成绩单。"
         title="成长与成绩单"
@@ -153,6 +155,7 @@ const styles = StyleSheet.create({
   publishedText: { color: '#16834A', fontSize: 12, fontWeight: '800' },
   score: { color: theme.color.brand.primary, fontSize: 24, fontWeight: '900' },
   section: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, gap: 18, maxWidth: '100%', padding: 20 },
+  sectionCompact: { gap: 16, padding: 16 },
   selector: { gap: 8 },
   sheet: { borderColor: theme.color.border.default, borderRadius: 14, borderWidth: 1, gap: 14, padding: 16 },
   sheetHeading: { alignItems: 'flex-start', flexDirection: 'row', gap: 12 },
