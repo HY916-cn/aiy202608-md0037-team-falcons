@@ -144,6 +144,17 @@ jobs:
           cache: pnpm
       - name: Install frozen dependencies
         run: pnpm install --frozen-lockfile
+      - name: Verify .env.production.example
+        run: |
+          if [ ! -f "apps/client/.env.production.example" ]; then
+            echo "Error: apps/client/.env.production.example does not exist"
+            exit 1
+          fi
+          if grep -E 'sk-|(AI|COZE)_TOKEN|eyJ|postgres://' apps/client/.env.production.example; then
+            echo "Error: Real credentials found in .env.production.example"
+            exit 1
+          fi
+          echo ".env.production.example verification passed"
       - name: Export and verify Web
         run: pnpm smoke:web
       - name: Create Web Release
@@ -198,9 +209,25 @@ jobs:
             exit 1
           fi
 
-          curl -fsSL -o /dev/null http://127.0.0.1:8080/
-          curl -fsSL -o /dev/null http://127.0.0.1:8080/login
-          curl -fsSL -o /dev/null http://127.0.0.1:8080/teacher
+          # Verify teacher export file exists in container
+          if ! docker compose exec web sh -c '[ -s "/usr/share/nginx/html/(teacher)/index.html" ]'; then
+            echo "Teacher export file missing or empty"
+            exit 1
+          fi
+
+          # Verify valid route via HTTP
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/%28teacher%29/index.html)
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "Valid route check failed"
+            exit 1
+          fi
+
+          # Verify invalid route via HTTP returns 404 for direct html file request
+          INVALID_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/invalid-route-that-does-not-exist/index.html)
+          if [ "$INVALID_STATUS" != "404" ]; then
+            echo "Invalid route check failed (expected 404, got $INVALID_STATUS)"
+            exit 1
+          fi
 
           ROOT_HEADERS=$(curl -sSL -D - -o /dev/null http://127.0.0.1:8080/)
           echo "$ROOT_HEADERS" | grep -i "Cache-Control:.*no-store"
@@ -209,15 +236,15 @@ jobs:
           echo "$ROOT_HEADERS" | grep -i "Referrer-Policy:.*strict-origin-when-cross-origin"
 
           JS_URL=$(curl -fsSL http://127.0.0.1:8080/ | grep -oE '/_expo/static/[^"]+\.js' | head -1 || true)
-          if [ -n "$JS_URL" ]; then
-            STATIC_HEADERS=$(curl -sSL -D - -o /dev/null "http://127.0.0.1:8080$JS_URL")
-            echo "$STATIC_HEADERS" | grep -i "Cache-Control:.*immutable"
-            echo "$STATIC_HEADERS" | grep -i "X-Content-Type-Options:.*nosniff"
-            echo "$STATIC_HEADERS" | grep -i "X-Frame-Options:.*SAMEORIGIN"
-            echo "$STATIC_HEADERS" | grep -i "Referrer-Policy:.*strict-origin-when-cross-origin"
-          else
-            echo "Warning: No static JS found to verify immutable cache header."
+          if [ -z "$JS_URL" ]; then
+            echo "Error: No static JS found to verify immutable cache header."
+            exit 1
           fi
+          STATIC_HEADERS=$(curl -sSL -D - -o /dev/null "http://127.0.0.1:8080$JS_URL")
+          echo "$STATIC_HEADERS" | grep -i "Cache-Control:.*immutable"
+          echo "$STATIC_HEADERS" | grep -i "X-Content-Type-Options:.*nosniff"
+          echo "$STATIC_HEADERS" | grep -i "X-Frame-Options:.*SAMEORIGIN"
+          echo "$STATIC_HEADERS" | grep -i "Referrer-Policy:.*strict-origin-when-cross-origin"
       - name: Clean up Docker
         if: always()
         env:

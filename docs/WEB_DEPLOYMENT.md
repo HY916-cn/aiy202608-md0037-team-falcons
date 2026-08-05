@@ -45,15 +45,20 @@ Web 端的每个版本都是一个静态镜像，所有状态通过 API 获取�
 
 构建特定版本镜像示例：
 ```bash
-docker build -t dolphincloud-web:v0.1.0 .
-# 或者使用短 SHA
-docker build -t dolphincloud-web:abcdef1 .
-```
+# 首先设置生产公开环境变量
+export EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+export EXPO_PUBLIC_SUPABASE_ANON_KEY=replace-with-public-anon-key
+export EXPO_PUBLIC_AI_GATEWAY_FUNCTION=ai-gateway
+export EXPO_PUBLIC_APP_ENV=production
 
-通过指定镜像进行部署：
-```bash
-export DOLPHINCLOUD_WEB_IMAGE=dolphincloud-web:v0.1.0
-docker compose up -d
+# 设置版本标签
+export DOLPHINCLOUD_WEB_IMAGE=dolphincloud-web:v0.1.0 # 或使用短 SHA 如 abcdef1
+
+# 使用 docker compose 构建镜像
+docker compose build web
+
+# 启动容器
+docker compose up -d --no-build
 ```
 
 回滚步骤：
