@@ -115,7 +115,7 @@ export class MockGovernanceService implements GovernanceService {
   async manageStudentCategory(scope: AuthRoleScope, input: StudentCategoryInput): Promise<void> {
     roleAllowed(scope, ['teacher']);
     const existingIndex = this.studentCategories.findIndex((item) => item.id === input.categoryId || item.slug === input.slug);
-    const next: StudentScoreCategory = { ...input, id: input.categoryId ?? `31000000-0000-0000-0000-${String(this.sequence++).padStart(12, '0')}`, schoolId: SCHOOL_ID };
+    const next: StudentScoreCategory = { ...input, id: input.categoryId ?? `31000000-0000-0000-0000-${String(this.sequence++).padStart(12, '0')}` };
     this.studentCategories = existingIndex < 0 ? [...this.studentCategories, next] : this.studentCategories.map((item, index) => index === existingIndex ? next : item);
   }
 

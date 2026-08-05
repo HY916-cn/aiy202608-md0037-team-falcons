@@ -143,6 +143,7 @@ export type StudentCategoryInput = {
   readonly displayName: string;
   readonly isActive: boolean;
   readonly kind: 'negative' | 'positive';
+  readonly schoolId: string;
   readonly slug: string;
 };
 
@@ -276,7 +277,7 @@ export class SupabaseGovernanceService implements GovernanceService {
 
   async manageStudentCategory(scope: AuthRoleScope, input: StudentCategoryInput): Promise<void> {
     await this.authorize(scope, ['teacher']);
-    await this.call('manage_student_score_category', { default_delta: input.defaultDelta, description: input.description, display_name: input.displayName, idempotency_key: idempotencyKey('student-category'), is_active: input.isActive, kind: input.kind, slug: input.slug, target_category_id: input.categoryId ?? null, target_school_id: this.schoolScope(scope) });
+    await this.call('manage_student_score_category', { default_delta: input.defaultDelta, description: input.description, display_name: input.displayName, idempotency_key: idempotencyKey('student-category'), is_active: input.isActive, kind: input.kind, slug: input.slug, target_category_id: input.categoryId ?? null, target_school_id: input.schoolId });
   }
 
   async applyStudentScore(scope: AuthRoleScope, input: StudentScoreInput): Promise<void> {

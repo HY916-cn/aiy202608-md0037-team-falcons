@@ -77,6 +77,25 @@ describe('SupabaseGovernanceService writes', () => {
     expect(rpc.mock.calls[3]![1]).toEqual(expect.objectContaining({ reversal_reason: '指定记录复核撤销', target_order_id: '73000000-0000-0000-0000-000000000001' }));
   });
 
+  it('教师处于 class scope 时仍显式传递班级所属 school id 维护条目', async () => {
+    const { client, rpc } = createClient();
+    const service = new SupabaseGovernanceService(client);
+    const classScope = { ...scopes.teacher, id: '20000000-0000-0000-0000-000000000002', type: 'class' } as const;
+    await service.manageStudentCategory(classScope, {
+      defaultDelta: 3,
+      description: '协作表现',
+      displayName: '团队协作',
+      isActive: true,
+      kind: 'positive',
+      schoolId: '10000000-0000-0000-0000-000000000001',
+      slug: 'teamwork',
+    });
+
+    expect(rpc).toHaveBeenCalledWith('manage_student_score_category', expect.objectContaining({
+      target_school_id: '10000000-0000-0000-0000-000000000001',
+    }));
+  });
+
   it('在发起数据库请求前拒绝错误角色', async () => {
     const { client, rpc } = createClient();
     const service = new SupabaseGovernanceService(client);
