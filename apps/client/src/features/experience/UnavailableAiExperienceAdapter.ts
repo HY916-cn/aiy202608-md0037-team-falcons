@@ -10,7 +10,7 @@ export class UnavailableAiExperienceAdapter implements AiExperienceAdapter {
   private readonly listeners = new Set<AiExperienceListener>();
   private snapshot = createAiExperienceSnapshot('offline');
 
-  async cancelAction(): Promise<void> {
+  async cancelAction(_previewId: string): Promise<void> {
     this.publishOffline();
   }
 
@@ -18,8 +18,9 @@ export class UnavailableAiExperienceAdapter implements AiExperienceAdapter {
     this.publishOffline();
   }
 
-  async confirmAction(_dangerousConfirmed: boolean): Promise<void> {
+  async confirmAction(_previewId: string, _dangerousConfirmed: boolean): Promise<void> {
     this.publishOffline();
+    throw new Error('AI_UNAVAILABLE');
   }
 
   getSnapshot(): AiExperienceSnapshot {
@@ -38,12 +39,13 @@ export class UnavailableAiExperienceAdapter implements AiExperienceAdapter {
     this.publishOffline();
   }
 
-  async returnToModify(): Promise<void> {
+  async returnToModify(_previewId: string): Promise<void> {
     this.publishOffline();
   }
 
-  async selectActiveRole(_roleScope: AuthRoleScope): Promise<void> {
+  async selectActiveRole(_roleScope: AuthRoleScope): Promise<boolean> {
     this.publishOffline();
+    return false;
   }
 
   startListening(): void {

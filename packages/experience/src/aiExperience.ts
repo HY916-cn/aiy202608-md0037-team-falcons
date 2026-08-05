@@ -40,15 +40,15 @@ export type AiExperienceActionPreview = WriteActionPreview & {
 export type AiExperienceListener = (snapshot: AiExperienceSnapshot) => void;
 
 export interface AiExperienceAdapter {
-  cancelAction(): Promise<void>;
+  cancelAction(previewId: string): Promise<void>;
   cancelRequest(): void;
-  confirmAction(dangerousConfirmed: boolean): Promise<void>;
+  confirmAction(previewId: string, dangerousConfirmed: boolean): Promise<void>;
   getSnapshot(): AiExperienceSnapshot;
   newConversation(): void;
   reset(): void;
   retry(): Promise<void>;
-  returnToModify(): Promise<void>;
-  selectActiveRole(roleScope: AuthRoleScope): Promise<void>;
+  returnToModify(previewId: string): Promise<void>;
+  selectActiveRole(roleScope: AuthRoleScope): Promise<boolean>;
   startListening(): void;
   submit(prompt: string): Promise<void>;
   subscribe(listener: AiExperienceListener): () => void;

@@ -33,6 +33,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { useExperience } from './ExperienceProvider';
+import {
+  AiConversationScopeGuard,
+  createEmptyAiConversationViewState,
+  getAiConversationScopeKey,
+  type AiConversationMessage,
+} from './aiConversationScope';
 import { AI_ROLE_GUIDANCE } from './aiRoleGuidance';
 import { GradeReportSection } from '../grades';
 import {
@@ -57,12 +63,6 @@ type PendingWriteAction = {
   readonly execute: () => Promise<void>;
   readonly preview: WriteActionPreview;
   readonly successMessage: string;
-};
-
-type AiConversationMessage = {
-  readonly content: string;
-  readonly id: string;
-  readonly role: 'assistant' | 'user';
 };
 
 function ActionButton({
@@ -131,25 +131,69 @@ function TodaySummarySection({ roleScope }: { readonly roleScope: AuthRoleScope 
 function AiExperienceSection({ roleScope }: { readonly roleScope: AuthRoleScope }) {
   const { aiAdapter } = useExperience();
   const [snapshot, setSnapshot] = useState<AiExperienceSnapshot>(() => aiAdapter.getSnapshot());
-  const [prompt, setPrompt] = useState('');
-  const [messages, setMessages] = useState<readonly AiConversationMessage[]>([]);
+  const [prompt, setPrompt] = useState(
+    () => createEmptyAiConversationViewState().prompt,
+  );
+  const [messages, setMessages] = useState<readonly AiConversationMessage[]>(
+    () => createEmptyAiConversationViewState().messages,
+  );
+  const [isScopeReady, setIsScopeReady] = useState(false);
+  const scopeGuard = useMemo(() => new AiConversationScopeGuard(), []);
   const guidance = AI_ROLE_GUIDANCE[roleScope.role];
+  const assignmentId = roleScope.assignmentId;
+  const scopeId = roleScope.id;
+  const scopeLabel = roleScope.label;
+  const scopeRole = roleScope.role;
+  const scopeType = roleScope.type;
 
   useEffect(() => aiAdapter.subscribe(setSnapshot), [aiAdapter]);
   useEffect(() => {
+    const generation = scopeGuard.beginScopeChange();
     aiAdapter.newConversation();
-    void aiAdapter.selectActiveRole(roleScope);
-  }, [aiAdapter, roleScope]);
+    void aiAdapter
+      .selectActiveRole({
+        assignmentId,
+        id: scopeId,
+        label: scopeLabel,
+        role: scopeRole,
+        type: scopeType,
+      })
+      .then((isReady) => {
+        if (scopeGuard.isCurrent(generation)) setIsScopeReady(isReady);
+      })
+      .catch(() => {
+        if (scopeGuard.isCurrent(generation)) setIsScopeReady(false);
+      });
+    return () => {
+      scopeGuard.invalidate();
+    };
+  }, [
+    aiAdapter,
+    assignmentId,
+    scopeGuard,
+    scopeId,
+    scopeLabel,
+    scopeRole,
+    scopeType,
+  ]);
 
   const submit = async (nextPrompt: string) => {
     const normalized = nextPrompt.trim();
-    if (normalized.length === 0 || snapshot.state === 'thinking') return;
+    if (
+      normalized.length === 0 ||
+      !isScopeReady ||
+      snapshot.state === 'thinking'
+    ) {
+      return;
+    }
+    const generation = scopeGuard.beginScopeChange();
     setMessages((current) => [
       ...current,
       { content: normalized, id: `user-${Date.now()}`, role: 'user' },
     ]);
     setPrompt('');
     await aiAdapter.submit(normalized);
+    if (!scopeGuard.isCurrent(generation)) return;
     const next = aiAdapter.getSnapshot();
     if (next.result !== null && next.state !== 'offline' && next.state !== 'error') {
       setMessages((current) => [
@@ -160,7 +204,10 @@ function AiExperienceSection({ roleScope }: { readonly roleScope: AuthRoleScope 
   };
 
   const retry = async () => {
+    if (!isScopeReady) return;
+    const generation = scopeGuard.beginScopeChange();
     await aiAdapter.retry();
+    if (!scopeGuard.isCurrent(generation)) return;
     const next = aiAdapter.getSnapshot();
     if (next.result !== null && next.state !== 'offline' && next.state !== 'error') {
       setMessages((current) => [
@@ -171,13 +218,16 @@ function AiExperienceSection({ roleScope }: { readonly roleScope: AuthRoleScope 
   };
 
   const newConversation = () => {
+    scopeGuard.beginScopeChange();
     aiAdapter.newConversation();
     setMessages([]);
     setPrompt('');
   };
 
   const writeExecutionAdapter = useMemo<WriteActionExecutionAdapter>(
-    () => ({ execute: async () => aiAdapter.confirmAction(true) }),
+    () => ({
+      execute: async (previewId) => aiAdapter.confirmAction(previewId, true),
+    }),
     [aiAdapter],
   );
 
@@ -205,7 +255,7 @@ function AiExperienceSection({ roleScope }: { readonly roleScope: AuthRoleScope 
           {guidance.suggestions.map((suggestion) => (
             <InteractivePressable
               accessibilityRole="button"
-              disabled={snapshot.state === 'thinking' || snapshot.state === 'offline'}
+              disabled={!isScopeReady || snapshot.state === 'thinking' || snapshot.state === 'offline'}
               key={suggestion}
               onPress={() => void submit(suggestion)}
               style={({ focused, hovered, pressed }) => [
@@ -224,7 +274,7 @@ function AiExperienceSection({ roleScope }: { readonly roleScope: AuthRoleScope 
       <View style={styles.aiComposer}>
         <TextInput
           accessibilityLabel="发送给海豚助手的内容"
-          editable={snapshot.state !== 'thinking' && snapshot.state !== 'offline'}
+          editable={isScopeReady && snapshot.state !== 'thinking' && snapshot.state !== 'offline'}
           onChangeText={setPrompt}
           placeholder="输入你想查询或整理的内容"
           placeholderTextColor={theme.color.text.disabled}
@@ -232,7 +282,7 @@ function AiExperienceSection({ roleScope }: { readonly roleScope: AuthRoleScope 
           value={prompt}
         />
         <ActionButton
-          disabled={prompt.trim().length === 0 || snapshot.state === 'thinking' || snapshot.state === 'offline'}
+          disabled={!isScopeReady || prompt.trim().length === 0 || snapshot.state === 'thinking' || snapshot.state === 'offline'}
           label={snapshot.state === 'thinking' ? '正在发送…' : '发送'}
           onPress={() => void submit(prompt)}
         />
@@ -281,16 +331,27 @@ function AiExperienceSection({ roleScope }: { readonly roleScope: AuthRoleScope 
       </View>
       <AiResultCard snapshot={snapshot} />
       <AiAuditResultCard snapshot={snapshot} />
-      {snapshot.actionPreview === null ? null : (
+      {!isScopeReady || snapshot.actionPreview === null ? null : (
         <WriteActionPreviewCard
           adapter={writeExecutionAdapter}
-          onCancel={() => void aiAdapter.cancelAction()}
+          onCancel={() => {
+            void aiAdapter
+              .cancelAction(snapshot.actionPreview!.draftId)
+              .catch(() => undefined);
+          }}
           onModify={() => {
             const lastPrompt = [...messages]
               .reverse()
               .find((message) => message.role === 'user');
-            setPrompt(lastPrompt?.content ?? '');
-            void aiAdapter.returnToModify();
+            const generation = scopeGuard.beginScopeChange();
+            void aiAdapter
+              .returnToModify(snapshot.actionPreview!.draftId)
+              .then(() => {
+                if (scopeGuard.isCurrent(generation)) {
+                  setPrompt(lastPrompt?.content ?? '');
+                }
+              })
+              .catch(() => undefined);
           }}
           preview={snapshot.actionPreview}
         />
@@ -651,7 +712,7 @@ export function RoleExperienceSections({
   if (activeNavigation === 'ai') {
     return (
       <AiExperienceSection
-        key={roleScope.assignmentId}
+        key={getAiConversationScopeKey(roleScope)}
         roleScope={roleScope}
       />
     );

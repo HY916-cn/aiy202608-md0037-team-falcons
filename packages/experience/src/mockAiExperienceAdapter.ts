@@ -35,7 +35,7 @@ export class MockAiExperienceAdapter implements AiExperienceAdapter {
     this.reset();
   }
 
-  async cancelAction(): Promise<void> {
+  async cancelAction(_previewId: string): Promise<void> {
     this.reset();
   }
 
@@ -43,16 +43,17 @@ export class MockAiExperienceAdapter implements AiExperienceAdapter {
     this.reset();
   }
 
-  async confirmAction(_dangerousConfirmed: boolean): Promise<void> {
+  async confirmAction(_previewId: string, _dangerousConfirmed: boolean): Promise<void> {
     this.succeed();
   }
 
-  async returnToModify(): Promise<void> {
+  async returnToModify(_previewId: string): Promise<void> {
     this.setSnapshot(createAiExperienceSnapshot('listening'));
   }
 
-  async selectActiveRole(_roleScope: AuthRoleScope): Promise<void> {
+  async selectActiveRole(_roleScope: AuthRoleScope): Promise<boolean> {
     await Promise.resolve();
+    return true;
   }
 
   reset(): void {
