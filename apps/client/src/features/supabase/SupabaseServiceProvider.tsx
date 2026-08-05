@@ -19,6 +19,18 @@ function nonEmpty(value: string | undefined): string | undefined {
     : normalized;
 }
 
+const SAME_ORIGIN_URL_MARKER = 'http://dolphincloud.invalid';
+
+export function resolveSupabaseRuntimeUrl(
+  configuredUrl: string | undefined,
+  browserOrigin =
+    typeof window === 'undefined' ? undefined : window.location.origin,
+): string | undefined {
+  const normalized = nonEmpty(configuredUrl);
+  if (normalized !== SAME_ORIGIN_URL_MARKER) return normalized;
+  return nonEmpty(browserOrigin) ?? normalized;
+}
+
 export function SupabaseServiceProvider({
   children,
   runtime,
@@ -30,7 +42,7 @@ export function SupabaseServiceProvider({
     runtime ??
     createSupabaseServiceRuntime({
       anonKey: nonEmpty(process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY),
-      url: nonEmpty(process.env.EXPO_PUBLIC_SUPABASE_URL),
+      url: resolveSupabaseRuntimeUrl(process.env.EXPO_PUBLIC_SUPABASE_URL),
     }),
   );
 
