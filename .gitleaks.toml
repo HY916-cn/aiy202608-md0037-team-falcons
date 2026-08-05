@@ -29,5 +29,5 @@ regexes = [
   '''\bck-2026-rev-op-XYZ\b''',
   '''\bck-2026-rev-orig-XYZ\b''',
   '''\bcoin-reversal-0001\b''',
-  '''\btest-idem-op-fresh-0001\b''',
+  '''test-idem-op-fresh-0001''',
 ]
