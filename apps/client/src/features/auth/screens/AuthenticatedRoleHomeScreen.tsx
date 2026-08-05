@@ -2,6 +2,7 @@ import type { RoleCode } from '@dolphincloud/auth';
 import { resolveRoleNavigationKey, RoleHomeScreen } from '@dolphincloud/ui';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
+import { AdminWorkspaceScreen } from '../../admin';
 import { RoleExperienceSections } from '../../experience';
 import { useAuthSession } from '../AuthSessionProvider';
 
@@ -40,14 +41,21 @@ export function AuthenticatedRoleHomeScreen({
       roleScope={session.roleScope}
       user={session.user}
     >
-      <RoleExperienceSections
-        activeNavigation={activeNavigation}
-        onNavigate={(key) =>
-          router.setParams({ section: key === 'home' ? undefined : key })
-        }
-        role={role}
-        roleScope={session.roleScope}
-      />
+      {role === 'admin' ? (
+        <AdminWorkspaceScreen
+          activeNavigation={activeNavigation}
+          roleScope={session.roleScope}
+        />
+      ) : (
+        <RoleExperienceSections
+          activeNavigation={activeNavigation}
+          onNavigate={(key) =>
+            router.setParams({ section: key === 'home' ? undefined : key })
+          }
+          role={role}
+          roleScope={session.roleScope}
+        />
+      )}
     </RoleHomeScreen>
   );
 }

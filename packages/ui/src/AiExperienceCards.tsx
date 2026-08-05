@@ -4,6 +4,7 @@ import type {
 } from '@dolphincloud/experience';
 import {
   AlertCircle,
+  Bot,
   CheckCircle2,
   Ear,
   Eye,
@@ -39,6 +40,7 @@ const STATE_ICONS = {
 
 export function DolphinMascotCard({ snapshot }: { readonly snapshot: AiExperienceSnapshot }) {
   const Icon = STATE_ICONS[snapshot.state];
+  const isOffline = snapshot.state === 'offline';
 
   return (
     <View style={styles.mascotCard}>
@@ -51,9 +53,22 @@ export function DolphinMascotCard({ snapshot }: { readonly snapshot: AiExperienc
         />
       </View>
       <View style={styles.copy}>
-        <View style={styles.stateRow}>
-          <Icon color={theme.color.brand.primary} size={18} />
-          <Text style={styles.state}>{STATE_LABELS[snapshot.state]}</Text>
+        <View style={styles.statusHeading}>
+          <View style={styles.stateRow}>
+            <Icon
+              color={isOffline ? theme.color.text.secondary : theme.color.brand.primary}
+              size={18}
+            />
+            <Text style={[styles.state, isOffline && styles.stateOffline]}>
+              {STATE_LABELS[snapshot.state]}
+            </Text>
+          </View>
+          <View style={[styles.connectionTag, isOffline && styles.connectionTagOffline]}>
+            <View style={[styles.connectionDot, isOffline && styles.connectionDotOffline]} />
+            <Text style={styles.connectionLabel}>
+              {isOffline ? 'Coze 服务未连接' : '海豚云 AI 网关'}
+            </Text>
+          </View>
         </View>
         <Text style={styles.explanation}>{snapshot.explanation}</Text>
       </View>
@@ -68,14 +83,27 @@ export function AiResultCard({ snapshot }: { readonly snapshot: AiExperienceSnap
 
   return (
     <View style={styles.resultCard}>
-      <Text style={styles.resultTitle}>AI 结果卡</Text>
+      <View style={styles.resultHeading}>
+        <Bot color={theme.color.brand.secondary} size={19} />
+        <View style={styles.copy}>
+          <Text style={styles.resultTitle}>查询结果</Text>
+          <Text style={styles.resultMeta}>由海豚云 AI 网关返回，展示前已通过客户端白名单。</Text>
+        </View>
+      </View>
       <Text style={styles.explanation}>{snapshot.result}</Text>
-      <Text style={styles.notice}>结果仅供确认，不会绕过服务权限直接写入。</Text>
+      <View style={styles.noticeBox}>
+        <Text style={styles.notice}>查询结果不会绕过当前角色范围；写操作会单独进入预览与确认。</Text>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  connectionDot: { backgroundColor: theme.color.brand.primary, borderRadius: theme.radius.pill, height: 7, width: 7 },
+  connectionDotOffline: { backgroundColor: theme.color.text.disabled },
+  connectionLabel: { color: theme.color.text.secondary, fontSize: 10, fontWeight: '700' },
+  connectionTag: { alignItems: 'center', backgroundColor: theme.color.surface.primaryTint, borderRadius: theme.radius.pill, flexDirection: 'row', gap: theme.space.xs, minHeight: 28, paddingHorizontal: theme.space.sm },
+  connectionTagOffline: { backgroundColor: theme.color.surface.muted },
   copy: { flex: 1, gap: theme.space.xs },
   explanation: { color: theme.color.text.secondary, fontSize: theme.text.size.sm, lineHeight: 21 },
   mascot: {
@@ -94,16 +122,21 @@ const styles = StyleSheet.create({
     gap: theme.space.md,
     padding: theme.space.lg,
   },
-  notice: { color: theme.color.text.disabled, fontSize: theme.text.size.xs },
+  notice: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, lineHeight: 18 },
+  noticeBox: { backgroundColor: theme.color.surface.muted, borderLeftColor: theme.color.brand.primary, borderLeftWidth: 3, padding: theme.space.base },
   resultCard: {
     backgroundColor: theme.color.surface.card,
-    borderColor: theme.color.brand.secondary,
+    borderColor: theme.color.border.default,
     borderRadius: theme.radius.card,
     borderWidth: 1,
     gap: theme.space.sm,
     padding: theme.space.lg,
   },
+  resultHeading: { alignItems: 'flex-start', flexDirection: 'row', gap: theme.space.sm },
+  resultMeta: { color: theme.color.text.disabled, fontSize: theme.text.size.xs, lineHeight: 17 },
   resultTitle: { color: theme.color.text.primary, fontSize: theme.text.size.md, fontWeight: '700' },
   state: { color: theme.color.brand.primary, fontSize: theme.text.size.sm, fontWeight: '700' },
+  stateOffline: { color: theme.color.text.secondary },
   stateRow: { alignItems: 'center', flexDirection: 'row', gap: theme.space.sm },
+  statusHeading: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm, justifyContent: 'space-between' },
 });
