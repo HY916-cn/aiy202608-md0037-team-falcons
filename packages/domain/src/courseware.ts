@@ -5,6 +5,7 @@ export const COURSEWARE_MAX_FILE_BYTES = 50 * 1024 * 1024;
 export const COURSEWARE_SIGNED_URL_TTL_SECONDS = 5 * 60;
 
 export const COURSEWARE_FILE_RULES = {
+  csv: ['text/csv', 'application/vnd.ms-excel'],
   doc: ['application/msword'],
   docx: [
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -17,7 +18,12 @@ export const COURSEWARE_FILE_RULES = {
   pptx: [
     'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   ],
+  txt: ['text/plain'],
   webp: ['image/webp'],
+  xls: ['application/vnd.ms-excel'],
+  xlsx: [
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ],
   zip: ['application/zip', 'application/x-zip-compressed'],
 } as const;
 

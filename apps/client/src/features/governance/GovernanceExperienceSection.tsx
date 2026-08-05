@@ -1,6 +1,7 @@
 import { ROLE_LABELS, type AuthRoleScope } from '@dolphincloud/auth';
-import type {
-  GovernanceSnapshot,
+import {
+  ApiClientError,
+  type GovernanceSnapshot,
 } from '@dolphincloud/api-client';
 import type {
   WriteActionExecutionAdapter,
@@ -52,6 +53,16 @@ const EMPTY: GovernanceSnapshot = {
   classes: [], fineOrders: [], fineRules: [], isDemo: false, studentCategories: [],
   studentEntries: [], studentRanking: [], students: [], transactions: [],
 };
+
+function governanceWriteError(cause: unknown): string {
+  if (cause instanceof ApiClientError && cause.code === 'FORBIDDEN') {
+    return '当前账号没有所选学生或班级的操作权限，请切换范围或联系管理员授权。';
+  }
+  if (cause instanceof ApiClientError && cause.code === 'VALIDATION_ERROR') {
+    return '提交内容不符合业务规则，请检查金额、分值和说明。';
+  }
+  return '操作失败，服务端未确认写入。请检查网络和权限后重试。';
+}
 
 type RequestedWrite = {
   readonly execute: () => Promise<void>;
@@ -815,7 +826,7 @@ export function GovernanceExperienceSection({ activeNavigation, roleScope }: { r
         setRequestedWrite(null);
         await load();
       } catch (cause) {
-        setError('操作失败，服务端未确认写入。请检查输入和权限后重试。');
+        setError(governanceWriteError(cause));
         throw cause;
       }
     },

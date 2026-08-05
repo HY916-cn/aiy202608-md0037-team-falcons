@@ -18,6 +18,24 @@ describe('coursewareFileMetadataSchema', () => {
     });
   });
 
+  it.each([
+    ['课堂说明.txt', 'text/plain'],
+    ['学生名单.csv', 'text/csv'],
+    ['成绩模板.xls', 'application/vnd.ms-excel'],
+    [
+      '成绩模板.xlsx',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ],
+  ])('接受常用文本和表格文件 %s', (originalFilename, mimeType) => {
+    expect(
+      coursewareFileMetadataSchema.parse({
+        mimeType,
+        originalFilename,
+        sizeBytes: 1024,
+      }),
+    ).toMatchObject({ mimeType, originalFilename });
+  });
+
   it('拒绝扩展名白名单之外的文件', () => {
     expect(() =>
       coursewareFileMetadataSchema.parse({
