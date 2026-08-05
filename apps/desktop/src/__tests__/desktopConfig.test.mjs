@@ -1,3 +1,5 @@
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -68,13 +70,13 @@ describe("desktop configuration", () => {
         isPackaged: false,
         resourcesPath: "/resources",
       }),
-    ).toBe("/repo/apps/client/dist/web");
+    ).toBe(join("/repo/apps/desktop", "..", "client", "dist", "web"));
     expect(
       getWebRoot({
         appPath: "/resources/app.asar",
         isPackaged: true,
         resourcesPath: "/resources",
       }),
-    ).toBe("/resources/web");
+    ).toBe(join("/resources", "web"));
   });
 });
