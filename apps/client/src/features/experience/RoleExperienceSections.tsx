@@ -12,15 +12,32 @@ import type { CoursewareFileMetadata } from '@dolphincloud/domain';
 import {
   AiResultCard,
   DolphinMascotCard,
+  InteractivePressable,
+  type RoleNavigationKey,
   TodaySummaryCard,
   WriteActionPreviewCard,
   theme,
 } from '@dolphincloud/ui';
 import * as DocumentPicker from 'expo-document-picker';
+import {
+  Bot,
+  ChartColumn,
+  ClipboardList,
+  FolderUp,
+  History,
+  Star,
+  Trophy,
+  UsersRound,
+} from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { useExperience } from './ExperienceProvider';
+import { RoleDashboardOverview } from './RoleDashboardOverview';
+import {
+  countStudentsForClass,
+  resolveTeachingSectionPresentation,
+} from './roleTeachingPresentation';
 
 const EMPTY_SNAPSHOT: TeachingDemoSnapshot = {
   assignments: [],
@@ -46,18 +63,24 @@ function ActionButton({
   readonly onPress: () => void;
 }) {
   return (
-    <Pressable
+    <InteractivePressable
       accessibilityRole="button"
       disabled={disabled}
       onPress={onPress}
-      style={[styles.actionButton, disabled && styles.disabled]}
+      style={({ focused, hovered, pressed }) => [
+        styles.actionButton,
+        hovered && styles.interactiveHover,
+        focused && styles.interactiveFocus,
+        pressed && styles.interactivePressed,
+        disabled && styles.disabled,
+      ]}
     >
       <Text style={styles.actionLabel}>{label}</Text>
-    </Pressable>
+    </InteractivePressable>
   );
 }
 
-function TodaySummarySection({ role }: { readonly role: RoleCode }) {
+function TodaySummarySection({ roleScope }: { readonly roleScope: AuthRoleScope }) {
   const { summaryDataSource } = useExperience();
   const [summary, setSummary] = useState<TodaySummary | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -66,8 +89,9 @@ function TodaySummarySection({ role }: { readonly role: RoleCode }) {
   const load = useCallback(async () => {
     setIsLoading(true);
     setError(null);
+    setSummary(null);
     const result = await resolveLoadableState(
-      () => summaryDataSource.load(role),
+      () => summaryDataSource.load(roleScope),
       (data) => data.items.length === 0,
     );
     if (result.status === 'error') {
@@ -76,13 +100,20 @@ function TodaySummarySection({ role }: { readonly role: RoleCode }) {
       setSummary(result.data);
     }
     setIsLoading(false);
-  }, [role, summaryDataSource]);
+  }, [roleScope, summaryDataSource]);
 
   useEffect(() => {
     void Promise.resolve().then(load);
   }, [load]);
 
-  return <TodaySummaryCard errorMessage={error} isLoading={isLoading} onRetry={() => void load()} summary={summary} />;
+  return (
+    <TodaySummaryCard
+      errorMessage={error}
+      isLoading={isLoading}
+      onRetry={() => void load()}
+      summary={summary}
+    />
+  );
 }
 
 function AiExperienceSection({ roleScope }: { readonly roleScope: AuthRoleScope }) {
@@ -102,11 +133,31 @@ function AiExperienceSection({ roleScope }: { readonly roleScope: AuthRoleScope 
 
   return (
     <View style={styles.section}>
+      <View style={styles.sectionHeading}>
+        <View style={styles.sectionIcon}>
+          <Bot color={theme.color.brand.secondary} size={20} />
+        </View>
+        <View style={styles.sectionHeadingCopy}>
+          <Text style={styles.sectionTitle}>AI 中心</Text>
+          <Text style={styles.sectionDescription}>
+            海豚助手可以整理信息；涉及写操作时仍需你确认。
+          </Text>
+        </View>
+      </View>
       <DolphinMascotCard snapshot={snapshot} />
-      <TextInput onChangeText={setPrompt} style={styles.input} value={prompt} />
+      <View style={styles.aiComposer}>
+        <TextInput
+          accessibilityLabel="发送给海豚助手的内容"
+          onChangeText={setPrompt}
+          placeholder="输入你想查询或整理的内容"
+          placeholderTextColor={theme.color.text.disabled}
+          style={[styles.input, styles.aiInput]}
+          value={prompt}
+        />
+        <ActionButton label="生成预览" onPress={() => void aiAdapter.submit(prompt)} />
+      </View>
       <View style={styles.actions}>
         <ActionButton label="开始聆听" onPress={() => aiAdapter.startListening()} />
-        <ActionButton label="生成预览" onPress={() => void aiAdapter.submit(prompt)} />
         <ActionButton label="重置" onPress={() => aiAdapter.reset()} />
       </View>
       <AiResultCard snapshot={snapshot} />
@@ -122,7 +173,15 @@ function AiExperienceSection({ roleScope }: { readonly roleScope: AuthRoleScope 
   );
 }
 
-function TeachingDemoSection({ role }: { readonly role: RoleCode }) {
+function TeachingDemoSection({
+  activeNavigation,
+  role,
+  roleScope,
+}: {
+  readonly activeNavigation: RoleNavigationKey;
+  readonly role: RoleCode;
+  readonly roleScope: AuthRoleScope;
+}) {
   const { teachingAdapter } = useExperience();
   const [snapshot, setSnapshot] = useState<TeachingDemoSnapshot>(EMPTY_SNAPSHOT);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
@@ -137,12 +196,17 @@ function TeachingDemoSection({ role }: { readonly role: RoleCode }) {
   const [pendingWrite, setPendingWrite] = useState<PendingWriteAction | null>(
     null,
   );
+  const presentation = resolveTeachingSectionPresentation(role, activeNavigation);
+  const SectionIcon =
+    presentation.mode === 'class_performance' ? Star : FolderUp;
 
   const load = useCallback(async () => {
     setIsLoading(true);
     setError(null);
+    setSnapshot(EMPTY_SNAPSHOT);
+    setSelectedClassId(null);
     const result = await resolveLoadableState(
-      () => teachingAdapter.load(role),
+      () => teachingAdapter.load(roleScope),
       (data) => data.classes.length === 0,
     );
     if (result.status === 'error') {
@@ -150,10 +214,10 @@ function TeachingDemoSection({ role }: { readonly role: RoleCode }) {
     } else {
       const next = result.data;
       setSnapshot(next);
-      setSelectedClassId((current) => current ?? next.classes[0]?.id ?? null);
+      setSelectedClassId(next.classes[0]?.id ?? null);
     }
     setIsLoading(false);
-  }, [role, teachingAdapter]);
+  }, [roleScope, teachingAdapter]);
 
   useEffect(() => {
     void Promise.resolve().then(load);
@@ -259,7 +323,15 @@ function TeachingDemoSection({ role }: { readonly role: RoleCode }) {
 
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>教学演示</Text>
+      <View style={styles.sectionHeading}>
+        <View style={styles.sectionIcon}>
+          <SectionIcon color={theme.color.brand.primary} size={20} />
+        </View>
+        <View style={styles.sectionHeadingCopy}>
+          <Text style={styles.sectionTitle}>{presentation.title}</Text>
+          <Text style={styles.sectionDescription}>{presentation.description}</Text>
+        </View>
+      </View>
       {error === null ? null : (
         <View style={styles.feedbackBox}>
           <Text style={styles.error}>{error}</Text>
@@ -281,20 +353,39 @@ function TeachingDemoSection({ role }: { readonly role: RoleCode }) {
 
       {role === 'teacher' ? (
         <>
-          <Text style={styles.fieldLabel}>选择班级</Text>
-          <View style={styles.actions}>
+          <View style={styles.classSelectorRow}>
+            <Text style={styles.fieldLabel}>当前班级</Text>
+            <View style={styles.actions}>
             {snapshot.classes.map((item) => (
-              <Pressable key={item.id} onPress={() => setSelectedClassId(item.id)} style={[styles.classButton, selectedClassId === item.id && styles.classButtonSelected]}>
+              <InteractivePressable
+                key={item.id}
+                onPress={() => setSelectedClassId(item.id)}
+                style={({ focused, hovered, pressed }) => [
+                  styles.classButton,
+                  selectedClassId === item.id && styles.classButtonSelected,
+                  hovered && styles.interactiveHover,
+                  focused && styles.interactiveFocus,
+                  pressed && styles.interactivePressed,
+                ]}
+              >
                 <Text style={styles.classLabel}>{item.name}</Text>
-              </Pressable>
+              </InteractivePressable>
             ))}
+            </View>
           </View>
+          <View style={styles.featureDivider} />
+          <View style={styles.featureHeading}>
+            <FolderUp color={theme.color.brand.primary} size={18} />
+            <View><Text style={styles.featureTitle}>课件</Text><Text style={styles.featureDescription}>教师与班级之间的教学文件传输</Text></View>
+          </View>
+          <Text style={styles.fieldLabel}>课件标题</Text>
           <TextInput onChangeText={setTitle} style={styles.input} value={title} />
-          <ActionButton label="选择课件文件" onPress={() => void pickFile()} />
-          <ActionButton
-            disabled={selectedClassId === null || selectedFile === null || isPending}
-            label="上传并发送到班级"
-            onPress={() =>
+          <View style={styles.actions}>
+            <ActionButton label="选择课件文件" onPress={() => void pickFile()} />
+            <ActionButton
+              disabled={selectedClassId === null || selectedFile === null || isPending}
+              label="发送到班级"
+              onPress={() =>
               requestWrite(
                 'courseware.send',
                 [snapshot.classes.find((item) => item.id === selectedClassId)?.name ?? '当前班级'],
@@ -304,7 +395,14 @@ function TeachingDemoSection({ role }: { readonly role: RoleCode }) {
                 '课件已发送。',
               )
             }
-          />
+            />
+          </View>
+          <View style={styles.featureDivider} />
+          <View style={styles.featureHeading}>
+            <ClipboardList color={theme.color.brand.primary} size={18} />
+            <View><Text style={styles.featureTitle}>作业</Text><Text style={styles.featureDescription}>先保存草稿，确认后再发布到家庭端</Text></View>
+          </View>
+          <Text style={styles.fieldLabel}>作业内容</Text>
           <TextInput multiline onChangeText={setContent} style={[styles.input, styles.multiline]} value={content} />
           <ActionButton
             disabled={selectedClassId === null || isPending}
@@ -332,6 +430,12 @@ function TeachingDemoSection({ role }: { readonly role: RoleCode }) {
               ) : null}
             </View>
           ))}
+          <View style={styles.featureDivider} />
+          <View style={styles.featureHeading}>
+            <ChartColumn color={theme.color.brand.primary} size={18} />
+            <View><Text style={styles.featureTitle}>成绩</Text><Text style={styles.featureDescription}>成绩发布后仅绑定家庭可见</Text></View>
+          </View>
+          <Text style={styles.fieldLabel}>成绩分数</Text>
           <TextInput inputMode="decimal" onChangeText={setScore} style={styles.input} value={score} />
           <ActionButton
             disabled={selectedClassId === null || selectedStudents[0] === undefined || isPending}
@@ -350,18 +454,85 @@ function TeachingDemoSection({ role }: { readonly role: RoleCode }) {
         </>
       ) : null}
 
-      {role === 'class_terminal' || role === 'family' ? (
+      {role === 'class_terminal' && presentation.mode === 'class_performance' ? (
+        <>
+          <View style={styles.performanceGrid}>
+            <View style={styles.performanceCard}>
+              <UsersRound color={theme.color.brand.primary} size={19} />
+              <Text style={styles.performanceValue}>
+                {snapshot.classes.reduce(
+                  (count, item) => count + countStudentsForClass(snapshot, item.id),
+                  0,
+                )}
+              </Text>
+              <Text style={styles.performanceLabel}>学生档案</Text>
+            </View>
+            <View style={styles.performanceCard}>
+              <Star color={theme.color.brand.primary} size={19} />
+              <Text style={styles.performancePending}>待治理服务接入</Text>
+              <Text style={styles.performanceLabel}>班级分</Text>
+            </View>
+            <View style={styles.performanceCard}>
+              <Trophy color={theme.color.brand.primary} size={19} />
+              <Text style={styles.performancePending}>待治理服务接入</Text>
+              <Text style={styles.performanceLabel}>班内排行</Text>
+            </View>
+            <View style={styles.performanceCard}>
+              <History color={theme.color.brand.primary} size={19} />
+              <Text style={styles.performancePending}>暂无真实记录</Text>
+              <Text style={styles.performanceLabel}>表现记录</Text>
+            </View>
+          </View>
+          <Text style={styles.fieldLabel}>当前班级学生</Text>
+          {snapshot.students.map((student) => (
+            <View key={student.id} style={styles.listItem}>
+              <Text style={styles.itemTitle}>{student.name}</Text>
+            </View>
+          ))}
+        </>
+      ) : null}
+
+      {role === 'class_terminal' && presentation.mode === 'courseware' ? (
         <>
           <Text style={styles.fieldLabel}>课件</Text>
-          {snapshot.courseware.length === 0 ? <Text style={styles.helper}>暂无已发送课件。</Text> : snapshot.courseware.map((item) => <Text key={item.id} style={styles.listItem}>{item.title}</Text>)}
+          {snapshot.courseware.length === 0 ? (
+            <Text style={styles.helper}>暂无已发送课件。</Text>
+          ) : (
+            snapshot.courseware.map((item) => (
+              <Text key={item.id} style={styles.listItem}>{item.title}</Text>
+            ))
+          )}
+        </>
+      ) : null}
+
+      {(role === 'class_terminal' || role === 'family') &&
+      presentation.mode === 'assignment' ? (
+        <>
           <Text style={styles.fieldLabel}>已发布作业</Text>
-          {snapshot.assignments.length === 0 ? <Text style={styles.helper}>暂无已发布作业。</Text> : snapshot.assignments.map((item) => <Text key={item.id} style={styles.listItem}>{item.title} · 截止 {new Date(item.dueAt).toLocaleString()}</Text>)}
-          {role === 'family' ? (
-            <>
-              <Text style={styles.fieldLabel}>绑定学生已发布成绩</Text>
-              {snapshot.grades.length === 0 ? <Text style={styles.helper}>暂无已发布成绩。</Text> : snapshot.grades.map((grade) => <Text key={grade.id} style={styles.listItem}>{grade.studentName} · {grade.score}</Text>)}
-            </>
-          ) : null}
+          {snapshot.assignments.length === 0 ? (
+            <Text style={styles.helper}>暂无已发布作业。</Text>
+          ) : (
+            snapshot.assignments.map((item) => (
+              <Text key={item.id} style={styles.listItem}>
+                {item.title} · 截止 {new Date(item.dueAt).toLocaleString()}
+              </Text>
+            ))
+          )}
+        </>
+      ) : null}
+
+      {role === 'family' && presentation.mode === 'growth' ? (
+        <>
+          <Text style={styles.fieldLabel}>绑定学生已发布成绩</Text>
+          {snapshot.grades.length === 0 ? (
+            <Text style={styles.helper}>暂无已发布成绩。</Text>
+          ) : (
+            snapshot.grades.map((grade) => (
+              <Text key={grade.id} style={styles.listItem}>
+                {grade.studentName} · {grade.score}
+              </Text>
+            ))
+          )}
         </>
       ) : null}
     </View>
@@ -369,38 +540,92 @@ function TeachingDemoSection({ role }: { readonly role: RoleCode }) {
 }
 
 export function RoleExperienceSections({
+  activeNavigation,
+  onNavigate,
   role,
   roleScope,
 }: {
+  readonly activeNavigation: RoleNavigationKey;
+  readonly onNavigate: (key: RoleNavigationKey) => void;
   readonly role: RoleCode;
   readonly roleScope: AuthRoleScope;
 }) {
+  if (activeNavigation === 'home') {
+    return (
+      <>
+        <RoleDashboardOverview
+          onNavigate={onNavigate}
+          role={role}
+          roleScope={roleScope}
+        />
+        <TodaySummarySection roleScope={roleScope} />
+      </>
+    );
+  }
+
+  if (activeNavigation === 'ai') {
+    return <AiExperienceSection roleScope={roleScope} />;
+  }
+
+  if (
+    (role === 'teacher' || role === 'class_terminal' || role === 'family') &&
+    ['courseware', 'assignment', 'class', 'growth'].includes(activeNavigation)
+  ) {
+    return (
+      <TeachingDemoSection
+        activeNavigation={activeNavigation}
+        role={role}
+        roleScope={roleScope}
+      />
+    );
+  }
+
   return (
-    <>
-      <TodaySummarySection role={role} />
-      {role === 'teacher' || role === 'class_terminal' || role === 'family' ? <TeachingDemoSection role={role} /> : null}
-      <AiExperienceSection roleScope={roleScope} />
-    </>
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>当前功能尚未接入业务服务</Text>
+      <Text style={styles.sectionDescription}>
+        权限范围：{roleScope.label}。为避免展示伪造数据或无效按钮，服务完成接入前仅保留明确边界说明。
+      </Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  actionButton: { backgroundColor: theme.color.brand.primary, borderRadius: theme.radius.control, justifyContent: 'center', minHeight: 44, paddingHorizontal: theme.space.md },
-  actionLabel: { color: theme.color.surface.card, fontSize: theme.text.size.sm, fontWeight: '600' },
+  actionButton: { alignItems: 'center', backgroundColor: theme.color.brand.primary, borderRadius: theme.radius.control, justifyContent: 'center', minHeight: 44, paddingHorizontal: theme.space.md },
+  actionLabel: { color: theme.color.surface.card, fontSize: theme.text.size.sm, fontWeight: '700' },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm },
-  classButton: { borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, minHeight: 44, padding: theme.space.md },
-  classButtonSelected: { borderColor: theme.color.brand.primary, borderWidth: 2 },
-  classLabel: { color: theme.color.text.primary, fontWeight: '600' },
+  aiComposer: { alignItems: 'center', flexDirection: 'row', gap: theme.space.sm },
+  aiInput: { flex: 1 },
+  classButton: { alignItems: 'center', borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, justifyContent: 'center', minHeight: 40, paddingHorizontal: theme.space.base },
+  classButtonSelected: { backgroundColor: theme.color.surface.primaryTint, borderColor: theme.color.brand.primary },
+  classLabel: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '700' },
+  classSelectorRow: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.base },
   disabled: { opacity: 0.5 },
   error: { color: theme.color.text.primary, fontWeight: '600' },
   feedbackBox: { gap: theme.space.sm },
-  fieldLabel: { color: theme.color.text.primary, fontSize: theme.text.size.md, fontWeight: '700', marginTop: theme.space.sm },
+  featureDescription: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, marginTop: 2 },
+  featureDivider: { backgroundColor: theme.color.border.default, height: 1, marginVertical: theme.space.sm },
+  featureHeading: { alignItems: 'center', flexDirection: 'row', gap: theme.space.sm },
+  featureTitle: { color: theme.color.text.primary, fontSize: theme.text.size.md, fontWeight: '800' },
+  fieldLabel: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '700', marginTop: theme.space.xs },
   helper: { color: theme.color.text.secondary, fontSize: theme.text.size.sm, lineHeight: 21 },
-  input: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, color: theme.color.text.primary, minHeight: 46, paddingHorizontal: theme.space.md },
+  input: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, color: theme.color.text.primary, fontSize: theme.text.size.sm, minHeight: 46, paddingHorizontal: theme.space.md },
   itemTitle: { color: theme.color.text.primary, fontWeight: '600' },
-  listItem: { backgroundColor: theme.color.surface.muted, borderRadius: theme.radius.control, color: theme.color.text.primary, gap: theme.space.sm, padding: theme.space.md },
+  interactiveFocus: { borderColor: theme.color.brand.primary, shadowColor: theme.color.brand.primary, shadowOpacity: 0.2, shadowRadius: 4 },
+  interactiveHover: { backgroundColor: theme.color.surface.primaryTint, borderColor: theme.color.brand.primary },
+  interactivePressed: { opacity: 0.74, transform: [{ scale: 0.985 }] },
+  listItem: { backgroundColor: theme.color.surface.muted, borderRadius: theme.radius.control, color: theme.color.text.primary, gap: theme.space.sm, padding: theme.space.base },
   multiline: { minHeight: 88, paddingVertical: theme.space.md, textAlignVertical: 'top' },
+  performanceCard: { backgroundColor: theme.color.surface.muted, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, flex: 1, gap: theme.space.xs, minWidth: 180, padding: theme.space.md },
+  performanceGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm },
+  performanceLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.xs },
+  performancePending: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '700' },
+  performanceValue: { color: theme.color.text.primary, fontSize: theme.text.size.xl, fontWeight: '800' },
   section: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, gap: theme.space.md, padding: theme.space.lg },
-  sectionTitle: { color: theme.color.text.primary, fontSize: theme.text.size.lg, fontWeight: '700' },
+  sectionDescription: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, lineHeight: 18, marginTop: 3 },
+  sectionHeading: { alignItems: 'center', flexDirection: 'row', gap: theme.space.base },
+  sectionHeadingCopy: { flex: 1 },
+  sectionIcon: { alignItems: 'center', backgroundColor: theme.color.surface.secondaryTint, borderRadius: theme.radius.control, height: 40, justifyContent: 'center', width: 40 },
+  sectionTitle: { color: theme.color.text.primary, fontSize: theme.text.size.lg, fontWeight: '800' },
   success: { color: theme.color.brand.primary, fontSize: theme.text.size.sm, fontWeight: '700' },
 });

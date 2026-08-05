@@ -1,4 +1,4 @@
-import type { RoleCode } from '@dolphincloud/auth';
+import type { AuthRoleScope, AuthScopeType, RoleCode } from '@dolphincloud/auth';
 import type {
   TeachingDemoAdapter,
   TodaySummaryDataSource,
@@ -12,6 +12,8 @@ export type AiSkillContext = {
   readonly permissionScope: string;
   readonly role: RoleCode;
   readonly roleAssignmentId: string;
+  readonly scopeId: string;
+  readonly scopeType: AuthScopeType;
   readonly userId: string;
 };
 
@@ -47,10 +49,17 @@ export class SkillQueryService {
     if (!(ALLOWED_ROLES[skill] as readonly RoleCode[]).includes(context.role)) {
       throw new AiServiceError('FORBIDDEN', 403);
     }
+    const roleScope: AuthRoleScope = {
+      assignmentId: context.roleAssignmentId,
+      id: context.scopeId,
+      label: context.permissionScope,
+      role: context.role,
+      type: context.scopeType,
+    };
     if (skill === 'get_today_summary') {
-      return this.summaryDataSource.load(context.role);
+      return this.summaryDataSource.load(roleScope);
     }
-    const snapshot = await this.teachingAdapter.load(context.role);
+    const snapshot = await this.teachingAdapter.load(roleScope);
     if (skill === 'list_courseware') {
       return snapshot.courseware;
     }

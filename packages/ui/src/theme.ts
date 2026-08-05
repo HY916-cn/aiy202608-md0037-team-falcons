@@ -3,11 +3,15 @@ export const theme = {
     brand: {
       primary: '#1677FF',
       secondary: '#22D3EE',
+      onPrimaryMuted: 'rgba(255,255,255,0.14)',
+      onPrimaryBorder: 'rgba(255,255,255,0.28)',
     },
     surface: {
       page: '#F8FAFC',
       card: '#FFFFFF',
       muted: '#F1F5F9',
+      primaryTint: '#EAF3FF',
+      secondaryTint: '#ECFEFF',
     },
     text: {
       primary: '#0F172A',
@@ -26,6 +30,7 @@ export const theme = {
   space: {
     xs: 4,
     sm: 8,
+    base: 12,
     md: 16,
     lg: 24,
     xl: 32,

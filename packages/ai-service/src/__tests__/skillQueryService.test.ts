@@ -32,10 +32,18 @@ describe('SkillQueryService', () => {
       permissionScope: '绑定家庭',
       role: 'family',
       roleAssignmentId: 'context-family',
+      scopeId: 'household-family',
+      scopeType: 'household',
       userId: 'family-user',
     });
 
-    expect(load).toHaveBeenCalledWith('family');
+    expect(load).toHaveBeenCalledWith({
+      assignmentId: 'context-family',
+      id: 'household-family',
+      label: '绑定家庭',
+      role: 'family',
+      type: 'household',
+    });
   });
 
   it('班级端禁止读取个人成绩', async () => {
@@ -46,6 +54,8 @@ describe('SkillQueryService', () => {
         permissionScope: '演示一班',
         role: 'class_terminal',
         roleAssignmentId: 'context-class',
+        scopeId: 'class-one',
+        scopeType: 'class',
         userId: 'class-user',
       }),
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
@@ -60,6 +70,8 @@ describe('SkillQueryService', () => {
         permissionScope: '绑定家庭',
         role: 'family',
         roleAssignmentId: 'context-family',
+        scopeId: 'household-family',
+        scopeType: 'household',
         userId: 'family-user',
       }),
     ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
@@ -68,6 +80,8 @@ describe('SkillQueryService', () => {
         permissionScope: '绑定家庭',
         role: 'family',
         roleAssignmentId: 'context-family',
+        scopeId: 'household-family',
+        scopeType: 'household',
         userId: 'family-user',
       }),
     ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });

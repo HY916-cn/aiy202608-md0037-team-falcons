@@ -9,6 +9,7 @@ import {
   Eye,
   LoaderCircle,
   Sparkles,
+  Waves,
   WifiOff,
 } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
@@ -42,7 +43,12 @@ export function DolphinMascotCard({ snapshot }: { readonly snapshot: AiExperienc
   return (
     <View style={styles.mascotCard}>
       <View style={styles.mascot}>
-        <Text accessibilityLabel="海豚吉祥物" style={styles.dolphin}>🐬</Text>
+        <Waves
+          accessibilityLabel="海豚吉祥物"
+          color={theme.color.brand.secondary}
+          size={30}
+          strokeWidth={2.4}
+        />
       </View>
       <View style={styles.copy}>
         <View style={styles.stateRow}>
@@ -71,11 +77,10 @@ export function AiResultCard({ snapshot }: { readonly snapshot: AiExperienceSnap
 
 const styles = StyleSheet.create({
   copy: { flex: 1, gap: theme.space.xs },
-  dolphin: { fontSize: 34 },
   explanation: { color: theme.color.text.secondary, fontSize: theme.text.size.sm, lineHeight: 21 },
   mascot: {
     alignItems: 'center',
-    backgroundColor: theme.color.surface.muted,
+    backgroundColor: theme.color.surface.secondaryTint,
     borderRadius: theme.radius.pill,
     height: 60,
     justifyContent: 'center',
@@ -83,10 +88,8 @@ const styles = StyleSheet.create({
   },
   mascotCard: {
     alignItems: 'center',
-    backgroundColor: theme.color.surface.card,
-    borderColor: theme.color.border.default,
-    borderRadius: theme.radius.card,
-    borderWidth: 1,
+    backgroundColor: theme.color.surface.page,
+    borderRadius: theme.radius.control,
     flexDirection: 'row',
     gap: theme.space.md,
     padding: theme.space.lg,

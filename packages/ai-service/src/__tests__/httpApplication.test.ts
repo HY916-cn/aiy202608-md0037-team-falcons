@@ -8,6 +8,8 @@ const CONTEXT = {
   permissionScope: 'school:demo-school',
   role: 'teacher' as const,
   roleAssignmentId: 'context-a',
+  scopeId: 'demo-school',
+  scopeType: 'school' as const,
   userId: 'user-a',
 };
 

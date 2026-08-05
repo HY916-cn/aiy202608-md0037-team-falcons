@@ -1,4 +1,4 @@
-import type { RoleCode } from '@dolphincloud/auth';
+import type { AuthRoleScope, RoleCode } from '@dolphincloud/auth';
 
 import type { TeachingDemoAdapter, TeachingDemoSnapshot } from './teachingDemo';
 
@@ -18,7 +18,7 @@ export type TodaySummary = {
 };
 
 export type TodaySummaryDataSource = {
-  load(role: RoleCode): Promise<TodaySummary>;
+  load(roleScope: AuthRoleScope): Promise<TodaySummary>;
 };
 
 const DEMO_SUMMARY_ITEMS = {
@@ -159,8 +159,8 @@ export function createDemoTodaySummary(role: RoleCode): TodaySummary {
 }
 
 export class DemoTodaySummaryDataSource implements TodaySummaryDataSource {
-  async load(role: RoleCode): Promise<TodaySummary> {
-    return createDemoTodaySummary(role);
+  async load(roleScope: AuthRoleScope): Promise<TodaySummary> {
+    return createDemoTodaySummary(roleScope.role);
   }
 }
 
@@ -168,13 +168,15 @@ export class TeachingTodaySummaryDataSource implements TodaySummaryDataSource {
   constructor(
     private readonly teachingAdapter: TeachingDemoAdapter,
     private readonly now: () => Date = () => new Date(),
+    private readonly dataMode: TodaySummary['dataMode'] = 'live',
   ) {}
 
-  async load(role: RoleCode): Promise<TodaySummary> {
+  async load(roleScope: AuthRoleScope): Promise<TodaySummary> {
+    const role = roleScope.role;
     const generatedAt = this.now().toISOString();
     if (role === 'admin' || role === 'bank_operator' || role === 'council') {
       return {
-        dataMode: 'live',
+        dataMode: this.dataMode,
         generatedAt,
         items: mapItems(GOVERNANCE_SUMMARY_ITEMS[role]),
         role,
@@ -182,13 +184,13 @@ export class TeachingTodaySummaryDataSource implements TodaySummaryDataSource {
       };
     }
 
-    const snapshot = await this.teachingAdapter.load(role);
+    const snapshot = await this.teachingAdapter.load(roleScope);
     return {
-      dataMode: 'live',
+      dataMode: this.dataMode,
       generatedAt,
       items: createTeachingItems(role, snapshot, generatedAt.slice(0, 10)),
       role,
-      title: '今日摘要',
+      title: this.dataMode === 'demo' ? '今日摘要（演示数据）' : '今日摘要',
     };
   }
 }
