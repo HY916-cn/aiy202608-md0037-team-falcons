@@ -7,6 +7,7 @@ import {
   ChevronDown,
   ClipboardList,
   Coins,
+  Ellipsis,
   FileClock,
   FolderUp,
   History,
@@ -140,44 +141,106 @@ function Navigation({
   readonly role: RoleCode;
 }) {
   const items = ROLE_NAVIGATION[role];
+  const hasOverflow = compact && items.length > 5;
+  const visibleItems = hasOverflow ? items.slice(0, 4) : items;
+  const overflowItems = hasOverflow ? items.slice(4) : [];
+  const [isOverflowOpen, setIsOverflowOpen] = useState(false);
+  const isOverflowActive = overflowItems.some(
+    (item) => item.key === activeNavigation,
+  );
+
+  const renderItem = (item: NavigationItem, isOverflowItem = false) => {
+    const Icon = item.icon;
+    const isActive = item.key === activeNavigation;
+    return (
+      <InteractivePressable
+        accessibilityLabel={item.label}
+        accessibilityRole="button"
+        accessibilityState={{ selected: isActive }}
+        key={item.label}
+        onPress={() => {
+          setIsOverflowOpen(false);
+          onNavigate?.(item.key);
+        }}
+        style={({ focused, hovered, pressed }) => [
+          isOverflowItem
+            ? styles.mobileOverflowItem
+            : compact
+              ? styles.mobileNavItem
+              : styles.navItem,
+          isActive && (compact ? styles.mobileNavItemActive : styles.navItemActive),
+          hovered && styles.interactiveHover,
+          focused && styles.interactiveFocus,
+          pressed && styles.pressed,
+        ]}
+      >
+        <Icon
+          color={isActive ? theme.color.brand.primary : theme.color.text.secondary}
+          size={isOverflowItem ? 19 : compact ? 22 : 20}
+          strokeWidth={2}
+        />
+        <Text
+          numberOfLines={1}
+          style={[
+            isOverflowItem
+              ? styles.mobileOverflowItemLabel
+              : compact
+                ? styles.mobileNavLabel
+                : styles.navLabel,
+            isActive && styles.navLabelActive,
+          ]}
+        >
+          {item.label}
+        </Text>
+      </InteractivePressable>
+    );
+  };
 
   return (
     <View style={compact ? styles.mobileNavigation : styles.navigation}>
-      {items.map((item) => {
-        const Icon = item.icon;
-        const isActive = item.key === activeNavigation;
-        return (
-          <InteractivePressable
-            accessibilityLabel={item.label}
-            accessibilityRole="button"
-            accessibilityState={{ selected: isActive }}
-            key={item.label}
-            onPress={() => onNavigate?.(item.key)}
-            style={({ focused, hovered, pressed }) => [
-              compact ? styles.mobileNavItem : styles.navItem,
-              isActive && (compact ? styles.mobileNavItemActive : styles.navItemActive),
-              hovered && styles.interactiveHover,
-              focused && styles.interactiveFocus,
-              pressed && styles.pressed,
+      {isOverflowOpen ? (
+        <View style={styles.mobileOverflowMenu}>
+          <Text style={styles.mobileOverflowLabel}>更多功能</Text>
+          {overflowItems.map((item) => (
+            <View key={item.key} style={styles.mobileOverflowRow}>
+              {renderItem(item, true)}
+            </View>
+          ))}
+        </View>
+      ) : null}
+      {visibleItems.map((item) => renderItem(item))}
+      {hasOverflow ? (
+        <InteractivePressable
+          accessibilityLabel="更多"
+          accessibilityRole="button"
+          accessibilityState={{ expanded: isOverflowOpen, selected: isOverflowActive }}
+          onPress={() => setIsOverflowOpen((value) => !value)}
+          style={({ focused, hovered, pressed }) => [
+            styles.mobileNavItem,
+            isOverflowActive && styles.mobileNavItemActive,
+            hovered && styles.interactiveHover,
+            focused && styles.interactiveFocus,
+            pressed && styles.pressed,
+          ]}
+        >
+          <Ellipsis
+            color={
+              isOverflowActive
+                ? theme.color.brand.primary
+                : theme.color.text.secondary
+            }
+            size={22}
+          />
+          <Text
+            style={[
+              styles.mobileNavLabel,
+              isOverflowActive && styles.navLabelActive,
             ]}
           >
-            <Icon
-              color={isActive ? theme.color.brand.primary : theme.color.text.secondary}
-              size={compact ? 22 : 20}
-              strokeWidth={2}
-            />
-            <Text
-              numberOfLines={1}
-              style={[
-                compact ? styles.mobileNavLabel : styles.navLabel,
-                isActive && styles.navLabelActive,
-              ]}
-            >
-              {item.label}
-            </Text>
-          </InteractivePressable>
-        );
-      })}
+            更多
+          </Text>
+        </InteractivePressable>
+      ) : null}
     </View>
   );
 }
@@ -198,6 +261,7 @@ export function RoleHomeScreen({
 }: RoleHomeScreenProps) {
   const { width } = useWindowDimensions();
   const isWide = width >= 960;
+  const isCompactMobile = width < 480;
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<RoleCode | 'logout' | null>(null);
   const [pendingScopeId, setPendingScopeId] = useState<string | null>(null);
@@ -334,8 +398,8 @@ export function RoleHomeScreen({
   ) : null;
 
   const topBar = (
-    <View style={styles.topBar}>
-      {!isWide ? <BrandLockup /> : <View />}
+    <View style={[styles.topBar, isCompactMobile && styles.topBarCompact]}>
+      {!isWide ? <BrandLockup compact={isCompactMobile} /> : <View />}
       <View style={styles.topBarActions}>
         <InteractivePressable
           accessibilityLabel="通知"
@@ -396,15 +460,26 @@ export function RoleHomeScreen({
 
       <View style={styles.main}>
         {topBar}
-        <ScrollView contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
-          <View style={styles.content}>
-            <View style={styles.pageHeading}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.page,
+            isCompactMobile && styles.pageCompact,
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={[styles.content, isCompactMobile && styles.contentCompact]}>
+            <View
+              style={[
+                styles.pageHeading,
+                isCompactMobile && styles.pageHeadingCompact,
+              ]}
+            >
               <View style={styles.headingCopy}>
                 <Text style={styles.eyebrow}>{pageHeader.eyebrow}</Text>
                 <Text style={styles.pageTitle}>{pageHeader.title}</Text>
                 <Text style={styles.pageDescription}>{pageHeader.description}</Text>
               </View>
-              <View style={styles.dateBadge}>
+              <View style={[styles.dateBadge, isCompactMobile && styles.dateBadgeCompact]}>
                 <Text style={styles.datePrimary}>{today.date}</Text>
                 <Text style={styles.dateSecondary}>{today.weekday}</Text>
               </View>
@@ -440,6 +515,7 @@ const styles = StyleSheet.create({
   scopeLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, marginTop: 2 },
   main: { flex: 1, minWidth: 0 },
   topBar: { alignItems: 'center', backgroundColor: theme.color.surface.card, borderBottomColor: theme.color.border.default, borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', minHeight: 72, paddingHorizontal: theme.space.lg, position: 'relative', zIndex: 20 },
+  topBarCompact: { minHeight: 64, paddingHorizontal: theme.space.md },
   topBarActions: { alignItems: 'center', flexDirection: 'row', gap: theme.space.sm },
   iconButton: { alignItems: 'center', borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, height: 42, justifyContent: 'center', position: 'relative', width: 42 },
   notificationDot: { backgroundColor: theme.color.brand.secondary, borderColor: theme.color.surface.card, borderRadius: 5, borderWidth: 2, height: 9, position: 'absolute', right: 8, top: 7, width: 9 },
@@ -463,18 +539,27 @@ const styles = StyleSheet.create({
   logoutButton: { alignItems: 'center', flexDirection: 'row', gap: theme.space.sm, minHeight: 40, paddingHorizontal: theme.space.sm },
   logoutLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.sm, fontWeight: '600' },
   page: { alignItems: 'center', paddingBottom: 56, paddingHorizontal: theme.space.lg, paddingTop: theme.space.xl },
+  pageCompact: { paddingBottom: 40, paddingHorizontal: theme.space.md, paddingTop: theme.space.lg },
   content: { gap: theme.space.lg, maxWidth: 1200, width: '100%' },
+  contentCompact: { gap: theme.space.md },
   pageHeading: { alignItems: 'flex-end', flexDirection: 'row', gap: theme.space.md, justifyContent: 'space-between' },
+  pageHeadingCompact: { alignItems: 'flex-start', flexDirection: 'column', gap: theme.space.sm },
   headingCopy: { flex: 1 },
   eyebrow: { color: theme.color.brand.primary, fontSize: theme.text.size.xs, fontWeight: '800', letterSpacing: 1, marginBottom: theme.space.xs },
   pageTitle: { color: theme.color.text.primary, fontSize: theme.text.size.display, fontWeight: '800', letterSpacing: -0.5 },
   pageDescription: { color: theme.color.text.secondary, fontSize: theme.text.size.sm, lineHeight: 21, marginTop: theme.space.sm },
   dateBadge: { alignItems: 'flex-end' },
+  dateBadgeCompact: { alignItems: 'flex-start' },
   datePrimary: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '700' },
   dateSecondary: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, marginTop: 2 },
-  mobileNavigation: { backgroundColor: theme.color.surface.card, borderTopColor: theme.color.border.default, borderTopWidth: 1, flexDirection: 'row', paddingBottom: theme.space.sm, paddingHorizontal: theme.space.xs, paddingTop: theme.space.sm },
+  mobileNavigation: { backgroundColor: theme.color.surface.card, borderTopColor: theme.color.border.default, borderTopWidth: 1, flexDirection: 'row', paddingBottom: theme.space.sm, paddingHorizontal: theme.space.xs, paddingTop: theme.space.sm, position: 'relative', zIndex: 30 },
   mobileNavItem: { alignItems: 'center', flex: 1, gap: 3, justifyContent: 'center', minHeight: 50 },
   mobileNavItemActive: { backgroundColor: theme.color.surface.primaryTint, borderRadius: theme.radius.control },
   mobileNavLabel: { color: theme.color.text.secondary, fontSize: 10, fontWeight: '600' },
   mobileNavLabelActive: { color: theme.color.brand.primary },
+  mobileOverflowLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, fontWeight: '800', paddingHorizontal: theme.space.base, paddingTop: theme.space.sm },
+  mobileOverflowItem: { alignItems: 'center', borderRadius: theme.radius.control, flex: 1, flexDirection: 'row', gap: theme.space.sm, minHeight: 48, paddingHorizontal: theme.space.base },
+  mobileOverflowItemLabel: { color: theme.color.text.primary, flex: 1, fontSize: theme.text.size.sm, fontWeight: '700' },
+  mobileOverflowMenu: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, bottom: 70, elevation: 10, gap: theme.space.xs, padding: theme.space.xs, position: 'absolute', right: theme.space.sm, width: 190 },
+  mobileOverflowRow: { minHeight: 52 },
 });

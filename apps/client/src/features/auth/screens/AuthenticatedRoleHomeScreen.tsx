@@ -1,7 +1,14 @@
 import type { RoleCode } from '@dolphincloud/auth';
-import { resolveRoleNavigationKey, RoleHomeScreen } from '@dolphincloud/ui';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import {
+  resolveRoleNavigationKey,
+  RoleHomeScreen,
+  type RoleNavigationKey,
+} from '@dolphincloud/ui';
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 
+import { ROLE_HOME_PATHS } from '@/shared/routing/roleRoutes';
+
+import { AdminWorkspaceScreen } from '../../admin';
 import { RoleExperienceSections } from '../../experience';
 import { useAuthSession } from '../AuthSessionProvider';
 
@@ -15,6 +22,12 @@ export function AuthenticatedRoleHomeScreen({
   const router = useRouter();
   const { section } = useLocalSearchParams<{ readonly section?: string }>();
   const activeNavigation = resolveRoleNavigationKey(role, section);
+  const navigate = (key: RoleNavigationKey) => {
+    const path = ROLE_HOME_PATHS[role];
+    router.replace(
+      (key === 'home' ? path : `${path}?section=${key}`) as Href,
+    );
+  };
 
   if (
     session.user === null ||
@@ -31,23 +44,26 @@ export function AuthenticatedRoleHomeScreen({
       availableRoleScopes={session.availableRoleScopes}
       currentRole={session.currentRole}
       onLogout={session.logout}
-      onNavigate={(key) =>
-        router.setParams({ section: key === 'home' ? undefined : key })
-      }
+      onNavigate={navigate}
       onSwitchRole={session.switchRole}
       onSwitchRoleScope={session.switchRoleScope}
       role={role}
       roleScope={session.roleScope}
       user={session.user}
     >
-      <RoleExperienceSections
-        activeNavigation={activeNavigation}
-        onNavigate={(key) =>
-          router.setParams({ section: key === 'home' ? undefined : key })
-        }
-        role={role}
-        roleScope={session.roleScope}
-      />
+      {role === 'admin' ? (
+        <AdminWorkspaceScreen
+          activeNavigation={activeNavigation}
+          roleScope={session.roleScope}
+        />
+      ) : (
+        <RoleExperienceSections
+          activeNavigation={activeNavigation}
+          onNavigate={navigate}
+          role={role}
+          roleScope={session.roleScope}
+        />
+      )}
     </RoleHomeScreen>
   );
 }

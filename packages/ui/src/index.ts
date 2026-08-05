@@ -16,3 +16,12 @@ export { RoleIcon } from './RoleIcon';
 export { TodaySummaryCard } from './TodaySummaryCard';
 export { theme } from './theme';
 export { WriteActionPreviewCard } from './WriteActionPreviewCard';
+export {
+  InsightStrip,
+  WorkspaceBoundaryNotice,
+  WorkspaceStatusTag,
+  WorkspaceSurface,
+  WorkspaceToolbar,
+  type InsightStripItem,
+  type WorkspaceOption,
+} from './ProfessionalWorkspace';
