@@ -232,14 +232,15 @@ export function RoleDashboardOverview({
   const load = useCallback(async () => {
     setIsLoading(true);
     setLoadFailed(false);
+    setSnapshot(EMPTY_SNAPSHOT);
     try {
-      setSnapshot(await teachingAdapter.load(role));
+      setSnapshot(await teachingAdapter.load(roleScope));
     } catch {
       setLoadFailed(true);
     } finally {
       setIsLoading(false);
     }
-  }, [role, teachingAdapter]);
+  }, [roleScope, teachingAdapter]);
 
   useEffect(() => {
     void Promise.resolve().then(load);

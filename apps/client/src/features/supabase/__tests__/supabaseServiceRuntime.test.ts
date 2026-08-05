@@ -22,22 +22,26 @@ function createSessionAwareClient() {
       };
     }
     if (table === 'role_assignments') {
-      return {
-        select: () => ({
-          eq: () => ({
-            order: vi.fn().mockResolvedValue({
-              data: [
-                {
-                  id: 'assignment-teacher-school',
-                  role: 'teacher',
-                  scope_id: 'school-1',
-                  scope_type: 'school',
-                },
-              ],
-              error: null,
-            }),
-          }),
+      const chain = {
+        eq: vi.fn(() => chain),
+        order: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: 'assignment-teacher-school',
+              role: 'teacher',
+              scope_id: 'school-1',
+              scope_type: 'school',
+            },
+          ],
+          error: null,
         }),
+        single: vi.fn().mockResolvedValue({
+          data: { id: 'assignment-teacher-school' },
+          error: null,
+        }),
+      };
+      return {
+        select: () => chain,
       };
     }
     if (table === 'schools') {
@@ -53,15 +57,18 @@ function createSessionAwareClient() {
       };
     }
     if (table === 'classes' || table === 'students') {
-      return {
-        select: () => ({
-          order: vi.fn().mockImplementation(async () => {
-            teachingRequestTokens.push(accessToken);
-            return accessToken === null
-              ? { data: null, error: new Error('UNAUTHENTICATED') }
-              : { data: [], error: null };
-          }),
+      const chain = {
+        eq: vi.fn(() => chain),
+        in: vi.fn(() => chain),
+        order: vi.fn().mockImplementation(async () => {
+          teachingRequestTokens.push(accessToken);
+          return accessToken === null
+            ? { data: null, error: new Error('UNAUTHENTICATED') }
+            : { data: [], error: null };
         }),
+      };
+      return {
+        select: () => chain,
       };
     }
     throw new Error(`UNEXPECTED_TABLE:${table}`);
@@ -106,6 +113,14 @@ function createSessionAwareClient() {
 }
 
 describe('createSupabaseServiceRuntime', () => {
+  const teacherScope = {
+    assignmentId: 'assignment-teacher-school',
+    id: 'school-1',
+    label: '演示学校',
+    role: 'teacher',
+    type: 'school',
+  } as const;
+
   it('认证和教学服务复用同一个 Supabase session，覆盖登录、刷新和退出', async () => {
     const fake = createSessionAwareClient();
     const clientFactory = vi.fn(() => fake.client);
@@ -123,28 +138,22 @@ describe('createSupabaseServiceRuntime', () => {
       email: 'teacher@example.com',
       password: 'synthetic-password',
     });
-    await expect(runtime.teachingAdapter.load('teacher')).resolves.toMatchObject({
+    await expect(runtime.teachingAdapter.load(teacherScope)).resolves.toMatchObject({
       classes: [],
     });
-    expect(fake.teachingRequestTokens.slice(-2)).toEqual([
-      'signed-in-token',
-      'signed-in-token',
-    ]);
+    expect(fake.teachingRequestTokens.at(-1)).toBe('signed-in-token');
 
     fake.refreshToken();
-    await expect(runtime.teachingAdapter.load('teacher')).resolves.toMatchObject({
+    await expect(runtime.teachingAdapter.load(teacherScope)).resolves.toMatchObject({
       classes: [],
     });
-    expect(fake.teachingRequestTokens.slice(-2)).toEqual([
-      'refreshed-token',
-      'refreshed-token',
-    ]);
+    expect(fake.teachingRequestTokens.at(-1)).toBe('refreshed-token');
 
     await runtime.authAdapter.logout();
-    await expect(runtime.teachingAdapter.load('teacher')).rejects.toMatchObject({
+    await expect(runtime.teachingAdapter.load(teacherScope)).rejects.toMatchObject({
       code: 'FORBIDDEN',
     });
-    expect(fake.teachingRequestTokens.slice(-2)).toEqual([null, null]);
+    expect(fake.teachingRequestTokens.at(-1)).toBeNull();
     expect(clientFactory).toHaveBeenCalledTimes(1);
     expect(runtime.client).toBe(fake.client);
     unsubscribe?.();
@@ -168,7 +177,7 @@ describe('createSupabaseServiceRuntime', () => {
     });
 
     expect(runtime.mode).toBe('demo');
-    await expect(runtime.summaryDataSource.load('teacher')).resolves.toMatchObject({
+    await expect(runtime.summaryDataSource.load(teacherScope)).resolves.toMatchObject({
       dataMode: 'demo',
       title: '今日摘要（演示数据）',
     });

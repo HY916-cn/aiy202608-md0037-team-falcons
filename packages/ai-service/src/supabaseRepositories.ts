@@ -1,4 +1,9 @@
-import type { RoleCode } from '@dolphincloud/auth';
+import {
+  AUTH_SCOPE_TYPES,
+  isRoleCode,
+  type AuthScopeType,
+  type RoleCode,
+} from '@dolphincloud/auth';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type {
@@ -325,15 +330,19 @@ export async function resolveSupabaseSkillContext(
     error !== null ||
     data === null ||
     typeof data.role !== 'string' ||
+    !isRoleCode(data.role) ||
     typeof data.scope_type !== 'string' ||
+    !AUTH_SCOPE_TYPES.includes(data.scope_type as AuthScopeType) ||
     typeof data.scope_id !== 'string'
   ) {
     throw new AiServiceError('FORBIDDEN', 403, { cause: error });
   }
   return {
     permissionScope: `${data.scope_type}:${data.scope_id}`,
-    role: data.role as RoleCode,
+    role: data.role,
     roleAssignmentId,
+    scopeId: data.scope_id,
+    scopeType: data.scope_type as AuthScopeType,
     userId,
   };
 }

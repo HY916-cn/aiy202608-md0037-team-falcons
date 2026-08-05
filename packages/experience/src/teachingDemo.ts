@@ -1,4 +1,4 @@
-import type { RoleCode } from '@dolphincloud/auth';
+import type { AuthRoleScope } from '@dolphincloud/auth';
 import type {
   Assignment,
   CoursewareFileMetadata,
@@ -56,7 +56,7 @@ export interface TeachingDemoAdapter {
     readonly subject: string;
     readonly title: string;
   }): Promise<void>;
-  load(role: RoleCode): Promise<TeachingDemoSnapshot>;
+  load(roleScope: AuthRoleScope): Promise<TeachingDemoSnapshot>;
   publishAssignment(assignmentId: string): Promise<void>;
   publishGrade(gradeId: string): Promise<void>;
   reviseGrade(input: {
@@ -152,9 +152,10 @@ export class MockTeachingDemoAdapter implements TeachingDemoAdapter {
     ];
   }
 
-  async load(role: RoleCode): Promise<TeachingDemoSnapshot> {
+  async load(roleScope: AuthRoleScope): Promise<TeachingDemoSnapshot> {
+    const role = roleScope.role;
     if (role === 'class_terminal') {
-      const snapshot = this.snapshotForClasses([CLASS_ONE], true);
+      const snapshot = this.snapshotForClasses([roleScope.id], true);
       return { ...snapshot, grades: [], students: [] };
     }
     if (role === 'family') {
@@ -167,7 +168,11 @@ export class MockTeachingDemoAdapter implements TeachingDemoAdapter {
       };
     }
     if (role === 'teacher') {
-      return this.snapshotForClasses(this.classes.map((item) => item.id), false, true);
+      const classIds =
+        roleScope.type === 'class'
+          ? [roleScope.id]
+          : this.classes.map((item) => item.id);
+      return this.snapshotForClasses(classIds, false, true);
     }
     return { assignments: [], classes: [], courseware: [], grades: [], students: [] };
   }

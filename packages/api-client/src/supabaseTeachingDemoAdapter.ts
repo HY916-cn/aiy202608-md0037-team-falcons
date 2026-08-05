@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { AuthRoleScope } from '@dolphincloud/auth';
 import type {
   TeachingClass,
   TeachingCourseware,
@@ -13,6 +14,13 @@ import { SupabaseAssignmentService } from './assignmentService';
 import { SupabaseCoursewareService } from './coursewareService';
 import { ApiClientError } from './apiError';
 import { SupabaseGradeService } from './gradeService';
+
+type TeachingClassRow = { readonly id: string; readonly name: string };
+type TeachingStudentRow = {
+  readonly class_id: string;
+  readonly display_name: string;
+  readonly id: string;
+};
 
 export class SupabaseTeachingDemoAdapter implements TeachingDemoAdapter {
   private readonly assignments: SupabaseAssignmentService;
@@ -47,20 +55,69 @@ export class SupabaseTeachingDemoAdapter implements TeachingDemoAdapter {
     await this.grades.saveGradeDrafts(assessment.id, [input]);
   }
 
-  async load(
-    role: Parameters<TeachingDemoAdapter['load']>[0],
-  ): Promise<TeachingDemoSnapshot> {
+  async load(roleScope: AuthRoleScope): Promise<TeachingDemoSnapshot> {
+    const role = roleScope.role;
     if (!['teacher', 'class_terminal', 'family'].includes(role)) {
       return { assignments: [], classes: [], courseware: [], grades: [], students: [] };
     }
 
-    const [classResult, studentResult] = await Promise.all([
-      this.client.from('classes').select('id, name').order('name'),
-      this.client
-        .from('students')
-        .select('id, class_id, display_name')
-        .order('display_name'),
-    ]);
+    await this.assertActiveScope(roleScope);
+
+    let classResult: { data: TeachingClassRow[] | null; error: unknown };
+    let studentResult: { data: TeachingStudentRow[] | null; error: unknown };
+    if (role === 'family') {
+      if (roleScope.type !== 'household') {
+        throw new ApiClientError('FORBIDDEN');
+      }
+      const householdResult = await this.client
+        .from('household_students')
+        .select('student_id')
+        .eq('household_id', roleScope.id);
+      if (householdResult.error !== null) {
+        throw new ApiClientError('FORBIDDEN');
+      }
+      const studentIds = (householdResult.data ?? []).map((row) => row.student_id as string);
+      studentResult =
+        studentIds.length === 0
+          ? { data: [], error: null }
+          : await this.client
+              .from('students')
+              .select('id, class_id, display_name')
+              .in('id', studentIds)
+              .order('display_name');
+      const classIds = [
+        ...new Set((studentResult.data ?? []).map((row) => row.class_id)),
+      ];
+      classResult =
+        classIds.length === 0
+          ? { data: [], error: null }
+          : await this.client
+              .from('classes')
+              .select('id, name')
+              .in('id', classIds)
+              .order('name');
+    } else {
+      if (
+        (role === 'class_terminal' && roleScope.type !== 'class') ||
+        (role === 'teacher' && roleScope.type !== 'class' && roleScope.type !== 'school')
+      ) {
+        throw new ApiClientError('FORBIDDEN');
+      }
+      const classQuery = this.client.from('classes').select('id, name');
+      classResult = await (roleScope.type === 'class'
+        ? classQuery.eq('id', roleScope.id)
+        : classQuery.eq('school_id', roleScope.id)
+      ).order('name');
+      const classIds = (classResult.data ?? []).map((row) => row.id);
+      studentResult =
+        role === 'class_terminal' || classIds.length === 0
+          ? { data: [], error: null }
+          : await this.client
+              .from('students')
+              .select('id, class_id, display_name')
+              .in('class_id', classIds)
+              .order('display_name');
+    }
     if (classResult.error !== null || studentResult.error !== null) {
       throw new ApiClientError('FORBIDDEN');
     }
@@ -78,14 +135,17 @@ export class SupabaseTeachingDemoAdapter implements TeachingDemoAdapter {
     const assignmentLists = await Promise.all(
       classes.map((item) => this.assignments.listForClass(item.id)),
     );
-    const coursewareLists = await Promise.all(
-      classes.map(async (item): Promise<readonly TeachingCourseware[]> =>
-        (await this.courseware.listForClass(item.id)).map((courseware) => ({
-          ...courseware,
-          classId: item.id,
-        })),
-      ),
-    );
+    const coursewareLists =
+      role === 'family'
+        ? []
+        : await Promise.all(
+            classes.map(async (item): Promise<readonly TeachingCourseware[]> =>
+              (await this.courseware.listForClass(item.id)).map((courseware) => ({
+                ...courseware,
+                classId: item.id,
+              })),
+            ),
+          );
     const gradeLists =
       role === 'class_terminal'
         ? []
@@ -128,6 +188,20 @@ export class SupabaseTeachingDemoAdapter implements TeachingDemoAdapter {
       grades: gradeLists.flat(),
       students,
     };
+  }
+
+  private async assertActiveScope(roleScope: AuthRoleScope): Promise<void> {
+    const { data, error } = await this.client
+      .from('role_assignments')
+      .select('id')
+      .eq('id', roleScope.assignmentId)
+      .eq('role', roleScope.role)
+      .eq('scope_type', roleScope.type)
+      .eq('scope_id', roleScope.id)
+      .single();
+    if (error !== null || typeof data?.id !== 'string') {
+      throw new ApiClientError('FORBIDDEN', { cause: error });
+    }
   }
 
   async publishAssignment(assignmentId: string): Promise<void> {

@@ -1,4 +1,4 @@
-import type { RoleCode } from '@dolphincloud/auth';
+import type { AuthScopeType, RoleCode } from '@dolphincloud/auth';
 
 import type { AiActionDraftService } from './actionDraftService';
 import { AiServiceError } from './errors';
@@ -16,6 +16,8 @@ export type AiHttpRequest = {
     readonly permissionScope: string;
     readonly role: RoleCode;
     readonly roleAssignmentId: string;
+    readonly scopeId: string;
+    readonly scopeType: AuthScopeType;
     readonly userId: string;
   } | null;
 };

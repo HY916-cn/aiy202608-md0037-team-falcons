@@ -588,10 +588,17 @@ var SkillQueryService = class {
     if (!ALLOWED_ROLES[skill].includes(context.role)) {
       throw new AiServiceError("FORBIDDEN", 403);
     }
+    const roleScope = {
+      assignmentId: context.roleAssignmentId,
+      id: context.scopeId,
+      label: context.permissionScope,
+      role: context.role,
+      type: context.scopeType
+    };
     if (skill === "get_today_summary") {
-      return this.summaryDataSource.load(context.role);
+      return this.summaryDataSource.load(roleScope);
     }
-    const snapshot = await this.teachingAdapter.load(context.role);
+    const snapshot = await this.teachingAdapter.load(roleScope);
     if (skill === "list_courseware") {
       return snapshot.courseware;
     }
@@ -683,6 +690,22 @@ function readVerifiedSkillTokenId(token) {
     throw new AiServiceError("FORBIDDEN", 403, { cause });
   }
 }
+
+// packages/auth/src/roles.ts
+var ROLE_CODES = [
+  "teacher",
+  "class_terminal",
+  "family",
+  "bank_operator",
+  "council",
+  "admin"
+];
+function isRoleCode(value) {
+  return ROLE_CODES.some((role) => role === value);
+}
+
+// packages/auth/src/session.ts
+var AUTH_SCOPE_TYPES = ["school", "class", "household"];
 
 // packages/ai-service/src/supabaseRepositories.ts
 function mapSession(row) {
@@ -879,13 +902,15 @@ var SupabaseAiActionPreviewResolver = class {
 };
 async function resolveSupabaseSkillContext(client, userId, roleAssignmentId) {
   const { data, error: error51 } = await client.from("role_assignments").select("id, role, scope_type, scope_id").eq("id", roleAssignmentId).eq("user_id", userId).single();
-  if (error51 !== null || data === null || typeof data.role !== "string" || typeof data.scope_type !== "string" || typeof data.scope_id !== "string") {
+  if (error51 !== null || data === null || typeof data.role !== "string" || !isRoleCode(data.role) || typeof data.scope_type !== "string" || !AUTH_SCOPE_TYPES.includes(data.scope_type) || typeof data.scope_id !== "string") {
     throw new AiServiceError("FORBIDDEN", 403, { cause: error51 });
   }
   return {
     permissionScope: `${data.scope_type}:${data.scope_id}`,
     role: data.role,
     roleAssignmentId,
+    scopeId: data.scope_id,
+    scopeType: data.scope_type,
     userId
   };
 }
@@ -15936,14 +15961,37 @@ var SupabaseTeachingDemoAdapter = class {
     const assessment = await this.grades.createAssessmentDraft(input);
     await this.grades.saveGradeDrafts(assessment.id, [input]);
   }
-  async load(role) {
+  async load(roleScope) {
+    const role = roleScope.role;
     if (!["teacher", "class_terminal", "family"].includes(role)) {
       return { assignments: [], classes: [], courseware: [], grades: [], students: [] };
     }
-    const [classResult, studentResult] = await Promise.all([
-      this.client.from("classes").select("id, name").order("name"),
-      this.client.from("students").select("id, class_id, display_name").order("display_name")
-    ]);
+    await this.assertActiveScope(roleScope);
+    let classResult;
+    let studentResult;
+    if (role === "family") {
+      if (roleScope.type !== "household") {
+        throw new ApiClientError("FORBIDDEN");
+      }
+      const householdResult = await this.client.from("household_students").select("student_id").eq("household_id", roleScope.id);
+      if (householdResult.error !== null) {
+        throw new ApiClientError("FORBIDDEN");
+      }
+      const studentIds = (householdResult.data ?? []).map((row) => row.student_id);
+      studentResult = studentIds.length === 0 ? { data: [], error: null } : await this.client.from("students").select("id, class_id, display_name").in("id", studentIds).order("display_name");
+      const classIds = [
+        ...new Set((studentResult.data ?? []).map((row) => row.class_id))
+      ];
+      classResult = classIds.length === 0 ? { data: [], error: null } : await this.client.from("classes").select("id, name").in("id", classIds).order("name");
+    } else {
+      if (role === "class_terminal" && roleScope.type !== "class" || role === "teacher" && roleScope.type !== "class" && roleScope.type !== "school") {
+        throw new ApiClientError("FORBIDDEN");
+      }
+      const classQuery = this.client.from("classes").select("id, name");
+      classResult = await (roleScope.type === "class" ? classQuery.eq("id", roleScope.id) : classQuery.eq("school_id", roleScope.id)).order("name");
+      const classIds = (classResult.data ?? []).map((row) => row.id);
+      studentResult = role === "class_terminal" || classIds.length === 0 ? { data: [], error: null } : await this.client.from("students").select("id, class_id, display_name").in("class_id", classIds).order("display_name");
+    }
     if (classResult.error !== null || studentResult.error !== null) {
       throw new ApiClientError("FORBIDDEN");
     }
@@ -15960,7 +16008,7 @@ var SupabaseTeachingDemoAdapter = class {
     const assignmentLists = await Promise.all(
       classes.map((item) => this.assignments.listForClass(item.id))
     );
-    const coursewareLists = await Promise.all(
+    const coursewareLists = role === "family" ? [] : await Promise.all(
       classes.map(
         async (item) => (await this.courseware.listForClass(item.id)).map((courseware) => ({
           ...courseware,
@@ -15997,6 +16045,12 @@ var SupabaseTeachingDemoAdapter = class {
       grades: gradeLists.flat(),
       students
     };
+  }
+  async assertActiveScope(roleScope) {
+    const { data, error: error51 } = await this.client.from("role_assignments").select("id").eq("id", roleScope.assignmentId).eq("role", roleScope.role).eq("scope_type", roleScope.type).eq("scope_id", roleScope.id).single();
+    if (error51 !== null || typeof data?.id !== "string") {
+      throw new ApiClientError("FORBIDDEN", { cause: error51 });
+    }
   }
   async publishAssignment(assignmentId) {
     await this.assignments.publish(assignmentId);
@@ -16095,7 +16149,8 @@ var TeachingTodaySummaryDataSource = class {
     this.teachingAdapter = teachingAdapter;
     this.now = now;
   }
-  async load(role) {
+  async load(roleScope) {
+    const role = roleScope.role;
     const generatedAt = this.now().toISOString();
     if (role === "admin" || role === "bank_operator" || role === "council") {
       return {
@@ -16106,7 +16161,7 @@ var TeachingTodaySummaryDataSource = class {
         title: "\u4ECA\u65E5\u6458\u8981\uFF08\u6570\u636E\u5F85\u63A5\u5165\uFF09"
       };
     }
-    const snapshot = await this.teachingAdapter.load(role);
+    const snapshot = await this.teachingAdapter.load(roleScope);
     return {
       dataMode: "live",
       generatedAt,

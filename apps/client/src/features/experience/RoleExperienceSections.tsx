@@ -60,7 +60,7 @@ function ActionButton({
   );
 }
 
-function TodaySummarySection({ role }: { readonly role: RoleCode }) {
+function TodaySummarySection({ roleScope }: { readonly roleScope: AuthRoleScope }) {
   const { summaryDataSource } = useExperience();
   const [summary, setSummary] = useState<TodaySummary | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -69,8 +69,9 @@ function TodaySummarySection({ role }: { readonly role: RoleCode }) {
   const load = useCallback(async () => {
     setIsLoading(true);
     setError(null);
+    setSummary(null);
     const result = await resolveLoadableState(
-      () => summaryDataSource.load(role),
+      () => summaryDataSource.load(roleScope),
       (data) => data.items.length === 0,
     );
     if (result.status === 'error') {
@@ -79,7 +80,7 @@ function TodaySummarySection({ role }: { readonly role: RoleCode }) {
       setSummary(result.data);
     }
     setIsLoading(false);
-  }, [role, summaryDataSource]);
+  }, [roleScope, summaryDataSource]);
 
   useEffect(() => {
     void Promise.resolve().then(load);
@@ -155,9 +156,11 @@ function AiExperienceSection({ roleScope }: { readonly roleScope: AuthRoleScope 
 function TeachingDemoSection({
   activeNavigation,
   role,
+  roleScope,
 }: {
   readonly activeNavigation: RoleNavigationKey;
   readonly role: RoleCode;
+  readonly roleScope: AuthRoleScope;
 }) {
   const { teachingAdapter } = useExperience();
   const [snapshot, setSnapshot] = useState<TeachingDemoSnapshot>(EMPTY_SNAPSHOT);
@@ -190,8 +193,10 @@ function TeachingDemoSection({
   const load = useCallback(async () => {
     setIsLoading(true);
     setError(null);
+    setSnapshot(EMPTY_SNAPSHOT);
+    setSelectedClassId(null);
     const result = await resolveLoadableState(
-      () => teachingAdapter.load(role),
+      () => teachingAdapter.load(roleScope),
       (data) => data.classes.length === 0,
     );
     if (result.status === 'error') {
@@ -199,10 +204,10 @@ function TeachingDemoSection({
     } else {
       const next = result.data;
       setSnapshot(next);
-      setSelectedClassId((current) => current ?? next.classes[0]?.id ?? null);
+      setSelectedClassId(next.classes[0]?.id ?? null);
     }
     setIsLoading(false);
-  }, [role, teachingAdapter]);
+  }, [roleScope, teachingAdapter]);
 
   useEffect(() => {
     void Promise.resolve().then(load);
@@ -466,7 +471,7 @@ export function RoleExperienceSections({
           role={role}
           roleScope={roleScope}
         />
-        <TodaySummarySection role={role} />
+        <TodaySummarySection roleScope={roleScope} />
       </>
     );
   }
@@ -479,7 +484,13 @@ export function RoleExperienceSections({
     (role === 'teacher' || role === 'class_terminal' || role === 'family') &&
     ['courseware', 'assignment', 'class', 'growth'].includes(activeNavigation)
   ) {
-    return <TeachingDemoSection activeNavigation={activeNavigation} role={role} />;
+    return (
+      <TeachingDemoSection
+        activeNavigation={activeNavigation}
+        role={role}
+        roleScope={roleScope}
+      />
+    );
   }
 
   return (

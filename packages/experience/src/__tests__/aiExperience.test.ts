@@ -3,6 +3,14 @@ import { describe, expect, it } from 'vitest';
 import { MockAiExperienceAdapter } from '../aiExperience';
 import { MockTeachingDemoAdapter } from '../teachingDemo';
 
+const TEACHER_SCOPE = {
+  assignmentId: 'assignment-teacher',
+  id: 'school-1',
+  label: '演示学校',
+  role: 'teacher',
+  type: 'school',
+} as const;
+
 describe('MockAiExperienceAdapter', () => {
   it('覆盖 idle、listening、thinking、preview、success、error、offline 七种状态', async () => {
     const adapter = new MockAiExperienceAdapter();
@@ -45,7 +53,7 @@ describe('MockAiExperienceAdapter', () => {
     });
 
     expect(adapter.getSnapshot().state).toBe('offline');
-    await expect(teachingAdapter.load('teacher')).resolves.toMatchObject({
+    await expect(teachingAdapter.load(TEACHER_SCOPE)).resolves.toMatchObject({
       assignments: [{ title: '离线教学流程' }],
     });
   });
