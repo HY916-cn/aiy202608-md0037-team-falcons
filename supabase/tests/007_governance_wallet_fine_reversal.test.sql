@@ -228,7 +228,6 @@ select ok(
       '图书超期'
     ) as r
   ),
-  true,
   '记录第一张罚款单 id 供后续断言使用'
 );
 select is(
@@ -387,7 +386,6 @@ select ok(
       '合成物品遗失'
     ) as r
   ),
-  true,
   '记录第二张罚款单 id 供后续断言使用'
 );
 select is(
