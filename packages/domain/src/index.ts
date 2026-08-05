@@ -146,3 +146,4 @@ export * from './assignment';
 export * from './contentStatus';
 export * from './courseware';
 export * from './grade';
+export * from './gradeReportSheet';

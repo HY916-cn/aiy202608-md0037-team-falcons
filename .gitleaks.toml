@@ -1,14 +1,8 @@
 # Gitleaks configuration.
 #
-# We extend the upstream default ruleset and add the smallest possible history
-# allowlists for three known false-positive governance fixtures reported by the
-# `generic-api-key` rule in SARIF.
-#
-# Scope of this allowlist:
-#   * It applies ONLY when BOTH the exact historical commit and exact file path
-#     match the known false-positive governance fixtures.
-#   * It covers the two synthetic pgTAP files that repeatedly trip history scans.
-#   * All other commits, files, and strings are still scanned normally.
+# We extend the upstream default ruleset and append minimal allowlists:
+# 1. A global regex-based allowlist for test-fixture idempotency keys.
+# 2. A rule-specific allowlist for known historical false positives in governance pgTAP fixtures.
 
 title = "dolphin-cloud gitleaks configuration"
 
@@ -16,17 +10,49 @@ title = "dolphin-cloud gitleaks configuration"
 useDefault = true
 
 [allowlist]
-description = "Historical false positives in governance pgTAP fixtures"
-condition = "AND"
-commits = [
-  '''c2876ccec550431fa46c77a73eb1a7418231f20f''',
-  '''42515530a2236eb8c7c4b7366d9d205df1b6ee85''',
-  '''d59335ac967ee15d264725b35567a31733724ceb''',
-  '''7075acdb7269c4c7e4c0d6736d4c3a5aa817ad5b''',
-  '''3f6ade5e5a52df4f14d37aad7e81685536235c3c''',
-  '''2ef28612bd7c90dd9806fa5ab2de1ab3ff6d31fc''',
+description = "Legacy test-fixture idempotency keys present in historical commits only"
+regexes = [
+  '''\bck-2026-idem-a-XYZ\b''',
+  '''\bck-2026-rev-1st-XYZ\b''',
+  '''\bck-2026-rev-2nd-XYZ\b''',
+  '''\bck-2026-rev-fail-XYZ\b''',
+  '''\bck-2026-rev-mism-XYZ\b''',
+  '''\bck-2026-rev-nested-XYZ\b''',
+  '''\bck-2026-rev-ok-XYZ\b''',
+  '''\bck-2026-rev-op-XYZ\b''',
+  '''\bck-2026-rev-orig-XYZ\b''',
 ]
-paths = [
-  '''^supabase/tests/005_governance_operations_idempotency\.test\.sql$''',
-  '''^supabase/tests/007_governance_wallet_fine_reversal\.test\.sql$''',
+
+[[rules]]
+id = "generic-api-key"
+description = "Detected a Generic API Key, potentially exposing access to various services and sensitive operations."
+regex = '''(?i)[\w.-]{0,50}?(?:access|auth|(?-i:[Aa]pi|API)|credential|creds|key|passw(?:or)?d|secret|token)(?:[ \t\w.-]{0,20})[\s'"]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60'"\s=]{0,5}([\w.=-]{10,150}|[a-z0-9][a-z0-9+/]{11,}={0,3})(?:[\x60'"\s;]|\\[nr]|$)'''
+entropy = 3.5
+keywords = [
+    "access",
+    "api",
+    "auth",
+    "key",
+    "credential",
+    "creds",
+    "passwd",
+    "password",
+    "secret",
+    "token",
 ]
+
+  [[rules.allowlists]]
+  description = "Historical false positives in governance pgTAP fixtures"
+  condition = "AND"
+  commits = [
+    '''c2876ccec550431fa46c77a73eb1a7418231f20f''',
+    '''42515530a2236eb8c7c4b7366d9d205df1b6ee85''',
+    '''d59335ac967ee15d264725b35567a31733724ceb''',
+    '''7075acdb7269c4c7e4c0d6736d4c3a5aa817ad5b''',
+    '''3f6ade5e5a52df4f14d37aad7e81685536235c3c''',
+    '''2ef28612bd7c90dd9806fa5ab2de1ab3ff6d31fc''',
+  ]
+  paths = [
+    '''^supabase/tests/005_governance_operations_idempotency\.test\.sql$''',
+    '''^supabase/tests/007_governance_wallet_fine_reversal\.test\.sql$''',
+  ]

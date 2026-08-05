@@ -1,3 +1,7 @@
+import type { AuthRoleScope } from '@dolphincloud/auth';
+
+import type { WriteActionPreview } from './writeAction';
+
 export const AI_EXPERIENCE_STATES = [
   'idle',
   'listening',
@@ -11,16 +15,25 @@ export const AI_EXPERIENCE_STATES = [
 export type AiExperienceState = (typeof AI_EXPERIENCE_STATES)[number];
 
 export type AiExperienceSnapshot = {
+  readonly actionPreview: AiExperienceActionPreview | null;
   readonly explanation: string;
   readonly result: string | null;
   readonly state: AiExperienceState;
 };
 
+export type AiExperienceActionPreview = WriteActionPreview & {
+  readonly draftId: string;
+};
+
 export type AiExperienceListener = (snapshot: AiExperienceSnapshot) => void;
 
 export interface AiExperienceAdapter {
+  cancelAction(): Promise<void>;
+  confirmAction(dangerousConfirmed: boolean): Promise<void>;
   getSnapshot(): AiExperienceSnapshot;
   reset(): void;
+  returnToModify(): Promise<void>;
+  selectActiveRole(roleScope: AuthRoleScope): Promise<void>;
   startListening(): void;
   submit(prompt: string): Promise<void>;
   subscribe(listener: AiExperienceListener): () => void;
@@ -41,18 +54,19 @@ const STATE_EXPLANATIONS = {
   offline: 'AI 当前离线，课件、作业和成绩功能不受影响。',
 } as const satisfies Record<AiExperienceState, string>;
 
-function createSnapshot(
+export function createAiExperienceSnapshot(
   state: AiExperienceState,
   result: string | null = null,
+  actionPreview: AiExperienceActionPreview | null = null,
 ): AiExperienceSnapshot {
-  return { explanation: STATE_EXPLANATIONS[state], result, state };
+  return { actionPreview, explanation: STATE_EXPLANATIONS[state], result, state };
 }
 
 export class MockAiExperienceAdapter implements AiExperienceAdapter {
   private readonly listeners = new Set<AiExperienceListener>();
   private readonly result: string;
   private isOffline: boolean;
-  private snapshot = createSnapshot('idle');
+  private snapshot = createAiExperienceSnapshot('idle');
 
   constructor({
     isOffline = false,
@@ -61,7 +75,7 @@ export class MockAiExperienceAdapter implements AiExperienceAdapter {
     this.isOffline = isOffline;
     this.result = result;
     if (isOffline) {
-      this.snapshot = createSnapshot('offline');
+      this.snapshot = createAiExperienceSnapshot('offline');
     }
   }
 
@@ -69,43 +83,63 @@ export class MockAiExperienceAdapter implements AiExperienceAdapter {
     return this.snapshot;
   }
 
+  async cancelAction(): Promise<void> {
+    this.reset();
+  }
+
+  async confirmAction(_dangerousConfirmed: boolean): Promise<void> {
+    this.succeed();
+  }
+
+  async returnToModify(): Promise<void> {
+    this.setSnapshot(createAiExperienceSnapshot('listening'));
+  }
+
+  async selectActiveRole(_roleScope: AuthRoleScope): Promise<void> {
+    await Promise.resolve();
+  }
+
   reset(): void {
-    this.setSnapshot(createSnapshot(this.isOffline ? 'offline' : 'idle'));
+    this.setSnapshot(
+      createAiExperienceSnapshot(this.isOffline ? 'offline' : 'idle'),
+    );
   }
 
   setOffline(isOffline: boolean): void {
     this.isOffline = isOffline;
-    this.setSnapshot(createSnapshot(isOffline ? 'offline' : 'idle'));
+    this.setSnapshot(createAiExperienceSnapshot(isOffline ? 'offline' : 'idle'));
   }
 
   startListening(): void {
     if (!this.isOffline) {
-      this.setSnapshot(createSnapshot('listening'));
+      this.setSnapshot(createAiExperienceSnapshot('listening'));
     }
   }
 
   async submit(prompt: string): Promise<void> {
     if (this.isOffline) {
-      this.setSnapshot(createSnapshot('offline'));
+      this.setSnapshot(createAiExperienceSnapshot('offline'));
       return;
     }
 
     if (prompt.trim().length === 0) {
-      this.setSnapshot(createSnapshot('error'));
+      this.setSnapshot(createAiExperienceSnapshot('error'));
       return;
     }
 
-    this.setSnapshot(createSnapshot('thinking'));
+    this.setSnapshot(createAiExperienceSnapshot('thinking'));
     await Promise.resolve();
-    this.setSnapshot(createSnapshot('preview', this.result));
+    this.setSnapshot(createAiExperienceSnapshot('preview', this.result));
   }
 
   succeed(): void {
-    this.setSnapshot(createSnapshot('success', this.snapshot.result));
+    this.setSnapshot(
+      createAiExperienceSnapshot('success', this.snapshot.result),
+    );
   }
 
   fail(): void {
-    this.setSnapshot(createSnapshot('error'));
+    this.setSnapshot(createAiExperienceSnapshot('error'));
   }
 
   subscribe(listener: AiExperienceListener): () => void {

@@ -281,3 +281,4 @@ export * from './assignmentSchemas';
 export * from './coursewareSchemas';
 export * from './databaseIdSchema';
 export * from './gradeSchemas';
+export * from './gradeReportSheetSchemas';

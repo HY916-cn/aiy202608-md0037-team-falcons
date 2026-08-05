@@ -1,5 +1,5 @@
 import type { TodaySummary } from '@dolphincloud/experience';
-import { AlertCircle, RefreshCw } from 'lucide-react-native';
+import { AlertCircle, ArrowRight, CalendarDays, RefreshCw } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { theme } from './theme';
@@ -19,7 +19,19 @@ export function TodaySummaryCard({
 }: TodaySummaryCardProps) {
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>{summary?.title ?? '今日摘要'}</Text>
+      <View style={styles.heading}>
+        <View style={styles.headingIcon}>
+          <CalendarDays color={theme.color.brand.primary} size={20} />
+        </View>
+        <View style={styles.headingCopy}>
+          <Text style={styles.title}>{summary?.title ?? '今日摘要'}</Text>
+          <Text style={styles.caption}>只汇总已发生的事实与待处理事项</Text>
+        </View>
+        <Pressable accessibilityRole="button" style={styles.allButton}>
+          <Text style={styles.allButtonLabel}>查看全部</Text>
+          <ArrowRight color={theme.color.brand.primary} size={16} />
+        </Pressable>
+      </View>
       {isLoading ? <Text style={styles.helper}>正在加载今日摘要……</Text> : null}
       {!isLoading && errorMessage !== null ? (
         <View style={styles.feedback}>
@@ -63,15 +75,23 @@ const styles = StyleSheet.create({
     gap: theme.space.md,
     padding: theme.space.lg,
   },
+  allButton: { alignItems: 'center', flexDirection: 'row', gap: theme.space.xs, minHeight: 36 },
+  allButtonLabel: { color: theme.color.brand.primary, fontSize: theme.text.size.xs, fontWeight: '700' },
+  caption: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, marginTop: 3 },
   feedback: { gap: theme.space.sm },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm },
+  grid: { flexDirection: 'row', flexWrap: 'wrap' },
+  heading: { alignItems: 'center', flexDirection: 'row', gap: theme.space.base },
+  headingCopy: { flex: 1 },
+  headingIcon: { alignItems: 'center', backgroundColor: theme.color.surface.primaryTint, borderRadius: theme.radius.control, height: 40, justifyContent: 'center', width: 40 },
   helper: { color: theme.color.text.secondary, fontSize: theme.text.size.sm },
   item: {
-    backgroundColor: theme.color.surface.muted,
-    borderRadius: theme.radius.control,
+    borderLeftColor: theme.color.border.default,
+    borderLeftWidth: 1,
+    flexBasis: 150,
     flexGrow: 1,
     minWidth: 132,
-    padding: theme.space.md,
+    paddingHorizontal: theme.space.md,
+    paddingVertical: theme.space.sm,
   },
   label: { color: theme.color.text.secondary, fontSize: theme.text.size.sm },
   retryButton: {
@@ -81,6 +101,6 @@ const styles = StyleSheet.create({
     minHeight: 44,
   },
   retryLabel: { color: theme.color.brand.primary, fontWeight: '600' },
-  title: { color: theme.color.text.primary, fontSize: theme.text.size.lg, fontWeight: '700' },
+  title: { color: theme.color.text.primary, fontSize: theme.text.size.lg, fontWeight: '800' },
   value: { color: theme.color.brand.primary, fontSize: theme.text.size.xl, fontWeight: '700' },
 });

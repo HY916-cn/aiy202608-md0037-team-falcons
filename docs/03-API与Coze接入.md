@@ -111,6 +111,19 @@
 | `PATCH /grades/{id}` | 修正成绩并写修订记录 |
 | `GET /students/{id}/grades` | 查询授权学生成绩 |
 
+新增成绩单契约使用以下逻辑接口；旧 `assessments` 单成绩字段接口在迁移期间保持兼容：
+
+| 方法与路径 | 说明 |
+| --- | --- |
+| `PUT /grade-report-sheets/{id?}` | 原子保存填写表格或 CSV/XLSX 规范化 DTO 草稿 |
+| `GET /classes/{id}/grade-report-sheets` | 当前授权教师列出本人在当前班级创建的草稿和已发布成绩单 |
+| `GET /grade-report-sheets/{id}` | 当前授权教师重新打开本人创建的指定成绩单 |
+| `POST /grade-report-sheets/{id}/publish` | 一次发布整张成绩单 |
+| `PATCH /grade-report-values/{id}` | 修订已发布的单个值并写不可变历史 |
+| `GET /students/{id}/grade-report-sheets` | 家庭端只返回绑定学生本人的已发布成绩单和值 |
+
+数据库实现对应 `save_grade_report_sheet_draft`、`list_grade_report_sheets_for_class`、`get_grade_report_sheet`、`publish_grade_report_sheet`、`revise_grade_report_value` 和 `list_published_grade_report_sheets_for_student` RPC。RPC 不接收 `actor_id` 或角色，身份只来自当前 Supabase JWT；教师读取、编辑、发布或修订时还必须保有当前班级的有效教师授权，历史 `teacher_id` 不能替代当前授权。上传解析层必须先把 CSV 或 XLSX 二维单元格规范化为同一个整表 DTO；分数与可选满分统一限制为 `0..99999.99` 且最多两位小数。任一 JSON 类型、列名、学生、位置、数值、精度或满分校验失败时，RPC 稳定返回 `VALIDATION_ERROR`，且不写入任何数据。
+
 ### 3.6 海豚币与罚款
 
 | 方法与路径 | 说明 |
@@ -282,6 +295,7 @@ type AiResponse =
 EXPO_PUBLIC_SUPABASE_URL
 EXPO_PUBLIC_SUPABASE_ANON_KEY
 EXPO_PUBLIC_APP_ENV
+EXPO_PUBLIC_AI_GATEWAY_FUNCTION
 ```
 
 ### 仅服务端保存
@@ -291,11 +305,16 @@ SUPABASE_SERVICE_ROLE_KEY
 COZE_API_BASE_URL
 COZE_BOT_ID
 COZE_API_TOKEN
+SUPABASE_JWT_SECRET
+AI_SKILL_ENDPOINT
+AI_GATEWAY_TIMEOUT_MS
 COZE_SKILL_SHARED_SECRET
 AI_CONTEXT_SIGNING_SECRET
 ```
 
 服务端密钥通过部署平台 Secret 管理；禁止写入 `.env.example` 的真实值。PR 日志中只检查变量是否存在，不输出内容。
+
+当前 `ai-gateway` Edge Function 使用 `SUPABASE_URL`、`SUPABASE_ANON_KEY` 和调用者 JWT 访问数据，刻意不使用 service role 绕过 RLS。`SUPABASE_JWT_SECRET` 只在服务端签发 60 秒、单用途 Skill 上下文 JWT；`AI_SKILL_ENDPOINT` 指向受控 `/skills/query`。部署前执行 `pnpm build:edge`，生成函数目录内不依赖 workspace 源码的单文件 bundle。
 
 ## 11. 降级与超时
 

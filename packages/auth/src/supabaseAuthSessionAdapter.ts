@@ -13,6 +13,7 @@ import {
 const SCOPE_TYPES = ['school', 'class', 'household'] as const;
 
 type RoleAssignmentRow = {
+  readonly id: string;
   readonly role: string;
   readonly scope_id: string;
   readonly scope_type: string;
@@ -43,13 +44,14 @@ function uniqueRoles(scopes: readonly AuthRoleScope[]): readonly RoleCode[] {
 export class SupabaseAuthSessionAdapter implements AuthSessionAdapter {
   private readonly client: SupabaseClient;
   private currentRole: RoleCode | null = null;
+  private currentRoleAssignmentId: string | null = null;
 
   constructor({ client }: SupabaseAuthSessionAdapterOptions) {
     this.client = client;
   }
 
   async getSession(): Promise<AuthSession> {
-    return this.loadSession(this.currentRole);
+    return this.loadSession(this.currentRole, this.currentRoleAssignmentId);
   }
 
   async login(input: AuthLoginInput): Promise<AuthSession> {
@@ -69,7 +71,8 @@ export class SupabaseAuthSessionAdapter implements AuthSessionAdapter {
     }
 
     this.currentRole = null;
-    return this.loadSession(null);
+    this.currentRoleAssignmentId = null;
+    return this.loadSession(null, null);
   }
 
   async logout(): Promise<AuthSession> {
@@ -80,6 +83,7 @@ export class SupabaseAuthSessionAdapter implements AuthSessionAdapter {
     }
 
     this.currentRole = null;
+    this.currentRoleAssignmentId = null;
     return EMPTY_AUTH_SESSION;
   }
 
@@ -87,6 +91,7 @@ export class SupabaseAuthSessionAdapter implements AuthSessionAdapter {
     const { data } = this.client.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT') {
         this.currentRole = null;
+        this.currentRoleAssignmentId = null;
         listener(EMPTY_AUTH_SESSION);
         return;
       }
@@ -101,10 +106,13 @@ export class SupabaseAuthSessionAdapter implements AuthSessionAdapter {
 
       // Supabase recommends deferring other auth calls until its callback lock is released.
       setTimeout(() => {
-        void this.loadSession(this.currentRole).then(listener).catch(() => {
-          this.currentRole = null;
-          listener(EMPTY_AUTH_SESSION);
-        });
+        void this.loadSession(this.currentRole, this.currentRoleAssignmentId)
+          .then(listener)
+          .catch(() => {
+            this.currentRole = null;
+            this.currentRoleAssignmentId = null;
+            listener(EMPTY_AUTH_SESSION);
+          });
       }, 0);
     });
 
@@ -112,7 +120,7 @@ export class SupabaseAuthSessionAdapter implements AuthSessionAdapter {
   }
 
   async switchRole(role: RoleCode): Promise<AuthSession> {
-    const session = await this.loadSession(role);
+    const session = await this.loadSession(role, null);
 
     if (!session.availableRoles.includes(role)) {
       throw new Error('FORBIDDEN');
@@ -122,7 +130,18 @@ export class SupabaseAuthSessionAdapter implements AuthSessionAdapter {
     return session;
   }
 
-  private async loadSession(preferredRole: RoleCode | null): Promise<AuthSession> {
+  async switchRoleScope(roleAssignmentId: string): Promise<AuthSession> {
+    const session = await this.loadSession(null, roleAssignmentId);
+    if (session.roleScope?.assignmentId !== roleAssignmentId) {
+      throw new Error('FORBIDDEN');
+    }
+    return session;
+  }
+
+  private async loadSession(
+    preferredRole: RoleCode | null,
+    preferredRoleAssignmentId: string | null,
+  ): Promise<AuthSession> {
     const {
       data: { user },
       error: userError,
@@ -130,6 +149,7 @@ export class SupabaseAuthSessionAdapter implements AuthSessionAdapter {
 
     if (userError !== null || user === null) {
       this.currentRole = null;
+      this.currentRoleAssignmentId = null;
       return EMPTY_AUTH_SESSION;
     }
 
@@ -141,7 +161,7 @@ export class SupabaseAuthSessionAdapter implements AuthSessionAdapter {
         .single(),
       this.client
         .from('role_assignments')
-        .select('role, scope_type, scope_id')
+        .select('id, role, scope_type, scope_id')
         .eq('user_id', user.id)
         .order('created_at', { ascending: true }),
     ]);
@@ -156,14 +176,27 @@ export class SupabaseAuthSessionAdapter implements AuthSessionAdapter {
       assignments.map((assignment) => this.mapRoleScope(assignment)),
     );
     const availableRoles = uniqueRoles(availableRoleScopes);
+    const preferredScope =
+      preferredRoleAssignmentId === null
+        ? null
+        : (availableRoleScopes.find(
+            (scope) => scope.assignmentId === preferredRoleAssignmentId,
+          ) ?? null);
+    if (preferredRoleAssignmentId !== null && preferredScope === null) {
+      throw new Error('FORBIDDEN');
+    }
     const currentRole =
-      preferredRole !== null && availableRoles.includes(preferredRole)
+      preferredScope?.role ??
+      (preferredRole !== null && availableRoles.includes(preferredRole)
         ? preferredRole
-        : (availableRoles[0] ?? null);
+        : (availableRoles[0] ?? null));
     const roleScope =
-      availableRoleScopes.find((scope) => scope.role === currentRole) ?? null;
+      preferredScope ??
+      availableRoleScopes.find((scope) => scope.role === currentRole) ??
+      null;
 
     this.currentRole = currentRole;
+    this.currentRoleAssignmentId = roleScope?.assignmentId ?? null;
 
     return {
       availableRoles,
@@ -201,6 +234,7 @@ export class SupabaseAuthSessionAdapter implements AuthSessionAdapter {
     }
 
     return {
+      assignmentId: assignment.id,
       id: assignment.scope_id,
       label: data.name,
       role: assignment.role,
