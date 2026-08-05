@@ -107,7 +107,7 @@ function Selector({
   readonly value: string;
 }) {
   return (
-    <View style={styles.fieldGroup}>
+    <View style={styles.selectorGroup}>
       <Text style={styles.fieldLabel}>{label}</Text>
       <View style={styles.choiceRow}>
         {options.map((option) => (
@@ -641,16 +641,20 @@ function ClassScorePanel({ requestWrite, roleScope, snapshot }: { readonly reque
 
 function WalletPanel({ requestWrite, roleScope, snapshot }: { readonly requestWrite: RequestWrite; readonly roleScope: AuthRoleScope; readonly snapshot: GovernanceSnapshot }) {
   const service = useSupabaseServices().governanceService;
+  const { width } = useWindowDimensions();
+  const compact = width < 820;
   const [studentId, setStudentId] = useState(snapshot.students[0]?.id ?? '');
   const [amount, setAmount] = useState('10');
   const [reason, setReason] = useState('校园银行账户调整');
   const [ruleName, setRuleName] = useState('物品损坏');
   const [ruleSlug, setRuleSlug] = useState('item_damage');
+  const [selectedRuleId, setSelectedRuleId] = useState(snapshot.fineRules.find((item) => item.isActive)?.id ?? '');
   const [ruleAmount, setRuleAmount] = useState('10');
   const [orderId, setOrderId] = useState(snapshot.fineOrders[0]?.id ?? '');
   const [orderNote, setOrderNote] = useState('经核对后执行指定记录处理');
   const selectedStudent = snapshot.students.find((item) => item.id === studentId);
   const selectedOrder = snapshot.fineOrders.find((item) => item.id === orderId);
+  const selectedRule = snapshot.fineRules.find((item) => item.id === selectedRuleId);
 
   if (roleScope.role === 'family' || roleScope.role === 'teacher') {
     const account = snapshot.accounts[0];
@@ -664,18 +668,42 @@ function WalletPanel({ requestWrite, roleScope, snapshot }: { readonly requestWr
       </Panel>
       {roleScope.role === 'teacher' ? (
         <Panel description="教师可选择班级内学生并关联罚款规则创建罚款单，结算或撤销由校园银行端执行。" icon={ReceiptText} title="罚款单">
-          <Selector label="选择学生" onChange={setStudentId} options={snapshot.students.map((item) => ({ id: item.id, label: item.name }))} value={studentId} />
-          <Selector label="适用规则" onChange={(id) => {
-            setRuleSlug(id);
-            const rule = snapshot.fineRules.find((item) => item.id === id);
-            if (rule !== undefined) {
-              setAmount(String(rule.defaultAmount));
-              setReason(rule.description);
-            }
-          }} options={snapshot.fineRules.filter((item) => item.isActive).map((item) => ({ id: item.id, label: `${item.displayName}（默认 ${item.defaultAmount}）` }))} value={ruleSlug} />
-          <View style={styles.formRow}><Field label="本次罚款金额" onChange={setAmount} value={amount} /><Field label="补充说明" onChange={setReason} value={reason} /></View>
-          <Button disabled={studentId === '' || ruleSlug === '' || !validPositiveInteger(amount)} label="预览并开具罚单" onPress={() => requestWrite({ execute: () => service.createFine(roleScope, { amount: Number(amount), reason, ruleId: ruleSlug, studentId }), impact: ['开具待处理罚款单，不直接扣除余额'], isDangerous: true, operationType: '创建罚款单', parameters: [`金额：${amount}`, `说明：${reason}`], targets: [selectedStudent?.name ?? '所选学生'] }, '罚款单已开具')} />
-          {snapshot.fineOrders.length === 0 ? <Text style={styles.empty}>当前范围暂无罚款单记录。</Text> : snapshot.fineOrders.map((order) => <View key={order.id} style={styles.record}><Text style={styles.recordTitle}>{studentName(snapshot, order.studentId)} · {order.amount} 币 · {order.reason}</Text><Text style={styles.status}>{fineStatus(order.status)}</Text></View>)}
+          <View style={[styles.walletWorkbench, compact && styles.walletWorkbenchCompact]}>
+            <View style={styles.walletForm}>
+              <View style={styles.scoreStep}>
+                <View style={styles.stepHeading}><Text style={styles.stepNumber}>1</Text><View style={styles.headingCopy}><Text style={styles.subTitle}>选择学生</Text><Text style={styles.stepDescription}>一次只处理一名学生，避免误选。</Text></View></View>
+                <Selector label="班级学生" onChange={setStudentId} options={snapshot.students.map((item) => ({ id: item.id, label: item.name }))} value={studentId} />
+              </View>
+              <View style={styles.scoreStep}>
+                <View style={styles.stepHeading}><Text style={styles.stepNumber}>2</Text><View style={styles.headingCopy}><Text style={styles.subTitle}>选择罚款规则</Text><Text style={styles.stepDescription}>自动带入默认金额，本次仍可调整。</Text></View></View>
+                <Selector label="可用规则" onChange={(id) => {
+                  setSelectedRuleId(id);
+                  const rule = snapshot.fineRules.find((item) => item.id === id);
+                  if (rule !== undefined) {
+                    setAmount(String(rule.defaultAmount));
+                    setReason(rule.description);
+                  }
+                }} options={snapshot.fineRules.filter((item) => item.isActive).map((item) => ({ id: item.id, label: `${item.displayName} · 默认 ${item.defaultAmount}` }))} value={selectedRuleId} />
+              </View>
+              <View style={styles.scoreStep}>
+                <View style={styles.stepHeading}><Text style={styles.stepNumber}>3</Text><View style={styles.headingCopy}><Text style={styles.subTitle}>填写本次单据</Text><Text style={styles.stepDescription}>确认金额和具体原因后再预览。</Text></View></View>
+                <View style={styles.formRow}><Field label="本次金额" onChange={setAmount} value={amount} /><Field label="具体原因" onChange={setReason} value={reason} /></View>
+              </View>
+            </View>
+            <View style={[styles.walletSummary, compact && styles.walletSummaryCompact]}>
+              <Text style={styles.summaryEyebrow}>罚款单预览</Text>
+              <Text style={styles.summaryTitle}>{selectedStudent?.name ?? '尚未选择学生'}</Text>
+              <View style={styles.summaryRow}><Text style={styles.summaryLabel}>适用规则</Text><Text style={styles.summaryValue}>{selectedRule?.displayName ?? '尚未选择'}</Text></View>
+              <View style={styles.summaryRow}><Text style={styles.summaryLabel}>本次金额</Text><Text style={styles.summaryDelta}>{validPositiveInteger(amount) ? amount : '—'}</Text></View>
+              <View style={styles.summaryReason}><Text style={styles.summaryLabel}>原因</Text><Text style={styles.summaryReasonText}>{reason.trim() || '尚未填写'}</Text></View>
+              <Text style={styles.summaryHint}>创建后状态为“待处理”，不会立即扣除海豚币。</Text>
+              <Button disabled={studentId === '' || selectedRuleId === '' || !validPositiveInteger(amount) || reason.trim().length < 2} label="预览并开具罚单" onPress={() => requestWrite({ execute: () => service.createFine(roleScope, { amount: Number(amount), reason: reason.trim(), ruleId: selectedRuleId, studentId }), impact: ['开具待处理罚款单，不直接扣除余额'], isDangerous: true, operationType: '创建罚款单', parameters: [`规则：${selectedRule?.displayName ?? '-'}`, `金额：${amount}`, `说明：${reason.trim()}`], targets: [selectedStudent?.name ?? '所选学生'] }, '罚款单已开具')} />
+            </View>
+          </View>
+          <View style={styles.subsection}>
+            <Text style={styles.subTitle}>最近罚款单</Text>
+            {snapshot.fineOrders.length === 0 ? <Text style={styles.empty}>当前范围暂无罚款单记录。</Text> : snapshot.fineOrders.slice(0, 8).map((order) => <View key={order.id} style={styles.record}><View style={styles.recordHeading}><Text style={styles.recordTitle}>{studentName(snapshot, order.studentId)} · {order.amount} 币</Text><Text style={styles.status}>{fineStatus(order.status)}</Text></View><Text style={styles.recordMeta}>{order.reason}</Text></View>)}
+          </View>
         </Panel>
       ) : (
         <Panel description="家庭端只读取绑定学生的罚款状态，不能结算、取消或撤销。" icon={ReceiptText} title="罚款状态">
@@ -907,6 +935,7 @@ const styles = StyleSheet.create({
   scoreView: { gap: theme.space.base, minWidth: 0 },
   scoreWorkbench: { alignItems: 'flex-start', flexDirection: 'row', gap: theme.space.lg, minWidth: 0 },
   scoreWorkbenchCompact: { flexDirection: 'column' },
+  selectorGroup: { gap: theme.space.sm, minWidth: 0, paddingBottom: theme.space.xs, width: '100%' },
   sectionHeadingCompact: { alignItems: 'flex-start', flexDirection: 'row', gap: theme.space.sm },
   scopeBanner: { alignItems: 'center', backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.base, padding: theme.space.base },
   scopeMeta: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, marginTop: 3 },
@@ -939,6 +968,11 @@ const styles = StyleSheet.create({
   summaryTitle: { color: theme.color.text.primary, fontSize: theme.text.size.xl, fontWeight: '900' },
   summaryValue: { color: theme.color.text.primary, flexShrink: 1, fontSize: theme.text.size.sm, fontWeight: '800', textAlign: 'right' },
   validationText: { color: theme.color.brand.secondary, fontSize: theme.text.size.xs, fontWeight: '700' },
+  walletForm: { flex: 1, gap: theme.space.base, minWidth: 0 },
+  walletSummary: { alignSelf: 'flex-start', backgroundColor: theme.color.surface.muted, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, gap: theme.space.base, padding: theme.space.lg, width: 310 },
+  walletSummaryCompact: { alignSelf: 'stretch', width: '100%' },
+  walletWorkbench: { alignItems: 'flex-start', flexDirection: 'row', gap: theme.space.lg, minWidth: 0 },
+  walletWorkbenchCompact: { flexDirection: 'column' },
   workspace: { gap: theme.space.base, minWidth: 0 },
   workspaceCompact: { width: '100%' },
 });

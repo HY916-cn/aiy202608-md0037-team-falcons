@@ -30,6 +30,77 @@ function isNonEmptyStringArray(value: unknown): value is readonly string[] {
   );
 }
 
+const DATA_CARD_TITLES: Readonly<Record<string, string>> = {
+  get_grades: '成绩单',
+  get_today_summary: '今日摘要',
+  list_assignments: '作业',
+  list_courseware: '课件',
+};
+
+const FIELD_LABELS: Readonly<Record<string, string>> = {
+  assessmentTitle: '测评',
+  comment: '评语',
+  content: '内容',
+  dueAt: '截止时间',
+  fileName: '文件',
+  generatedAt: '更新时间',
+  label: '项目',
+  score: '成绩',
+  status: '状态',
+  studentName: '学生',
+  subject: '科目',
+  title: '名称',
+  value: '结果',
+};
+
+function readableValue(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '暂无';
+  if (typeof value === 'boolean') return value ? '是' : '否';
+  if (typeof value === 'number' || typeof value === 'string') return String(value);
+  if (Array.isArray(value)) return value.map(readableValue).join('、');
+  return '已读取';
+}
+
+function summarizeRecord(value: Readonly<Record<string, unknown>>): string {
+  const preferredKeys = [
+    'title', 'assessmentTitle', 'studentName', 'subject', 'label', 'value',
+    'score', 'status', 'dueAt', 'fileName', 'comment', 'content',
+  ];
+  const entries = preferredKeys
+    .filter((key) => value[key] !== undefined)
+    .slice(0, 4)
+    .map((key) => `${FIELD_LABELS[key] ?? key}：${readableValue(value[key])}`);
+  return entries.length > 0 ? entries.join(' · ') : '已读取一条记录';
+}
+
+function formatDataCard(kind: string, payload: unknown): string {
+  const title = DATA_CARD_TITLES[kind] ?? '查询结果';
+  if (isRecord(payload) && Array.isArray(payload.items)) {
+    const items = payload.items.filter(isRecord);
+    if (items.length === 0) return `${title}：当前没有需要关注的内容。`;
+    return `${title}\n${items.map((item) => `• ${readableValue(item.label)}：${readableValue(item.value)}`).join('\n')}`;
+  }
+  if (Array.isArray(payload)) {
+    const items = payload.filter(isRecord);
+    if (items.length === 0) return `${title}：当前暂无数据。`;
+    const visible = items.slice(0, 8).map((item) => `• ${summarizeRecord(item)}`);
+    const remainder = items.length - visible.length;
+    return `${title}（${items.length} 条）\n${visible.join('\n')}${remainder > 0 ? `\n• 另有 ${remainder} 条，请前往对应页面查看。` : ''}`;
+  }
+  if (isRecord(payload)) return `${title}\n• ${summarizeRecord(payload)}`;
+  return `${title}：${readableValue(payload)}`;
+}
+
+function formatAssistantText(text: string): string {
+  const trimmed = text.trim();
+  if (!(trimmed.startsWith('{') || trimmed.startsWith('['))) return text;
+  try {
+    return formatDataCard('query', JSON.parse(trimmed) as unknown);
+  } catch {
+    return text;
+  }
+}
+
 function parseEnvelope(value: unknown): GatewayEnvelope {
   if (!isRecord(value) || (value.error !== undefined && value.error !== null)) {
     throw new Error('AI_GATEWAY_ERROR');
@@ -77,18 +148,19 @@ function resultText(value: unknown): {
       action: null,
       sessionId: value.sessionId,
       structuredResult: null,
-      text: value.text,
+      text: formatAssistantText(value.text),
     };
   }
   if (value.type === 'data_card' && isRecord(value.card)) {
+    const kind = typeof value.card.kind === 'string' ? value.card.kind : 'query';
     return {
       action: null,
       sessionId: value.sessionId,
       structuredResult: {
-        kind: typeof value.card.kind === 'string' ? value.card.kind : 'query',
+        kind,
         payload: value.card.payload,
       },
-      text: JSON.stringify(value.card.payload, null, 2),
+      text: formatDataCard(kind, value.card.payload),
     };
   }
   if (

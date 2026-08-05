@@ -230,6 +230,57 @@ describe('SupabaseAiExperienceAdapter', () => {
     });
   });
 
+  it('turns a structured data card into readable Chinese instead of raw JSON', async () => {
+    const invoke = vi.fn().mockResolvedValue({
+      data: {
+        data: {
+          card: {
+            kind: 'get_today_summary',
+            payload: {
+              items: [
+                { id: 'assignment', label: '今日作业', tone: 'info', value: '2 项' },
+                { id: 'courseware', label: '新课件', tone: 'positive', value: '1 份' },
+              ],
+            },
+          },
+          sessionId: 'session-summary',
+          type: 'data_card',
+        },
+      },
+      error: null,
+    });
+    const adapter = new SupabaseAiExperienceAdapter(createClient(invoke));
+    await adapter.selectActiveRole(TEACHER_SCOPE);
+
+    await adapter.submit('今天有什么安排');
+
+    expect(adapter.getSnapshot().result).toBe(
+      '今日摘要\n• 今日作业：2 项\n• 新课件：1 份',
+    );
+    expect(adapter.getSnapshot().result).not.toContain('{');
+  });
+
+  it('does not expose JSON-looking provider text in the conversation', async () => {
+    const invoke = vi.fn().mockResolvedValue({
+      data: {
+        data: {
+          sessionId: 'session-text-json',
+          text: '[{"title":"语文作业","status":"published"}]',
+          type: 'text',
+        },
+      },
+      error: null,
+    });
+    const adapter = new SupabaseAiExperienceAdapter(createClient(invoke));
+    await adapter.selectActiveRole(TEACHER_SCOPE);
+
+    await adapter.submit('查看作业');
+
+    expect(adapter.getSnapshot().result).toBe(
+      '查询结果（1 条）\n• 名称：语文作业 · 状态：published',
+    );
+  });
+
   it('uses the offline boundary for a transport failure without affecting ordinary services', async () => {
     const invoke = vi.fn().mockResolvedValue({
       data: null,

@@ -6,7 +6,7 @@ import {
 import { ROLE_LABELS } from '@dolphincloud/auth';
 import { CheckCircle2, ShieldCheck, TriangleAlert } from 'lucide-react-native';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { InteractivePressable } from './InteractivePressable';
 import { theme } from './theme';
@@ -51,7 +51,15 @@ function WriteActionPreviewCardContent({
   };
 
   return (
-    <View style={styles.card}>
+    <Modal
+      animationType="fade"
+      onRequestClose={onCancel}
+      transparent
+      visible
+    >
+      <Pressable accessibilityRole="button" accessibilityLabel="关闭确认窗口" onPress={onCancel} style={styles.backdrop}>
+        <Pressable onPress={(event) => event.stopPropagation()} style={styles.dialog}>
+          <ScrollView contentContainerStyle={styles.card}>
       <View style={styles.heading}>
         <View style={styles.headingIcon}>
           <ShieldCheck color={theme.color.brand.primary} size={21} />
@@ -152,13 +160,18 @@ function WriteActionPreviewCardContent({
           </Text>
         </InteractivePressable>
       </View>
-    </View>
+          </ScrollView>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
   actions: { borderTopColor: theme.color.border.default, borderTopWidth: 1, flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm, paddingTop: theme.space.md },
-  card: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, gap: theme.space.sm, padding: theme.space.lg },
+  backdrop: { alignItems: 'center', backgroundColor: 'rgba(15, 23, 42, 0.42)', flex: 1, justifyContent: 'center', padding: theme.space.base },
+  card: { gap: theme.space.sm, padding: theme.space.lg },
+  dialog: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, boxShadow: '0 20px 60px rgba(15, 23, 42, 0.24)', maxHeight: '88%', maxWidth: 720, overflow: 'hidden', width: '100%' },
   disabled: { opacity: 0.5 },
   eyebrow: { color: theme.color.brand.primary, fontSize: theme.text.size.xs, fontWeight: '800', letterSpacing: 0.6 },
   focused: { borderColor: theme.color.brand.primary, borderWidth: 1, boxShadow: '0 0 0 3px rgba(22, 119, 254, 0.18)' },
