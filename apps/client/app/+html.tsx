@@ -7,7 +7,7 @@ export default function Root({ children }: PropsWithChildren) {
       <head>
         <meta charSet="utf-8" />
         <meta content="width=device-width, initial-scale=1" name="viewport" />
-        <meta content="#0067C0" name="theme-color" />
+        <meta content="#1677FE" name="theme-color" />
         <meta content="校园教学、成长与治理协作平台" name="description" />
         <link href="/manifest.webmanifest" rel="manifest" />
         <link href="/apple-touch-icon.png" rel="apple-touch-icon" />
@@ -27,7 +27,7 @@ export default function Root({ children }: PropsWithChildren) {
               [class*="css-text-"], [class*="css-textinput-"] {
                 font-family: "Segoe UI Variable", "Microsoft YaHei UI", "Segoe UI", sans-serif !important;
               }
-              ::selection { background: #0067C0; color: #FFFFFF; }
+              ::selection { background: #1677FE; color: #FFFFFF; }
             `,
           }}
         />

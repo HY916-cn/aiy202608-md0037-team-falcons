@@ -496,7 +496,7 @@ function StudentScorePanel({
             <Button
               dangerous={scoreDirection === 'negative'}
               disabled={studentId === '' || categoryId === '' || !deltaMatchesDirection || reason.trim().length < 2}
-              label={scoreDirection === 'positive' ? '预览加分' : '预览减分'}
+              label={scoreDirection === 'positive' ? '预览并确认加分' : '预览并确认减分'}
               onPress={() => requestWrite({
                 execute: () => service.applyStudentScore(roleScope, { categoryId, delta: parsedDelta, reason: reason.trim(), studentId }),
                 impact: ['新增不可变学生分记录并刷新班内排行'],

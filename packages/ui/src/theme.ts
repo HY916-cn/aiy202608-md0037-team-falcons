@@ -2,13 +2,12 @@
 export const theme = {
   color: {
     brand: {
-      // WinUI 3 light theme resolves AccentFillColorDefaultBrush to
-      // SystemAccentColorDark1. The fixed Web equivalent uses the default
-      // Windows blue accent while the product logo keeps its own palette.
-      primary: '#0067C0',
-      secondary: '#0067C0',
-      hover: 'rgba(0,103,192,0.9)',
-      pressed: 'rgba(0,103,192,0.8)',
+      // The shared product accent matches the primary blue in the DolphinCloud
+      // logo so controls and navigation use one consistent color.
+      primary: '#1677FE',
+      secondary: '#1677FE',
+      hover: 'rgba(22,119,254,0.9)',
+      pressed: 'rgba(22,119,254,0.8)',
       disabled: 'rgba(0,0,0,0.216)',
       onPrimaryMuted: 'rgba(255,255,255,0.078)',
       onPrimaryBorder: 'rgba(255,255,255,0.078)',
@@ -26,7 +25,7 @@ export const theme = {
       layerAlt: '#FFFFFF',
       muted: '#F9F9F9',
       secondary: '#EEEEEE',
-      primaryTint: 'rgba(0,103,192,0.08)',
+      primaryTint: 'rgba(22,119,254,0.1)',
       secondaryTint: 'rgba(0,0,0,0.035)',
       subtleHover: 'rgba(0,0,0,0.035)',
       subtlePressed: 'rgba(0,0,0,0.024)',
@@ -98,6 +97,6 @@ export const theme = {
     card: '0 2px 4px rgba(0,0,0,0.06)',
     flyout: '0 8px 16px rgba(0,0,0,0.14)',
     dialog: '0 16px 32px rgba(0,0,0,0.18)',
-    focus: '0 0 0 3px rgba(0,103,192,0.42)',
+    focus: '0 0 0 3px rgba(22,119,254,0.46)',
   },
 } as const;

@@ -18,7 +18,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#0067C0",
+        "backgroundColor": "#1677FE",
         "foregroundImage": "./assets/adaptive-icon-foreground.png"
       },
       "package": "cn.hy916.dolphincloud",

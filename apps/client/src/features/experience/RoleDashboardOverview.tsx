@@ -127,11 +127,13 @@ function ActionButton({
 
 function Metric({
   label,
+  narrow = false,
   separated = false,
   stacked = false,
   value,
 }: {
   readonly label: string;
+  readonly narrow?: boolean;
   readonly separated?: boolean;
   readonly stacked?: boolean;
   readonly value: string;
@@ -140,6 +142,7 @@ function Metric({
     <View
       style={[
         styles.metric,
+        narrow && styles.metricNarrow,
         separated && styles.metricSeparated,
         stacked && styles.metricStacked,
       ]}
@@ -184,16 +187,18 @@ function TeachingWorkspace({
       </View>
 
       <View style={[styles.metrics, isNarrow && styles.metricsNarrow]}>
-        <Metric label="可见班级" value={String(snapshot.classes.length)} />
-        <Metric label="已发课件" separated={!isNarrow} stacked={isNarrow} value={String(snapshot.courseware.length)} />
+        <Metric label="可见班级" narrow={isNarrow} value={String(snapshot.classes.length)} />
+        <Metric label="已发课件" narrow={isNarrow} separated value={String(snapshot.courseware.length)} />
         <Metric
           label="已发作业"
+          narrow={isNarrow}
           separated={!isNarrow}
           stacked={isNarrow}
           value={String(publishedAssignments.length)}
         />
         <Metric
           label={role === 'family' ? '已发成绩' : '学生档案'}
+          narrow={isNarrow}
           separated
           stacked={isNarrow}
           value={String(role === 'family' ? publishedGrades.length : snapshot.students.length)}
@@ -368,11 +373,12 @@ const styles = StyleSheet.create({
   dataSecondary: { color: theme.color.text.secondary, fontSize: theme.text.size.xs },
   emptyText: { color: theme.color.text.secondary, fontSize: theme.text.size.sm, lineHeight: 22, marginTop: theme.space.sm },
   metric: { flex: 1, minWidth: 140, paddingHorizontal: theme.space.lg, paddingVertical: theme.space.md },
+  metricNarrow: { flexBasis: '50%', flexGrow: 0, minWidth: 0, paddingHorizontal: theme.space.base, paddingVertical: theme.space.base },
   metricSeparated: { borderLeftColor: theme.color.border.default, borderLeftWidth: 1 },
   metricStacked: { borderTopColor: theme.color.border.default, borderTopWidth: 1 },
   metricLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, marginTop: 4 },
   metrics: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, flexDirection: 'row', flexWrap: 'wrap', overflow: 'hidden' },
-  metricsNarrow: { flexDirection: 'column' },
+  metricsNarrow: { flexDirection: 'row' },
   metricValue: { color: theme.color.text.primary, fontSize: theme.text.size.xl, fontWeight: '600' },
   focused: { boxShadow: theme.shadow.focus },
   pressed: { opacity: 0.82 },
