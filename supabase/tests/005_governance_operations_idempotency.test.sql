@@ -223,7 +223,7 @@ select is(
     'test-idem-terminal-batch-0001',
     jsonb_build_array(
       jsonb_build_object('student_id', '50000000-0000-0000-0000-000000000001', 'category_id', '90000000-0000-0000-0000-000000000001', 'delta', 1),
-      jsonb_build_object('student_id', '50000000-0000-0000-0000-000000000002', 'category_id', '90000000-0000-0000-0000-000000000001', 'delta', -1)
+      jsonb_build_object('student_id', '50000000-0000-0000-0000-000000000002', 'category_id', '90000000-0000-0000-0000-000000000002', 'delta', -1)
     ),
     '班级端批量加减分'
   )),

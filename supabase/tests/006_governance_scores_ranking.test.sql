@@ -473,7 +473,7 @@ select throws_ok(
     select public.create_class_score_appeal(
       'appeal-terminal-0002',
       %L,
-      '重复申诉'
+      '重复申诉理由'
     )
   $f$,
     current_setting('app.test.class_score_entry_id')

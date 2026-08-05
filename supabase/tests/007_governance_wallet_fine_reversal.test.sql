@@ -217,6 +217,20 @@ select is(
 
 -- Fine order lifecycle.
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000001', true);
+select ok(
+  (
+    select set_config('app.test.fine_order_0001_id', r.id::text, true) is not null
+    from public.create_fine_order(
+      'fine-create-0001',
+      '50000000-0000-0000-0000-000000000001',
+      '92000000-0000-0000-0000-000000000001',
+      5,
+      '图书超期'
+    ) as r
+  ),
+  true,
+  '记录第一张罚款单 id 供后续断言使用'
+);
 select is(
   (
     select r.status::text
@@ -252,7 +266,7 @@ select throws_ok(
   $$
     select public.create_fine_order(
       'fine-cross-school-0001',
-      '50000000-0000-0000-0000-000000000077',
+      '50000000-0000-0000-0000-000000000017',
       '92000000-0000-0000-0000-000000000001',
       5,
       '跨学校罚款'
@@ -332,7 +346,7 @@ select is(
     select r.status::text
     from public.settle_fine_order(
       'fine-settle-0001',
-      (select id from public.fine_orders where create_operation_id = (select id from public.operations where idempotency_key = 'fine-create-0001'))
+      current_setting('app.test.fine_order_0001_id')::uuid
     ) as r
   ),
   'settled',
@@ -353,7 +367,7 @@ select throws_ok(
       %L
     )
   $f$,
-    (select id::text from public.fine_orders where create_operation_id = (select id from public.operations where idempotency_key = 'fine-create-0001'))
+    current_setting('app.test.fine_order_0001_id')
   ),
   'P0001',
   'ORDER_NOT_PENDING',
@@ -362,6 +376,20 @@ select throws_ok(
 
 -- Create another and cancel it.
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000001', true);
+select ok(
+  (
+    select set_config('app.test.fine_order_0002_id', r.id::text, true) is not null
+    from public.create_fine_order(
+      'fine-create-0002',
+      '50000000-0000-0000-0000-000000000002',
+      '92000000-0000-0000-0000-000000000002',
+      20,
+      '合成物品遗失'
+    ) as r
+  ),
+  true,
+  '记录第二张罚款单 id 供后续断言使用'
+);
 select is(
   (
     select r.status::text
@@ -382,7 +410,7 @@ select is(
     select r.status::text
     from public.cancel_fine_order(
       'fine-cancel-0002',
-      (select id from public.fine_orders where create_operation_id = (select id from public.operations where idempotency_key = 'fine-create-0002')),
+      current_setting('app.test.fine_order_0002_id')::uuid,
       '合成取消理由'
     ) as r
   ),
@@ -490,7 +518,7 @@ select throws_ok(
       ''
     )
   $f$,
-    (select id::text from public.fine_orders where create_operation_id = (select id from public.operations where idempotency_key = 'fine-create-0001'))
+    current_setting('app.test.fine_order_0001_id')
   ),
   'P0001',
   'INVALID_REASON',
@@ -502,7 +530,7 @@ select is(
     select r.status::text
     from public.reverse_fine_order(
       'fine-reverse-0001',
-      (select id from public.fine_orders where create_operation_id = (select id from public.operations where idempotency_key = 'fine-create-0001')),
+      current_setting('app.test.fine_order_0001_id')::uuid,
       '撤销已结算罚款'
     ) as r
   ),
@@ -521,7 +549,7 @@ select ok(
     where original_operation_id = (
       select settle_operation_id
       from public.fine_orders
-      where create_operation_id = (select id from public.operations where idempotency_key = 'fine-create-0001')
+      where id = current_setting('app.test.fine_order_0001_id')::uuid
     )
   ) = 1,
   '罚款撤销记录 reversal_link'
