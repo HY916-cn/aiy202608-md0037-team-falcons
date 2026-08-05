@@ -133,6 +133,26 @@ describe('SupabaseTeachingDemoAdapter', () => {
         };
         return { select: () => chain };
       }
+      if (table === 'students') {
+        let classId = '';
+        const chain = {
+          in: vi.fn((key: string, values: readonly unknown[]) => {
+            if (key === 'class_id') classId = String(values[0] ?? '');
+            return chain;
+          }),
+          order: vi.fn().mockImplementation(async () => ({
+            data: [
+              {
+                class_id: classId,
+                display_name: `学生-${classId}`,
+                id: `student-${classId}`,
+              },
+            ],
+            error: null,
+          })),
+        };
+        return { select: () => chain };
+      }
       return emptyQuery();
     });
     const adapter = new SupabaseTeachingDemoAdapter({ from } as unknown as SupabaseClient);
@@ -155,7 +175,19 @@ describe('SupabaseTeachingDemoAdapter', () => {
     expect(requestedClassIds).toEqual(['class-a', 'class-b']);
     expect(classA.classes.map(({ id }) => id)).toEqual(['class-a']);
     expect(classB.classes.map(({ id }) => id)).toEqual(['class-b']);
+    expect(classA.students.map(({ classId }) => classId)).toEqual(['class-a']);
+    expect(classB.students.map(({ classId }) => classId)).toEqual(['class-b']);
     expect(assignmentFilters).toContainEqual(['id', 'assignment-b']);
     expect(assignmentFilters).toContainEqual(['scope_id', 'class-b']);
+
+    const classTerminal = await adapter.load({
+      assignmentId: 'assignment-terminal-a',
+      id: 'class-a',
+      label: '班级 A',
+      role: 'class_terminal',
+      type: 'class',
+    });
+    expect(classTerminal.students).toEqual(classA.students);
+    expect(classTerminal.grades).toEqual([]);
   });
 });

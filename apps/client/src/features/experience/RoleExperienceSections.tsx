@@ -12,18 +12,32 @@ import type { CoursewareFileMetadata } from '@dolphincloud/domain';
 import {
   AiResultCard,
   DolphinMascotCard,
+  InteractivePressable,
   type RoleNavigationKey,
   TodaySummaryCard,
   WriteActionPreviewCard,
   theme,
 } from '@dolphincloud/ui';
 import * as DocumentPicker from 'expo-document-picker';
-import { Bot, ChartColumn, ClipboardList, FolderUp } from 'lucide-react-native';
+import {
+  Bot,
+  ChartColumn,
+  ClipboardList,
+  FolderUp,
+  History,
+  Star,
+  Trophy,
+  UsersRound,
+} from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { useExperience } from './ExperienceProvider';
 import { RoleDashboardOverview } from './RoleDashboardOverview';
+import {
+  countStudentsForClass,
+  resolveTeachingSectionPresentation,
+} from './roleTeachingPresentation';
 
 const EMPTY_SNAPSHOT: TeachingDemoSnapshot = {
   assignments: [],
@@ -49,14 +63,20 @@ function ActionButton({
   readonly onPress: () => void;
 }) {
   return (
-    <Pressable
+    <InteractivePressable
       accessibilityRole="button"
       disabled={disabled}
       onPress={onPress}
-      style={[styles.actionButton, disabled && styles.disabled]}
+      style={({ focused, hovered, pressed }) => [
+        styles.actionButton,
+        hovered && styles.interactiveHover,
+        focused && styles.interactiveFocus,
+        pressed && styles.interactivePressed,
+        disabled && styles.disabled,
+      ]}
     >
       <Text style={styles.actionLabel}>{label}</Text>
-    </Pressable>
+    </InteractivePressable>
   );
 }
 
@@ -176,19 +196,9 @@ function TeachingDemoSection({
   const [pendingWrite, setPendingWrite] = useState<PendingWriteAction | null>(
     null,
   );
-  const sectionCopy = {
-    assignment: ['作业中心', '发布、查看并跟进当前范围内的作业。'],
-    class: ['班级与成绩', '查看当前班级学生，并在确认后发布成绩。'],
-    courseware: ['课件中心', '处理教师与班级之间的课件传输。'],
-    growth: ['成长记录', '查看已发布的成绩和学习记录。'],
-  } as const;
-  const [sectionTitle, sectionDescription] =
-    sectionCopy[activeNavigation as keyof typeof sectionCopy] ?? [
-      role === 'teacher' ? '教学内容' : '班级教学资料',
-      role === 'teacher'
-        ? '在同一处完成课件发送、作业发布与成绩管理。'
-        : '按发布时间查看教师发送的课件与作业。',
-    ];
+  const presentation = resolveTeachingSectionPresentation(role, activeNavigation);
+  const SectionIcon =
+    presentation.mode === 'class_performance' ? Star : FolderUp;
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -315,11 +325,11 @@ function TeachingDemoSection({
     <View style={styles.section}>
       <View style={styles.sectionHeading}>
         <View style={styles.sectionIcon}>
-          <FolderUp color={theme.color.brand.primary} size={20} />
+          <SectionIcon color={theme.color.brand.primary} size={20} />
         </View>
         <View style={styles.sectionHeadingCopy}>
-          <Text style={styles.sectionTitle}>{sectionTitle}</Text>
-          <Text style={styles.sectionDescription}>{sectionDescription}</Text>
+          <Text style={styles.sectionTitle}>{presentation.title}</Text>
+          <Text style={styles.sectionDescription}>{presentation.description}</Text>
         </View>
       </View>
       {error === null ? null : (
@@ -347,9 +357,19 @@ function TeachingDemoSection({
             <Text style={styles.fieldLabel}>当前班级</Text>
             <View style={styles.actions}>
             {snapshot.classes.map((item) => (
-              <Pressable key={item.id} onPress={() => setSelectedClassId(item.id)} style={[styles.classButton, selectedClassId === item.id && styles.classButtonSelected]}>
+              <InteractivePressable
+                key={item.id}
+                onPress={() => setSelectedClassId(item.id)}
+                style={({ focused, hovered, pressed }) => [
+                  styles.classButton,
+                  selectedClassId === item.id && styles.classButtonSelected,
+                  hovered && styles.interactiveHover,
+                  focused && styles.interactiveFocus,
+                  pressed && styles.interactivePressed,
+                ]}
+              >
                 <Text style={styles.classLabel}>{item.name}</Text>
-              </Pressable>
+              </InteractivePressable>
             ))}
             </View>
           </View>
@@ -434,18 +454,85 @@ function TeachingDemoSection({
         </>
       ) : null}
 
-      {role === 'class_terminal' || role === 'family' ? (
+      {role === 'class_terminal' && presentation.mode === 'class_performance' ? (
+        <>
+          <View style={styles.performanceGrid}>
+            <View style={styles.performanceCard}>
+              <UsersRound color={theme.color.brand.primary} size={19} />
+              <Text style={styles.performanceValue}>
+                {snapshot.classes.reduce(
+                  (count, item) => count + countStudentsForClass(snapshot, item.id),
+                  0,
+                )}
+              </Text>
+              <Text style={styles.performanceLabel}>学生档案</Text>
+            </View>
+            <View style={styles.performanceCard}>
+              <Star color={theme.color.brand.primary} size={19} />
+              <Text style={styles.performancePending}>待治理服务接入</Text>
+              <Text style={styles.performanceLabel}>班级分</Text>
+            </View>
+            <View style={styles.performanceCard}>
+              <Trophy color={theme.color.brand.primary} size={19} />
+              <Text style={styles.performancePending}>待治理服务接入</Text>
+              <Text style={styles.performanceLabel}>班内排行</Text>
+            </View>
+            <View style={styles.performanceCard}>
+              <History color={theme.color.brand.primary} size={19} />
+              <Text style={styles.performancePending}>暂无真实记录</Text>
+              <Text style={styles.performanceLabel}>表现记录</Text>
+            </View>
+          </View>
+          <Text style={styles.fieldLabel}>当前班级学生</Text>
+          {snapshot.students.map((student) => (
+            <View key={student.id} style={styles.listItem}>
+              <Text style={styles.itemTitle}>{student.name}</Text>
+            </View>
+          ))}
+        </>
+      ) : null}
+
+      {role === 'class_terminal' && presentation.mode === 'courseware' ? (
         <>
           <Text style={styles.fieldLabel}>课件</Text>
-          {snapshot.courseware.length === 0 ? <Text style={styles.helper}>暂无已发送课件。</Text> : snapshot.courseware.map((item) => <Text key={item.id} style={styles.listItem}>{item.title}</Text>)}
+          {snapshot.courseware.length === 0 ? (
+            <Text style={styles.helper}>暂无已发送课件。</Text>
+          ) : (
+            snapshot.courseware.map((item) => (
+              <Text key={item.id} style={styles.listItem}>{item.title}</Text>
+            ))
+          )}
+        </>
+      ) : null}
+
+      {(role === 'class_terminal' || role === 'family') &&
+      presentation.mode === 'assignment' ? (
+        <>
           <Text style={styles.fieldLabel}>已发布作业</Text>
-          {snapshot.assignments.length === 0 ? <Text style={styles.helper}>暂无已发布作业。</Text> : snapshot.assignments.map((item) => <Text key={item.id} style={styles.listItem}>{item.title} · 截止 {new Date(item.dueAt).toLocaleString()}</Text>)}
-          {role === 'family' ? (
-            <>
-              <Text style={styles.fieldLabel}>绑定学生已发布成绩</Text>
-              {snapshot.grades.length === 0 ? <Text style={styles.helper}>暂无已发布成绩。</Text> : snapshot.grades.map((grade) => <Text key={grade.id} style={styles.listItem}>{grade.studentName} · {grade.score}</Text>)}
-            </>
-          ) : null}
+          {snapshot.assignments.length === 0 ? (
+            <Text style={styles.helper}>暂无已发布作业。</Text>
+          ) : (
+            snapshot.assignments.map((item) => (
+              <Text key={item.id} style={styles.listItem}>
+                {item.title} · 截止 {new Date(item.dueAt).toLocaleString()}
+              </Text>
+            ))
+          )}
+        </>
+      ) : null}
+
+      {role === 'family' && presentation.mode === 'growth' ? (
+        <>
+          <Text style={styles.fieldLabel}>绑定学生已发布成绩</Text>
+          {snapshot.grades.length === 0 ? (
+            <Text style={styles.helper}>暂无已发布成绩。</Text>
+          ) : (
+            snapshot.grades.map((grade) => (
+              <Text key={grade.id} style={styles.listItem}>
+                {grade.studentName} · {grade.score}
+              </Text>
+            ))
+          )}
         </>
       ) : null}
     </View>
@@ -524,8 +611,16 @@ const styles = StyleSheet.create({
   helper: { color: theme.color.text.secondary, fontSize: theme.text.size.sm, lineHeight: 21 },
   input: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, color: theme.color.text.primary, fontSize: theme.text.size.sm, minHeight: 46, paddingHorizontal: theme.space.md },
   itemTitle: { color: theme.color.text.primary, fontWeight: '600' },
+  interactiveFocus: { borderColor: theme.color.brand.primary, shadowColor: theme.color.brand.primary, shadowOpacity: 0.2, shadowRadius: 4 },
+  interactiveHover: { backgroundColor: theme.color.surface.primaryTint, borderColor: theme.color.brand.primary },
+  interactivePressed: { opacity: 0.74, transform: [{ scale: 0.985 }] },
   listItem: { backgroundColor: theme.color.surface.muted, borderRadius: theme.radius.control, color: theme.color.text.primary, gap: theme.space.sm, padding: theme.space.base },
   multiline: { minHeight: 88, paddingVertical: theme.space.md, textAlignVertical: 'top' },
+  performanceCard: { backgroundColor: theme.color.surface.muted, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, flex: 1, gap: theme.space.xs, minWidth: 180, padding: theme.space.md },
+  performanceGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm },
+  performanceLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.xs },
+  performancePending: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '700' },
+  performanceValue: { color: theme.color.text.primary, fontSize: theme.text.size.xl, fontWeight: '800' },
   section: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, gap: theme.space.md, padding: theme.space.lg },
   sectionDescription: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, lineHeight: 18, marginTop: 3 },
   sectionHeading: { alignItems: 'center', flexDirection: 'row', gap: theme.space.base },

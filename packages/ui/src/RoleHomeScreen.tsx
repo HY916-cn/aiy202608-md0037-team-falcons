@@ -25,7 +25,6 @@ import {
 import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 import {
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -34,6 +33,7 @@ import {
 } from 'react-native';
 
 import { RoleIcon } from './RoleIcon';
+import { InteractivePressable } from './InteractivePressable';
 import type { RoleNavigationKey } from './roleNavigation';
 import { theme } from './theme';
 
@@ -152,15 +152,17 @@ function Navigation({
         const Icon = item.icon;
         const isActive = item.key === activeNavigation;
         return (
-          <Pressable
+          <InteractivePressable
             accessibilityLabel={item.label}
             accessibilityRole="button"
             accessibilityState={{ selected: isActive }}
             key={item.label}
             onPress={() => onNavigate?.(item.key)}
-            style={({ pressed }) => [
+            style={({ focused, hovered, pressed }) => [
               compact ? styles.mobileNavItem : styles.navItem,
               isActive && (compact ? styles.mobileNavItemActive : styles.navItemActive),
+              hovered && styles.interactiveHover,
+              focused && styles.interactiveFocus,
               pressed && styles.pressed,
             ]}
           >
@@ -178,7 +180,7 @@ function Navigation({
             >
               {item.label}
             </Text>
-          </Pressable>
+          </InteractivePressable>
         );
       })}
     </View>
@@ -263,22 +265,25 @@ export function RoleHomeScreen({
       <Text style={styles.menuLabel}>切换角色</Text>
       <View style={styles.roleOptions}>
         {availableRoles.map((availableRole) => (
-          <Pressable
+          <InteractivePressable
             accessibilityRole="button"
             accessibilityState={{ selected: availableRole === currentRole }}
             disabled={pendingAction !== null}
             key={availableRole}
             onPress={() => void handleSwitchRole(availableRole)}
-            style={[
+            style={({ focused, hovered, pressed }) => [
               styles.roleOption,
               availableRole === currentRole && styles.roleOptionActive,
+              hovered && styles.interactiveHover,
+              focused && styles.interactiveFocus,
+              pressed && styles.pressed,
             ]}
           >
             <RoleIcon role={availableRole} size={17} />
             <Text style={styles.roleOptionLabel}>
               {pendingAction === availableRole ? '切换中…' : ROLE_LABELS[availableRole]}
             </Text>
-          </Pressable>
+          </InteractivePressable>
         ))}
       </View>
       {currentRoleScopes.length <= 1 ? null : (
@@ -289,36 +294,47 @@ export function RoleHomeScreen({
             {currentRoleScopes.map((scope) => {
               const isCurrent = scope.assignmentId === roleScope?.assignmentId;
               return (
-                <Pressable
+                <InteractivePressable
                   accessibilityLabel={`切换到${scope.label}`}
                   accessibilityRole="button"
                   accessibilityState={{ selected: isCurrent }}
                   disabled={pendingAction !== null || pendingScopeId !== null}
                   key={scope.assignmentId}
                   onPress={() => void handleSwitchRoleScope(scope.assignmentId)}
-                  style={[styles.roleOption, isCurrent && styles.roleOptionActive]}
+                  style={({ focused, hovered, pressed }) => [
+                    styles.roleOption,
+                    isCurrent && styles.roleOptionActive,
+                    hovered && styles.interactiveHover,
+                    focused && styles.interactiveFocus,
+                    pressed && styles.pressed,
+                  ]}
                 >
                   <View style={styles.scopeOptionMarker} />
                   <Text numberOfLines={1} style={styles.roleOptionLabel}>
                     {pendingScopeId === scope.assignmentId ? '切换中…' : scope.label}
                   </Text>
-                </Pressable>
+                </InteractivePressable>
               );
             })}
           </View>
         </>
       )}
-      <Pressable
+      <InteractivePressable
         accessibilityRole="button"
         disabled={pendingAction !== null || pendingScopeId !== null}
         onPress={() => void handleLogout()}
-        style={styles.logoutButton}
+        style={({ focused, hovered, pressed }) => [
+          styles.logoutButton,
+          hovered && styles.interactiveHover,
+          focused && styles.interactiveFocus,
+          pressed && styles.pressed,
+        ]}
       >
         <LogOut color={theme.color.text.secondary} size={17} />
         <Text style={styles.logoutLabel}>
           {pendingAction === 'logout' ? '退出中…' : '退出登录'}
         </Text>
-      </Pressable>
+      </InteractivePressable>
     </View>
   ) : null;
 
@@ -326,16 +342,30 @@ export function RoleHomeScreen({
     <View style={styles.topBar}>
       {!isWide ? <BrandLockup /> : <View />}
       <View style={styles.topBarActions}>
-        <Pressable accessibilityLabel="通知" accessibilityRole="button" style={styles.iconButton}>
+        <InteractivePressable
+          accessibilityLabel="通知"
+          accessibilityRole="button"
+          style={({ focused, hovered, pressed }) => [
+            styles.iconButton,
+            hovered && styles.interactiveHover,
+            focused && styles.interactiveFocus,
+            pressed && styles.pressed,
+          ]}
+        >
           <Bell color={theme.color.text.primary} size={20} />
           <View style={styles.notificationDot} />
-        </Pressable>
-        <Pressable
+        </InteractivePressable>
+        <InteractivePressable
           accessibilityLabel="账号与角色"
           accessibilityRole="button"
           accessibilityState={{ expanded: isAccountOpen }}
           onPress={() => setIsAccountOpen((value) => !value)}
-          style={styles.accountButton}
+          style={({ focused, hovered, pressed }) => [
+            styles.accountButton,
+            hovered && styles.interactiveHover,
+            focused && styles.interactiveFocus,
+            pressed && styles.pressed,
+          ]}
         >
           <View style={styles.avatar}><Text style={styles.avatarText}>{userInitial}</Text></View>
           {isWide ? (
@@ -345,7 +375,7 @@ export function RoleHomeScreen({
             </View>
           ) : null}
           <ChevronDown color={theme.color.text.secondary} size={17} />
-        </Pressable>
+        </InteractivePressable>
       </View>
       {accountMenu}
     </View>
@@ -405,7 +435,9 @@ const styles = StyleSheet.create({
   navItemActive: { backgroundColor: theme.color.surface.primaryTint },
   navLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.sm, fontWeight: '600' },
   navLabelActive: { color: theme.color.brand.primary, fontWeight: '700' },
-  pressed: { opacity: 0.68 },
+  interactiveFocus: { borderColor: theme.color.brand.primary, borderWidth: 1, shadowColor: theme.color.brand.primary, shadowOpacity: 0.2, shadowRadius: 4 },
+  interactiveHover: { backgroundColor: theme.color.surface.primaryTint },
+  pressed: { opacity: 0.68, transform: [{ scale: 0.985 }] },
   sidebarFooter: { flex: 1, justifyContent: 'flex-end' },
   scopeBadge: { alignItems: 'center', backgroundColor: theme.color.surface.muted, borderRadius: theme.radius.control, flexDirection: 'row', gap: theme.space.sm, padding: theme.space.base },
   scopeCopy: { flex: 1 },

@@ -63,6 +63,9 @@ describe('MockTeachingDemoAdapter', () => {
       '一班课件',
     ]);
     expect(classTerminal.grades).toEqual([]);
+    expect(classTerminal.students.map((student) => student.name)).toEqual([
+      '演示学生01',
+    ]);
     expect((await adapter.load(FAMILY_SCOPE)).courseware).toEqual([]);
   });
 
@@ -143,5 +146,22 @@ describe('MockTeachingDemoAdapter', () => {
     expect(classTwo.classes.map(({ id }) => id)).toEqual([
       '20000000-0000-0000-0000-000000000002',
     ]);
+  });
+
+  it('教师端与班级端对同一班级返回一致的学生档案数量', async () => {
+    const adapter = new MockTeachingDemoAdapter();
+    const teacher = await adapter.load({
+      ...TEACHER_SCOPE,
+      assignmentId: 'assignment-teacher-class-one',
+      id: CLASS_SCOPE.id,
+      label: CLASS_SCOPE.label,
+      type: 'class',
+    });
+    const classTerminal = await adapter.load(CLASS_SCOPE);
+
+    expect(classTerminal.classes).toEqual(teacher.classes);
+    expect(classTerminal.students).toEqual(teacher.students);
+    expect(classTerminal.students).toHaveLength(1);
+    expect(classTerminal.grades).toEqual([]);
   });
 });

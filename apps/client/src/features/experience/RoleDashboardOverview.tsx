@@ -1,7 +1,7 @@
 import type { AuthRoleScope, RoleCode } from '@dolphincloud/auth';
 import type { TeachingDemoSnapshot } from '@dolphincloud/experience';
 import type { RoleNavigationKey } from '@dolphincloud/ui';
-import { theme } from '@dolphincloud/ui';
+import { InteractivePressable, theme } from '@dolphincloud/ui';
 import {
   ArrowRight,
   Bot,
@@ -14,7 +14,7 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { useExperience } from './ExperienceProvider';
 
@@ -47,16 +47,21 @@ function ActionButton({
 }) {
   const Icon = action.icon;
   return (
-    <Pressable
+    <InteractivePressable
       accessibilityLabel={action.label}
       accessibilityRole="button"
       onPress={() => onNavigate(action.key)}
-      style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
+      style={({ focused, hovered, pressed }) => [
+        styles.actionButton,
+        hovered && styles.actionButtonHover,
+        focused && styles.focused,
+        pressed && styles.pressed,
+      ]}
     >
       <Icon color={theme.color.brand.primary} size={19} />
       <Text style={styles.actionLabel}>{action.label}</Text>
       <ArrowRight color={theme.color.text.disabled} size={16} />
-    </Pressable>
+    </InteractivePressable>
   );
 }
 
@@ -253,9 +258,18 @@ export function RoleDashboardOverview({
     return (
       <View style={styles.surface}>
         <Text style={styles.surfaceTitle}>数据加载失败</Text>
-        <Pressable accessibilityRole="button" onPress={() => void load()} style={styles.retryButton}>
+        <InteractivePressable
+          accessibilityRole="button"
+          onPress={() => void load()}
+          style={({ focused, hovered, pressed }) => [
+            styles.retryButton,
+            hovered && styles.retryButtonHover,
+            focused && styles.focused,
+            pressed && styles.pressed,
+          ]}
+        >
           <Text style={styles.retryLabel}>重试</Text>
-        </Pressable>
+        </InteractivePressable>
       </View>
     );
   }
@@ -282,6 +296,7 @@ export function RoleDashboardOverview({
 
 const styles = StyleSheet.create({
   actionButton: { alignItems: 'center', backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, flexDirection: 'row', gap: theme.space.sm, minHeight: 52, paddingHorizontal: theme.space.base },
+  actionButtonHover: { backgroundColor: theme.color.surface.primaryTint, borderColor: theme.color.brand.primary, transform: [{ translateY: -1 }] },
   actionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm, marginTop: theme.space.base },
   actionLabel: { color: theme.color.text.primary, flex: 1, fontSize: theme.text.size.sm, fontWeight: '700', minWidth: 110 },
   boundaryNote: { backgroundColor: theme.color.surface.secondaryTint, borderLeftColor: theme.color.brand.secondary, borderLeftWidth: 3, color: theme.color.text.secondary, fontSize: theme.text.size.xs, lineHeight: 19, marginTop: theme.space.base, padding: theme.space.base },
@@ -295,14 +310,16 @@ const styles = StyleSheet.create({
   metricLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, marginTop: 4 },
   metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm },
   metricValue: { color: theme.color.text.primary, fontSize: theme.text.size.xl, fontWeight: '800' },
-  pressed: { opacity: 0.7 },
+  focused: { borderColor: theme.color.brand.primary, shadowColor: theme.color.brand.primary, shadowOpacity: 0.2, shadowRadius: 4 },
+  pressed: { opacity: 0.72, transform: [{ scale: 0.985 }] },
   retryButton: { alignItems: 'center', alignSelf: 'flex-start', backgroundColor: theme.color.brand.primary, borderRadius: theme.radius.control, justifyContent: 'center', marginTop: theme.space.base, minHeight: 42, paddingHorizontal: theme.space.lg },
+  retryButtonHover: { opacity: 0.88 },
   retryLabel: { color: theme.color.surface.card, fontSize: theme.text.size.sm, fontWeight: '700' },
-  scopeBar: { alignItems: 'center', backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.base, justifyContent: 'space-between', minHeight: 62, paddingHorizontal: theme.space.base },
-  scopeEyebrow: { color: theme.color.text.secondary, fontSize: 10, fontWeight: '700' },
+  scopeBar: { alignItems: 'center', backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.base, justifyContent: 'space-between', minHeight: 64, paddingHorizontal: theme.space.base, paddingVertical: 10 },
+  scopeEyebrow: { color: theme.color.text.secondary, fontSize: 10, fontWeight: '700', lineHeight: 14 },
   scopeHint: { color: theme.color.text.secondary, fontSize: theme.text.size.xs },
   scopeIdentity: { alignItems: 'center', flexDirection: 'row', gap: theme.space.sm },
-  scopeLabel: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '800', marginTop: 2 },
+  scopeLabel: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '800', lineHeight: 20, marginTop: 2 },
   surface: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, flex: 1, minWidth: 290, padding: theme.space.lg },
   surfaceEyebrow: { color: theme.color.brand.primary, fontSize: theme.text.size.xs, fontWeight: '800', letterSpacing: 0.8 },
   surfaceTitle: { color: theme.color.text.primary, fontSize: theme.text.size.lg, fontWeight: '800', marginTop: theme.space.xs },

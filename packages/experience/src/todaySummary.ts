@@ -168,6 +168,7 @@ export class TeachingTodaySummaryDataSource implements TodaySummaryDataSource {
   constructor(
     private readonly teachingAdapter: TeachingDemoAdapter,
     private readonly now: () => Date = () => new Date(),
+    private readonly dataMode: TodaySummary['dataMode'] = 'live',
   ) {}
 
   async load(roleScope: AuthRoleScope): Promise<TodaySummary> {
@@ -175,7 +176,7 @@ export class TeachingTodaySummaryDataSource implements TodaySummaryDataSource {
     const generatedAt = this.now().toISOString();
     if (role === 'admin' || role === 'bank_operator' || role === 'council') {
       return {
-        dataMode: 'live',
+        dataMode: this.dataMode,
         generatedAt,
         items: mapItems(GOVERNANCE_SUMMARY_ITEMS[role]),
         role,
@@ -185,11 +186,11 @@ export class TeachingTodaySummaryDataSource implements TodaySummaryDataSource {
 
     const snapshot = await this.teachingAdapter.load(roleScope);
     return {
-      dataMode: 'live',
+      dataMode: this.dataMode,
       generatedAt,
       items: createTeachingItems(role, snapshot, generatedAt.slice(0, 10)),
       role,
-      title: '今日摘要',
+      title: this.dataMode === 'demo' ? '今日摘要（演示数据）' : '今日摘要',
     };
   }
 }

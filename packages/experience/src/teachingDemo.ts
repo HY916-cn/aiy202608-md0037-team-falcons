@@ -96,6 +96,10 @@ export class MockTeachingDemoAdapter implements TeachingDemoAdapter {
   private grades: TeachingGrade[] = [];
   private sequence = 1;
 
+  constructor({ seedData = false }: { readonly seedData?: boolean } = {}) {
+    if (seedData) this.seedDemoData();
+  }
+
   async createAssignmentDraft(input: {
     readonly classId: string;
     readonly content: string;
@@ -156,7 +160,7 @@ export class MockTeachingDemoAdapter implements TeachingDemoAdapter {
     const role = roleScope.role;
     if (role === 'class_terminal') {
       const snapshot = this.snapshotForClasses([roleScope.id], true);
-      return { ...snapshot, grades: [], students: [] };
+      return { ...snapshot, grades: [] };
     }
     if (role === 'family') {
       const snapshot = this.snapshotForClasses([CLASS_ONE], true);
@@ -260,5 +264,35 @@ export class MockTeachingDemoAdapter implements TeachingDemoAdapter {
       }),
       students: this.students.filter((item) => classIds.includes(item.classId)),
     };
+  }
+
+  private seedDemoData(): void {
+    const now = new Date().toISOString();
+    this.courseware = Array.from({ length: 3 }, (_, index) => ({
+      classId: CLASS_ONE,
+      createdAt: now,
+      id: `demo-seed-courseware-${index + 1}`,
+      mimeType: 'application/pdf',
+      originalFilename: `演示课件${index + 1}.pdf`,
+      sizeBytes: 1024 + index,
+      status: 'published',
+      storagePath: `mock/${CLASS_ONE}/seed-${index + 1}`,
+      subject: '数学',
+      teacherId: 'demo-teacher',
+      title: `演示课件 ${index + 1}`,
+    }));
+    this.assignments = Array.from({ length: 2 }, (_, index) => ({
+      classId: CLASS_ONE,
+      content: `完成演示练习 ${index + 1}`,
+      createdAt: now,
+      dueAt: now,
+      id: `demo-seed-assignment-${index + 1}`,
+      publishedAt: now,
+      status: 'published',
+      subject: '数学',
+      teacherId: 'demo-teacher',
+      title: `今日作业 ${index + 1}`,
+      updatedAt: now,
+    }));
   }
 }

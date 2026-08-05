@@ -15990,7 +15990,7 @@ var SupabaseTeachingDemoAdapter = class {
       const classQuery = this.client.from("classes").select("id, name");
       classResult = await (roleScope.type === "class" ? classQuery.eq("id", roleScope.id) : classQuery.eq("school_id", roleScope.id)).order("name");
       const classIds = (classResult.data ?? []).map((row) => row.id);
-      studentResult = role === "class_terminal" || classIds.length === 0 ? { data: [], error: null } : await this.client.from("students").select("id, class_id, display_name").in("class_id", classIds).order("display_name");
+      studentResult = classIds.length === 0 ? { data: [], error: null } : await this.client.from("students").select("id, class_id, display_name").in("class_id", classIds).order("display_name");
     }
     if (classResult.error !== null || studentResult.error !== null) {
       throw new ApiClientError("FORBIDDEN");
@@ -16145,16 +16145,17 @@ function createTeachingItems(role, snapshot, today) {
   ];
 }
 var TeachingTodaySummaryDataSource = class {
-  constructor(teachingAdapter, now = () => /* @__PURE__ */ new Date()) {
+  constructor(teachingAdapter, now = () => /* @__PURE__ */ new Date(), dataMode = "live") {
     this.teachingAdapter = teachingAdapter;
     this.now = now;
+    this.dataMode = dataMode;
   }
   async load(roleScope) {
     const role = roleScope.role;
     const generatedAt = this.now().toISOString();
     if (role === "admin" || role === "bank_operator" || role === "council") {
       return {
-        dataMode: "live",
+        dataMode: this.dataMode,
         generatedAt,
         items: mapItems(GOVERNANCE_SUMMARY_ITEMS[role]),
         role,
@@ -16163,11 +16164,11 @@ var TeachingTodaySummaryDataSource = class {
     }
     const snapshot = await this.teachingAdapter.load(roleScope);
     return {
-      dataMode: "live",
+      dataMode: this.dataMode,
       generatedAt,
       items: createTeachingItems(role, snapshot, generatedAt.slice(0, 10)),
       role,
-      title: "\u4ECA\u65E5\u6458\u8981"
+      title: this.dataMode === "demo" ? "\u4ECA\u65E5\u6458\u8981\uFF08\u6F14\u793A\u6570\u636E\uFF09" : "\u4ECA\u65E5\u6458\u8981"
     };
   }
 };

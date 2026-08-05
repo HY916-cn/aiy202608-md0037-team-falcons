@@ -110,7 +110,7 @@ export class SupabaseTeachingDemoAdapter implements TeachingDemoAdapter {
       ).order('name');
       const classIds = (classResult.data ?? []).map((row) => row.id);
       studentResult =
-        role === 'class_terminal' || classIds.length === 0
+        classIds.length === 0
           ? { data: [], error: null }
           : await this.client
               .from('students')

@@ -6,7 +6,6 @@ import {
   type AuthSessionAdapter,
 } from '@dolphincloud/auth';
 import {
-  DemoTodaySummaryDataSource,
   MockTeachingDemoAdapter,
   TeachingTodaySummaryDataSource,
   type TeachingDemoAdapter,
@@ -57,12 +56,17 @@ export function createSupabaseServiceRuntime(
       role === null
         ? new MockAuthSessionAdapter()
         : new MockAuthSessionAdapter({ initialRole: role });
+    const teachingAdapter = new MockTeachingDemoAdapter({ seedData: true });
     return {
       authAdapter,
       client: null,
       mode: 'demo',
-      summaryDataSource: new DemoTodaySummaryDataSource(),
-      teachingAdapter: new MockTeachingDemoAdapter(),
+      summaryDataSource: new TeachingTodaySummaryDataSource(
+        teachingAdapter,
+        () => new Date(),
+        'demo',
+      ),
+      teachingAdapter,
     };
   }
 

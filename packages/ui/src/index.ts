@@ -1,4 +1,9 @@
 export { AiResultCard, DolphinMascotCard } from './AiExperienceCards';
+export {
+  InteractivePressable,
+  type InteractivePressableProps,
+  type InteractivePressableState,
+} from './InteractivePressable';
 export { RoleHomeScreen } from './RoleHomeScreen';
 export {
   resolveRoleNavigationKey,

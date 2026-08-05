@@ -182,4 +182,34 @@ describe('createSupabaseServiceRuntime', () => {
       title: '今日摘要（演示数据）',
     });
   });
+
+  it('班级端首页摘要、统计和列表来自同一个当前班级快照', async () => {
+    const runtime = createSupabaseServiceRuntime({
+      anonKey: undefined,
+      mockRole: 'class_terminal',
+      url: undefined,
+    });
+    const classScope = {
+      assignmentId: 'demo_assignment_class_terminal',
+      id: '20000000-0000-0000-0000-000000000001',
+      label: '演示班级',
+      role: 'class_terminal',
+      type: 'class',
+    } as const;
+
+    const [snapshot, summary] = await Promise.all([
+      runtime.teachingAdapter.load(classScope),
+      runtime.summaryDataSource.load(classScope),
+    ]);
+
+    expect(snapshot.students).toHaveLength(1);
+    expect(snapshot.courseware).toHaveLength(3);
+    expect(snapshot.assignments).toHaveLength(2);
+    expect(summary.items.find(({ id }) => id === 'new-courseware')?.value).toBe(
+      `${snapshot.courseware.length} 份`,
+    );
+    expect(summary.items.find(({ id }) => id === 'today-assignments')?.value).toBe(
+      `${snapshot.assignments.length} 项`,
+    );
+  });
 });
