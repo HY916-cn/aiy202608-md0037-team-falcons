@@ -2,24 +2,38 @@
 
 依据组委会《[把你的作品发布到 GitHub - 选手版 Builder Guide v2.0](https://img.webloom.cn/img/2e0bbe0dcc131063549e4c573f82e8b0.pdf)》整理。本文件只记录公开仓库交付状态，不记录密码、Token 或真实学生数据。
 
+团队：**Team Falcons**｜团队编号：**MD0037**
+
+开发者：**Haoyu Huang、Lilun Yan、Qiteng Jiang**
+
+正式交付：**Web-only**
+
 ## 六项硬性要求
 
 | 要求 | 当前状态 | 说明 |
 | --- | --- | --- |
-| 仓库位于队员账号且为 Public | 待完成 | 已托管于 `HY916-cn`；当前仍为 Private，改为 Public 前需再确认无密钥与隐私数据 |
-| 仓库名符合统一格式 | 待完成 | 当前名称为 `dolphin-cloud`，应改为 `aiy202608-md0037-team-falcons` |
-| README 按模板填全 | 完成 | 包含简介、赛道、团队分工、功能、演示、技术、运行方式、计划和版权 |
+| 仓库位于队员账号且为 Public | 完成 | 公开仓库位于 `HY916-cn`，完整历史 Secret scan 通过 |
+| 仓库名符合统一格式 | 完成 | `aiy202608-md0037-team-falcons` |
+| README 按模板填全 | 完成 | 包含简介、赛道、团队分工、功能、Web 演示、技术、运行方式、计划和版权 |
 | MIT LICENSE 与真实署名 | 完成 | 2026，Haoyu Huang、Lilun Yan、Qiteng Jiang |
 | Topic `aiy-hackathon-202608` | 完成 | 同时保留产品技术标签 |
 | 无密钥、密码及私有数据 | 完成 | `.env` 被忽略；main 完整历史 Secret scan 通过 |
+| AI 工具应用记录 | 完成 | 开发阶段实际使用 Coze 对话、Agent／Skill／Workflow 思路及 Coze Coding 项目进行场景拆解和方案复核；产品运行时使用 DeepSeek |
 
 ## 提交前还需确认
 
-- [ ] 将仓库重命名为 `aiy202608-md0037-team-falcons`，并将可见性改为 Public。
+- [x] 仓库已重命名为 `aiy202608-md0037-team-falcons`，并设为 Public。
 - [x] 三位成员均已接受 Collaborator 邀请。
 - [x] 三位署名成员均使用各自 GitHub 账号完成了真实贡献提交。
 - [ ] 公网 HTTPS Web 地址可直接访问，并补充到 README 的“演示”部分和仓库 Website。
 - [ ] 最终截图与公开版本一致，不包含真实账号、密码、学生隐私或内部地址。
+- [ ] 最终 Web RC 的完整 SHA、构建时间、ZIP 名称和 SHA-256 已记录并相互对应。
+- [ ] 公开 Web bundle 已检查，不包含 Token、服务角色密钥、内部地址或 source map 隐私信息。
+- [ ] 六角色与多范围演示使用合成数据完成；家庭、班级和银行权限边界已复核。
+- [ ] 10 分钟讲稿完成至少两次计时彩排，其中实机演示稳定在 3–4 分钟。
+- [ ] 完整 Web 录屏、分段录屏、静态截图和故障口令可在断网环境打开。
+- [ ] AI 正常路径只在服务端配置真实有效时演示；未配置时展示离线边界，不伪造结果。
+- [ ] 最终提交字段不承诺 Android、iOS 或 Windows 交付，统一写明 Web-only。
 - [ ] 把最终仓库地址登记给组委会，并由三位成员共同留存。
 
 ## 提交信息
@@ -33,3 +47,25 @@
 | 团队编号 | MD0037 |
 | 仓库托管人 | Haoyu Huang / `HY916-cn` |
 | 成员 | Haoyu Huang、Lilun Yan、Qiteng Jiang |
+| 正式交付 | Web |
+
+## 路演与提交材料
+
+- [10 分钟路演讲稿](./十分钟路演讲稿.md)
+- [3–4 分钟实机演示路径与专家问答](./实机演示路径与专家问答.md)
+- [断网、AI 离线与服务器故障备用方案](./故障备用方案.md)
+
+## 最终提交记录（验收后填写）
+
+| 项目 | 最终值 |
+| --- | --- |
+| 公网 HTTPS Web 地址 | 待确认 |
+| 最终 `main` 完整 SHA | 待确认 |
+| Web 构建文件 | 待确认 |
+| Web 构建 SHA-256 | 待确认 |
+| GitHub CI | 待确认 |
+| 六角色 Web 彩排 | 待确认 |
+| AI 运行状态 | 待确认（真实网关 / 离线边界） |
+| P0 / P1 | 待确认 |
+
+只有取得实际证据后才能把“待确认”改为通过；计划、脚本、Mock 或历史构建不等于最终验收。
