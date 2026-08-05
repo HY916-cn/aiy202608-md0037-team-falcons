@@ -22,8 +22,14 @@ await build({
 });
 
 const bundlePath = 'supabase/functions/ai-gateway/index.ts';
-const bundle = await readFile(bundlePath, 'utf8');
+const bundle = (await readFile(bundlePath, 'utf8')).replaceAll(
+  'from "@supabase/supabase-js"',
+  'from "npm:@supabase/supabase-js@2.110.8"',
+);
 if (bundle.includes('@dolphincloud/') || bundle.includes('../../packages/')) {
   throw new Error('Edge bundle contains a workspace source import');
+}
+if (bundle.includes('from "@supabase/supabase-js"')) {
+  throw new Error('Edge bundle contains a Deno-incompatible bare npm import');
 }
 await writeFile(bundlePath, bundle.replace(/[\t ]+$/gm, ''), 'utf8');

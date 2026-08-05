@@ -1,21 +1,19 @@
-import { AI_READ_SKILLS, type AiGatewayResponse } from './contracts';
+import type { AiGatewayResponse } from './contracts';
 import type { AiActionDraftService } from './actionDraftService';
-import type { CozeGatewayClient } from './cozeGatewayClient';
 import { AiServiceError } from './errors';
 import { parseGatewayRequest } from './inputSecurity';
+import type { AiProviderClient } from './providerClient';
 import type { AiRequestGuard } from './requestGuard';
 import type { AiPrincipal, AiSessionService } from './sessionService';
 import type { AiSkillContext, SkillQueryService } from './skillQueryService';
-import type { AiSkillContextTokenIssuer } from './skillContextToken';
 
 export class AiGatewayService {
   constructor(
     private readonly sessions: AiSessionService,
-    private readonly provider: CozeGatewayClient,
+    private readonly provider: AiProviderClient,
     private readonly skills: SkillQueryService,
     private readonly drafts: AiActionDraftService,
     private readonly requestGuard: AiRequestGuard,
-    private readonly skillTokenIssuer: AiSkillContextTokenIssuer,
   ) {}
 
   async chat(
@@ -35,15 +33,10 @@ export class AiGatewayService {
       session,
     });
     let conversationReference: string | null = null;
-    const skillContextToken = await this.skillTokenIssuer.issue(
-      session,
-      AI_READ_SKILLS,
-    );
     const providerInput = {
       conversationReference: session.conversationReference,
       message: request.message,
       sessionReference: session.id,
-      skillContextToken,
       ...(signal === undefined ? {} : { signal }),
     };
     try {

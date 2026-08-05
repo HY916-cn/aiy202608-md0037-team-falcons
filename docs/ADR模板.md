@@ -16,7 +16,7 @@
 - React Native + Expo 主应用。
 - Web、Android、iOS 本地版和 Windows EXE。
 - 三套体系独立、关键写操作可审计与撤销。
-- Coze 只作为运行时服务，不参与开发。
+- DeepSeek 只作为运行时服务，不参与开发。
 
 删除不相关约束，补充本决策特有约束。
 

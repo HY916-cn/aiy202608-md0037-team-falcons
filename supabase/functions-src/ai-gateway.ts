@@ -1,22 +1,17 @@
 import {
-  AI_READ_SKILLS,
   AiActionDraftService,
   AiGatewayHttpApplication,
   AiGatewayService,
   AiServiceError,
   AiSessionService,
-  AiSkillContextTokenIssuer,
-  CozeGatewayClient,
+  DeepSeekGatewayClient,
   SkillQueryService,
   SupabaseAiActionDraftRepository,
   SupabaseAiActionExecutionAdapter,
   SupabaseAiActionPreviewResolver,
   SupabaseAiRequestGuard,
   SupabaseAiSessionRepository,
-  SupabaseAiSkillTokenRegistry,
-  readVerifiedSkillTokenId,
   resolveSupabaseSkillContext,
-  type AiReadSkill,
 } from '@dolphincloud/ai-service';
 import { SupabaseTeachingDemoAdapter } from '@dolphincloud/api-client';
 import { TeachingTodaySummaryDataSource } from '@dolphincloud/experience';
@@ -36,6 +31,11 @@ function requiredEnvironment(name: string): string {
     throw new AiServiceError('AI_UNAVAILABLE', 503);
   }
   return value;
+}
+
+function optionalEnvironment(name: string, fallback: string): string {
+  const value = Deno.env.get(name)?.trim();
+  return value === undefined || value.length === 0 ? fallback : value;
 }
 
 function json(body: unknown, status: number): Response {
@@ -70,53 +70,6 @@ async function authenticatedUser(client: SupabaseClient, token: string) {
   return data.user;
 }
 
-function parseSkillBody(value: unknown): {
-  readonly arguments: Readonly<Record<string, unknown>>;
-  readonly skill: AiReadSkill;
-} {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    throw new AiServiceError('VALIDATION_ERROR', 422);
-  }
-  const input = value as Record<string, unknown>;
-  if (
-    typeof input.skill !== 'string' ||
-    !AI_READ_SKILLS.some((skill) => skill === input.skill) ||
-    input.arguments === null ||
-    typeof input.arguments !== 'object' ||
-    Array.isArray(input.arguments) ||
-    Object.keys(input).some((key) => key !== 'skill' && key !== 'arguments')
-  ) {
-    throw new AiServiceError('VALIDATION_ERROR', 422);
-  }
-  return {
-    arguments: input.arguments as Readonly<Record<string, unknown>>,
-    skill: input.skill as AiReadSkill,
-  };
-}
-
-async function handleSkillQuery(request: Request, body: unknown): Promise<Response> {
-  const token = bearer(request);
-  if (token === null) throw new AiServiceError('UNAUTHENTICATED', 401);
-  const client = createUserClient(token);
-  const user = await authenticatedUser(client, token);
-  const input = parseSkillBody(body);
-  const tokenId = readVerifiedSkillTokenId(token);
-  const { data: contextId, error } = await client.rpc(
-    'consume_ai_skill_context_token',
-    { requested_skill: input.skill, token_id: tokenId },
-  );
-  if (error !== null || typeof contextId !== 'string') {
-    throw new AiServiceError('FORBIDDEN', 403, { cause: error });
-  }
-  const teaching = new SupabaseTeachingDemoAdapter(client);
-  const context = await resolveSupabaseSkillContext(client, user.id, contextId);
-  const result = await new SkillQueryService(
-    teaching,
-    new TeachingTodaySummaryDataSource(teaching),
-  ).query(input.skill, input.arguments, context);
-  return json({ data: result, request_id: crypto.randomUUID() }, 200);
-}
-
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
     return new Response(null, { headers: CORS_HEADERS, status: 204 });
@@ -125,9 +78,6 @@ Deno.serve(async (request) => {
   try {
     if (request.method !== 'POST') throw new AiServiceError('NOT_FOUND', 404);
     const body = await request.json().catch(() => null);
-    if (route(request) === '/skills/query') {
-      return await handleSkillQuery(request, body);
-    }
     const token = bearer(request);
     if (token === null) throw new AiServiceError('UNAUTHENTICATED', 401);
     const client = createUserClient(token);
@@ -169,12 +119,14 @@ Deno.serve(async (request) => {
     );
     const gateway = new AiGatewayService(
       new AiSessionService(new SupabaseAiSessionRepository(client)),
-      new CozeGatewayClient({
-        apiBaseUrl: requiredEnvironment('COZE_API_BASE_URL'),
-        botId: requiredEnvironment('COZE_BOT_ID'),
-        skillEndpoint: requiredEnvironment('AI_SKILL_ENDPOINT'),
-        timeoutMs: Number(Deno.env.get('AI_GATEWAY_TIMEOUT_MS') ?? '8000'),
-        token: requiredEnvironment('COZE_API_TOKEN'),
+      new DeepSeekGatewayClient({
+        apiBaseUrl: optionalEnvironment(
+          'DEEPSEEK_API_BASE_URL',
+          'https://api.deepseek.com',
+        ),
+        apiKey: requiredEnvironment('DEEPSEEK_API_KEY'),
+        model: optionalEnvironment('DEEPSEEK_MODEL', 'deepseek-chat'),
+        timeoutMs: Number(Deno.env.get('AI_GATEWAY_TIMEOUT_MS') ?? '12000'),
       }),
       new SkillQueryService(
         teaching,
@@ -182,10 +134,6 @@ Deno.serve(async (request) => {
       ),
       draftService,
       new SupabaseAiRequestGuard(client),
-      new AiSkillContextTokenIssuer(
-        requiredEnvironment('SUPABASE_JWT_SECRET'),
-        new SupabaseAiSkillTokenRegistry(client),
-      ),
     );
     const result = await new AiGatewayHttpApplication(
       gateway,
