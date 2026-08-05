@@ -20,18 +20,28 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function resultText(value: unknown): {
   readonly action: AiExperienceActionPreview | null;
   readonly sessionId: string;
+  readonly structuredResult: { readonly kind: string; readonly payload: unknown } | null;
   readonly text: string;
 } {
   if (!isRecord(value) || typeof value.sessionId !== 'string') {
     throw new Error('AI_GATEWAY_INVALID_RESPONSE');
   }
   if (value.type === 'text' && typeof value.text === 'string') {
-    return { action: null, sessionId: value.sessionId, text: value.text };
+    return {
+      action: null,
+      sessionId: value.sessionId,
+      structuredResult: null,
+      text: value.text,
+    };
   }
   if (value.type === 'data_card' && isRecord(value.card)) {
     return {
       action: null,
       sessionId: value.sessionId,
+      structuredResult: {
+        kind: typeof value.card.kind === 'string' ? value.card.kind : 'query',
+        payload: value.card.payload,
+      },
       text: JSON.stringify(value.card.payload, null, 2),
     };
   }
@@ -69,6 +79,7 @@ function resultText(value: unknown): {
     return {
       action,
       sessionId: value.sessionId,
+      structuredResult: null,
       text: `已生成写操作预览：${preview.actionType}`,
     };
   }
@@ -79,7 +90,9 @@ export class SupabaseAiExperienceAdapter implements AiExperienceAdapter {
   private action: AiExperienceActionPreview | null = null;
   private contextId: string | undefined;
   private confirming = false;
+  private lastPrompt: string | null = null;
   private readonly listeners = new Set<AiExperienceListener>();
+  private requestGeneration = 0;
   private sessionId: string | undefined;
   private snapshot = createAiExperienceSnapshot('idle');
 
@@ -97,8 +110,25 @@ export class SupabaseAiExperienceAdapter implements AiExperienceAdapter {
   }
 
   reset(): void {
+    this.requestGeneration += 1;
     this.action = null;
     this.setSnapshot(createAiExperienceSnapshot('idle'));
+  }
+
+  newConversation(): void {
+    this.sessionId = undefined;
+    this.lastPrompt = null;
+    this.reset();
+  }
+
+  cancelRequest(): void {
+    if (this.snapshot.state !== 'thinking') return;
+    this.requestGeneration += 1;
+    this.setSnapshot(createAiExperienceSnapshot('idle'));
+  }
+
+  async retry(): Promise<void> {
+    if (this.lastPrompt !== null) await this.submit(this.lastPrompt);
   }
 
   async selectActiveRole(roleScope: AuthRoleScope): Promise<void> {
@@ -131,6 +161,8 @@ export class SupabaseAiExperienceAdapter implements AiExperienceAdapter {
       this.setSnapshot(createAiExperienceSnapshot('error'));
       return;
     }
+    this.lastPrompt = prompt.trim();
+    const generation = ++this.requestGeneration;
     const { data: sessionData } = await this.client.auth.getSession();
     if (sessionData.session === null) {
       this.setSnapshot(createAiExperienceSnapshot('error'));
@@ -151,12 +183,19 @@ export class SupabaseAiExperienceAdapter implements AiExperienceAdapter {
       const envelope = data as GatewayEnvelope;
       if (envelope.error !== undefined) throw new Error('AI_GATEWAY_ERROR');
       const result = resultText(envelope.data);
+      if (generation !== this.requestGeneration) return;
       this.action = result.action;
       this.sessionId = result.sessionId;
       this.setSnapshot(
-        createAiExperienceSnapshot('preview', result.text, result.action),
+        createAiExperienceSnapshot(
+          'preview',
+          result.text,
+          result.action,
+          result.structuredResult,
+        ),
       );
     } catch {
+      if (generation !== this.requestGeneration) return;
       this.setSnapshot(createAiExperienceSnapshot('offline'));
     }
   }
@@ -165,16 +204,33 @@ export class SupabaseAiExperienceAdapter implements AiExperienceAdapter {
     if (this.action === null || this.confirming) return;
     this.confirming = true;
     try {
-      const { error } = await this.client.functions.invoke(this.functionName, {
+      const { data, error } = await this.client.functions.invoke(this.functionName, {
         body: { dangerousConfirmed },
         headers: {
           'x-ai-route': `/action-drafts/${this.action.draftId}/confirm`,
         },
       });
       if (error !== null) throw error;
+      const envelope = data as GatewayEnvelope & { readonly request_id?: unknown };
+      const completed = isRecord(envelope.data) ? envelope.data : null;
+      const receipt = completed !== null && isRecord(completed.receipt)
+        ? completed.receipt
+        : {};
       this.action = null;
       this.setSnapshot(
-        createAiExperienceSnapshot('success', this.snapshot.result),
+        createAiExperienceSnapshot(
+          'success',
+          this.snapshot.result,
+          null,
+          this.snapshot.structuredResult,
+          {
+            receipt,
+            requestId:
+              typeof envelope.request_id === 'string'
+                ? envelope.request_id
+                : null,
+          },
+        ),
       );
     } catch {
       this.setSnapshot(createAiExperienceSnapshot('error'));

@@ -20,7 +20,6 @@ import {
   SlidersHorizontal,
   Star,
   UsersRound,
-  Waves,
   type LucideIcon,
 } from 'lucide-react-native';
 import type { ReactNode } from 'react';
@@ -34,6 +33,7 @@ import {
 } from 'react-native';
 
 import { RoleIcon } from './RoleIcon';
+import { DolphinCloudLogo } from './DolphinCloudLogo';
 import { InteractivePressable } from './InteractivePressable';
 import {
   resolveRolePageHeader,
@@ -112,12 +112,7 @@ function BrandLockup({ compact = false }: { readonly compact?: boolean }) {
   return (
     <View style={styles.brandLockup}>
       <View style={styles.brandMark}>
-        <Waves
-          accessibilityLabel="DolphinCloud Mark"
-          color={theme.color.surface.card}
-          size={25}
-          strokeWidth={2.4}
-        />
+        <DolphinCloudLogo size={compact ? 34 : 38} />
       </View>
       {compact ? null : (
         <View>
@@ -497,7 +492,7 @@ const styles = StyleSheet.create({
   shell: { backgroundColor: theme.color.surface.page, flex: 1, flexDirection: 'row' },
   sidebar: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRightWidth: 1, padding: theme.space.lg, width: 244 },
   brandLockup: { alignItems: 'center', flexDirection: 'row', gap: theme.space.base },
-  brandMark: { alignItems: 'center', backgroundColor: theme.color.brand.primary, borderRadius: 13, height: 42, justifyContent: 'center', width: 42 },
+  brandMark: { alignItems: 'center', backgroundColor: theme.color.surface.card, borderRadius: 13, height: 42, justifyContent: 'center', width: 42 },
   brandName: { color: theme.color.text.primary, fontSize: 18, fontWeight: '800', letterSpacing: 0.4 },
   brandEnglish: { color: theme.color.text.secondary, fontSize: 10, fontWeight: '600', letterSpacing: 0.6, marginTop: 1 },
   navigation: { gap: theme.space.xs, marginTop: 42 },

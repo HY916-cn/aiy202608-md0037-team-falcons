@@ -90,7 +90,29 @@ export function AiResultCard({ snapshot }: { readonly snapshot: AiExperienceSnap
           <Text style={styles.resultMeta}>由海豚云 AI 网关返回，展示前已通过客户端白名单。</Text>
         </View>
       </View>
-      <Text style={styles.explanation}>{snapshot.result}</Text>
+      {snapshot.structuredResult === null ? (
+        <Text style={styles.explanation}>{snapshot.result}</Text>
+      ) : (
+        <View style={styles.structuredResult}>
+          <Text style={styles.structuredKind}>{snapshot.structuredResult.kind}</Text>
+          {Object.entries(
+            snapshot.structuredResult.payload !== null &&
+              typeof snapshot.structuredResult.payload === 'object' &&
+              !Array.isArray(snapshot.structuredResult.payload)
+              ? snapshot.structuredResult.payload as Record<string, unknown>
+              : { result: snapshot.structuredResult.payload },
+          ).map(([key, value]) => (
+            <View key={key} style={styles.structuredRow}>
+              <Text style={styles.structuredLabel}>{key}</Text>
+              <Text style={styles.structuredValue}>
+                {typeof value === 'string' || typeof value === 'number'
+                  ? String(value)
+                  : JSON.stringify(value)}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
       <View style={styles.noticeBox}>
         <Text style={styles.notice}>查询结果不会绕过当前角色范围；写操作会单独进入预览与确认。</Text>
       </View>
@@ -98,7 +120,29 @@ export function AiResultCard({ snapshot }: { readonly snapshot: AiExperienceSnap
   );
 }
 
+export function AiAuditResultCard({ snapshot }: { readonly snapshot: AiExperienceSnapshot }) {
+  if (snapshot.auditResult === null) return null;
+
+  return (
+    <View style={styles.auditCard}>
+      <CheckCircle2 color={theme.color.brand.primary} size={19} />
+      <View style={styles.copy}>
+        <Text style={styles.resultTitle}>操作已执行并记录审计</Text>
+        <Text style={styles.explanation}>
+          {Object.entries(snapshot.auditResult.receipt)
+            .map(([key, value]) => `${key}：${String(value)}`)
+            .join('；') || '服务端已返回完成状态。'}
+        </Text>
+        {snapshot.auditResult.requestId === null ? null : (
+          <Text style={styles.resultMeta}>请求编号：{snapshot.auditResult.requestId}</Text>
+        )}
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  auditCard: { alignItems: 'flex-start', backgroundColor: theme.color.surface.primaryTint, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, flexDirection: 'row', gap: theme.space.sm, padding: theme.space.md },
   connectionDot: { backgroundColor: theme.color.brand.primary, borderRadius: theme.radius.pill, height: 7, width: 7 },
   connectionDotOffline: { backgroundColor: theme.color.text.disabled },
   connectionLabel: { color: theme.color.text.secondary, fontSize: 10, fontWeight: '700' },
@@ -139,4 +183,9 @@ const styles = StyleSheet.create({
   stateOffline: { color: theme.color.text.secondary },
   stateRow: { alignItems: 'center', flexDirection: 'row', gap: theme.space.sm },
   statusHeading: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm, justifyContent: 'space-between' },
+  structuredKind: { color: theme.color.brand.primary, fontSize: theme.text.size.xs, fontWeight: '800' },
+  structuredLabel: { color: theme.color.text.secondary, flexBasis: 130, fontSize: theme.text.size.xs, fontWeight: '700' },
+  structuredResult: { borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, overflow: 'hidden' },
+  structuredRow: { borderTopColor: theme.color.border.default, borderTopWidth: 1, flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm, padding: theme.space.base },
+  structuredValue: { color: theme.color.text.primary, flex: 1, fontSize: theme.text.size.sm, minWidth: 160 },
 });

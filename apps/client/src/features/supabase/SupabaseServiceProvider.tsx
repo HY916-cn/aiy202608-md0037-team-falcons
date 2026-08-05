@@ -23,7 +23,6 @@ export function SupabaseServiceProvider({
     runtime ??
     createSupabaseServiceRuntime({
       anonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
-      mockRole: process.env.EXPO_PUBLIC_MOCK_ROLE,
       url: process.env.EXPO_PUBLIC_SUPABASE_URL,
     }),
   );

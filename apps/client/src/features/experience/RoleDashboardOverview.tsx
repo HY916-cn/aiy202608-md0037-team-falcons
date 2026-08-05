@@ -158,7 +158,7 @@ function TeachingWorkspace({
             ))
           )}
           <Text style={styles.boundaryNote}>
-            治理数据在对应任务页面按当前权限范围读取；演示数据会明确标识。
+            治理数据在对应任务页面按当前权限范围读取，不在首页生成替代统计。
           </Text>
         </View>
       </View>
@@ -213,7 +213,7 @@ function ServiceWorkspace({
           ))}
         </View>
         <Text style={styles.boundaryNote}>
-          治理页面使用当前 AuthRoleScope；正式模式调用 Supabase RPC，演示模式会明确标识合成数据。
+          治理页面使用当前权限范围并通过服务端 RPC 与 RLS 再次校验。
         </Text>
       </View>
     </View>

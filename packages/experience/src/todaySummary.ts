@@ -61,28 +61,6 @@ const DEMO_SUMMARY_ITEMS = {
   readonly (readonly [string, string, string, TodaySummaryItem['tone']])[]
 >;
 
-const GOVERNANCE_SUMMARY_ITEMS = {
-  bank_operator: [
-    ['coin-ledger', '海豚币流水', '待接入', 'info'],
-    ['fine-orders', '罚款单', '待接入', 'attention'],
-    ['pending-items', '待处理事项', '待接入', 'attention'],
-  ],
-  council: [
-    ['class-score-adjustments', '班级分调整', '待接入', 'info'],
-    ['evidence', '凭证', '待接入', 'attention'],
-    ['class-ranking', '班级排行', '待接入', 'positive'],
-  ],
-  admin: [
-    ['users', '用户', '待接入', 'info'],
-    ['audit-events', '审计', '待接入', 'info'],
-    ['anomalies', '异常', '待接入', 'attention'],
-    ['system-status', '系统状态', '待接入', 'positive'],
-  ],
-} as const satisfies Record<
-  'admin' | 'bank_operator' | 'council',
-  readonly (readonly [string, string, string, TodaySummaryItem['tone']])[]
->;
-
 function mapItems(
   items: readonly (readonly [string, string, string, TodaySummaryItem['tone']])[],
 ): readonly TodaySummaryItem[] {
@@ -135,16 +113,12 @@ function createTeachingItems(
     return [
       { id: 'new-courseware', label: '新课件', tone: 'info', value: `${newCourseware} 份` },
       { id: 'today-assignments', label: '今日作业', tone: 'attention', value: `${todayAssignments} 项` },
-      { id: 'class-score', label: '班级分', tone: 'info', value: '待接入' },
-      { id: 'class-ranking', label: '班级排行', tone: 'info', value: '待接入' },
     ];
   }
 
   return [
     { id: 'linked-assignments', label: '绑定学生作业', tone: 'attention', value: `${snapshot.assignments.length} 项` },
     { id: 'published-grades', label: '已发布成绩', tone: 'info', value: `${snapshot.grades.length} 项` },
-    { id: 'student-score', label: '学生分', tone: 'info', value: '待接入' },
-    { id: 'dolphin-coins', label: '海豚币', tone: 'info', value: '待接入' },
   ];
 }
 
@@ -178,9 +152,9 @@ export class TeachingTodaySummaryDataSource implements TodaySummaryDataSource {
       return {
         dataMode: this.dataMode,
         generatedAt,
-        items: mapItems(GOVERNANCE_SUMMARY_ITEMS[role]),
+        items: [],
         role,
-        title: '今日摘要（数据待接入）',
+        title: '今日摘要',
       };
     }
 

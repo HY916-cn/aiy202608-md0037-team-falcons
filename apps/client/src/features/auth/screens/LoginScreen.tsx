@@ -1,11 +1,6 @@
-import {
-  ROLE_CODES,
-  ROLE_LABELS,
-  type AuthLoginInput,
-  type RoleCode,
-} from '@dolphincloud/auth';
-import { RoleIcon, theme } from '@dolphincloud/ui';
-import { ArrowRight, CheckCircle2, LockKeyhole, Mail, Waves } from 'lucide-react-native';
+import type { AuthLoginInput } from '@dolphincloud/auth';
+import { DolphinCloudLogo, theme } from '@dolphincloud/ui';
+import { ArrowRight, CheckCircle2, LockKeyhole, Mail } from 'lucide-react-native';
 import { useState } from 'react';
 import {
   Pressable,
@@ -18,15 +13,15 @@ import {
 } from 'react-native';
 
 type LoginScreenProps = {
+  readonly configurationIssue: 'incomplete' | 'missing' | null;
   readonly onLogin: (input: AuthLoginInput) => Promise<void>;
 };
 
-export function LoginScreen({ onLogin }: LoginScreenProps) {
+export function LoginScreen({ configurationIssue, onLogin }: LoginScreenProps) {
   const { width } = useWindowDimensions();
   const isWide = width >= 900;
-  const [email, setEmail] = useState('demo_teacher_01@dolphincloud.local');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [selectedRole, setSelectedRole] = useState<RoleCode>('teacher');
   const [isPending, setIsPending] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -37,23 +32,14 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
     try {
       await onLogin({ email, password });
     } catch {
-      setErrorMessage('登录没有成功，请检查演示账号和密码。');
+      setErrorMessage('登录未完成。请检查账号与密码，或联系系统管理员。');
       setIsPending(false);
     }
   };
 
-  const handleSelectRole = (role: RoleCode) => {
-    const emailPrefix =
-      role === 'class_terminal'
-        ? 'demo_class'
-        : role === 'bank_operator'
-          ? 'demo_bank'
-          : `demo_${role}`;
-
-    setSelectedRole(role);
-    setEmail(`${emailPrefix}_01@dolphincloud.local`);
-    setErrorMessage(null);
-  };
+  const isUnavailable = configurationIssue !== null;
+  const canSubmit =
+    !isUnavailable && !isPending && email.trim().length > 0 && password.length > 0;
 
   return (
     <ScrollView contentContainerStyle={styles.page}>
@@ -61,7 +47,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         <View style={[styles.introduction, !isWide && styles.introductionCompact]}>
           <View style={styles.brandRow}>
             <View style={styles.brandMark}>
-              <Waves color={theme.color.surface.card} size={27} strokeWidth={2.4} />
+              <DolphinCloudLogo size={42} />
             </View>
             <View>
               <Text style={styles.brandName}>海豚云</Text>
@@ -93,36 +79,20 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
           <View>
             <Text style={styles.panelEyebrow}>欢迎回来</Text>
             <Text style={styles.panelTitle}>登录海豚云</Text>
-            <Text style={styles.panelDescription}>选择演示身份，快速进入对应工作台。</Text>
+            <Text style={styles.panelDescription}>使用学校分配的账号登录，系统将按你的权限进入对应工作台。</Text>
           </View>
 
-          <View>
-            <Text style={styles.fieldLabel}>演示身份</Text>
-            <View style={styles.roleGrid}>
-              {ROLE_CODES.map((role) => {
-                const isSelected = selectedRole === role;
-                return (
-                  <Pressable
-                    accessibilityLabel={`选择${ROLE_LABELS[role]}演示账号`}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: isSelected }}
-                    disabled={isPending}
-                    key={role}
-                    onPress={() => handleSelectRole(role)}
-                    style={({ pressed }) => [
-                      styles.roleButton,
-                      pressed && styles.pressed,
-                      isSelected && styles.roleButtonSelected,
-                      isPending && styles.disabled,
-                    ]}
-                  >
-                    <RoleIcon role={role} size={20} />
-                    <Text style={[styles.roleLabel, isSelected && styles.roleLabelSelected]}>{ROLE_LABELS[role]}</Text>
-                  </Pressable>
-                );
-              })}
+          {isUnavailable ? (
+            <View accessibilityRole="alert" style={styles.serviceNotice}>
+              <Text style={styles.serviceNoticeTitle}>服务尚未配置</Text>
+              <Text style={styles.serviceNoticeText}>
+                {configurationIssue === 'incomplete'
+                  ? '运行环境中的服务地址与访问配置不完整。'
+                  : '当前站点尚未连接学校服务。'}
+                请联系系统管理员完成配置后再登录。
+              </Text>
             </View>
-          </View>
+          ) : null}
 
           <View style={styles.form}>
             <Text style={styles.fieldLabel}>账号</Text>
@@ -131,9 +101,11 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
               <TextInput
                 autoCapitalize="none"
                 autoComplete="email"
-                editable={!isPending}
+                editable={!isPending && !isUnavailable}
                 inputMode="email"
                 onChangeText={setEmail}
+                placeholder="name@school.example"
+                placeholderTextColor={theme.color.text.disabled}
                 style={styles.input}
                 value={email}
               />
@@ -144,9 +116,9 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
               <TextInput
                 autoCapitalize="none"
                 autoComplete="current-password"
-                editable={!isPending}
+                editable={!isPending && !isUnavailable}
                 onChangeText={setPassword}
-                placeholder="请输入本地演示密码"
+                placeholder="请输入密码"
                 placeholderTextColor={theme.color.text.disabled}
                 secureTextEntry
                 style={styles.input}
@@ -155,12 +127,12 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
             </View>
             <Pressable
               accessibilityRole="button"
-              accessibilityState={{ busy: isPending, disabled: isPending }}
-              disabled={isPending}
+              accessibilityState={{ busy: isPending, disabled: !canSubmit }}
+              disabled={!canSubmit}
               onPress={() => void handleLogin()}
-              style={({ pressed }) => [styles.loginButton, pressed && styles.pressed, isPending && styles.disabled]}
+              style={({ pressed }) => [styles.loginButton, pressed && styles.pressed, !canSubmit && styles.disabled]}
             >
-              <Text style={styles.loginButtonLabel}>{isPending ? '正在登录…' : `进入${ROLE_LABELS[selectedRole]}`}</Text>
+              <Text style={styles.loginButtonLabel}>{isPending ? '正在登录…' : '登录'}</Text>
               <ArrowRight color={theme.color.surface.card} size={19} />
             </Pressable>
           </View>
@@ -168,7 +140,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
           {errorMessage === null ? null : (
             <Text accessibilityRole="alert" style={styles.error}>{errorMessage}</Text>
           )}
-          <Text style={styles.securityNotice}>身份范围由服务端会话与 RLS 校验，界面选择不会授予额外权限。</Text>
+          <Text style={styles.securityNotice}>身份与数据范围由服务端会话及 RLS 校验，客户端不会保存服务密钥。</Text>
         </View>
       </View>
     </ScrollView>
@@ -182,7 +154,7 @@ const styles = StyleSheet.create({
   introduction: { backgroundColor: theme.color.brand.primary, justifyContent: 'space-between', padding: 52, width: '46%' },
   introductionCompact: { gap: theme.space.lg, padding: theme.space.lg, width: '100%' },
   brandRow: { alignItems: 'center', flexDirection: 'row', gap: theme.space.base },
-  brandMark: { alignItems: 'center', backgroundColor: theme.color.brand.onPrimaryMuted, borderColor: theme.color.brand.onPrimaryBorder, borderRadius: 14, borderWidth: 1, height: 46, justifyContent: 'center', width: 46 },
+  brandMark: { alignItems: 'center', backgroundColor: theme.color.surface.card, borderColor: theme.color.brand.onPrimaryBorder, borderRadius: 14, borderWidth: 1, height: 46, justifyContent: 'center', width: 46 },
   brandName: { color: theme.color.surface.card, fontSize: 19, fontWeight: '800' },
   brandEnglish: { color: theme.color.surface.card, fontSize: 10, fontWeight: '600', letterSpacing: 0.7, marginTop: 2, opacity: 0.76 },
   heroCopy: { gap: theme.space.base },
@@ -199,11 +171,9 @@ const styles = StyleSheet.create({
   panelEyebrow: { color: theme.color.brand.primary, fontSize: theme.text.size.xs, fontWeight: '800', letterSpacing: 1 },
   panelTitle: { color: theme.color.text.primary, fontSize: theme.text.size.display, fontWeight: '800', letterSpacing: -0.5, marginTop: theme.space.xs },
   panelDescription: { color: theme.color.text.secondary, fontSize: theme.text.size.sm, marginTop: theme.space.sm },
-  roleGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm, marginTop: theme.space.sm },
-  roleButton: { alignItems: 'center', borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, flexBasis: '46%', flexDirection: 'row', flexGrow: 1, gap: theme.space.sm, minHeight: 44, paddingHorizontal: theme.space.base },
-  roleButtonSelected: { backgroundColor: theme.color.surface.primaryTint, borderColor: theme.color.brand.primary },
-  roleLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, fontWeight: '700' },
-  roleLabelSelected: { color: theme.color.brand.primary },
+  serviceNotice: { backgroundColor: theme.color.surface.primaryTint, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, gap: theme.space.xs, padding: theme.space.md },
+  serviceNoticeText: { color: theme.color.text.secondary, fontSize: theme.text.size.sm, lineHeight: 21 },
+  serviceNoticeTitle: { color: theme.color.text.primary, fontSize: theme.text.size.md, fontWeight: '800' },
   form: { gap: theme.space.sm },
   fieldLabel: { color: theme.color.text.primary, fontSize: theme.text.size.xs, fontWeight: '700', marginTop: theme.space.xs },
   inputFrame: { alignItems: 'center', borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, flexDirection: 'row', gap: theme.space.sm, minHeight: 48, paddingHorizontal: theme.space.base },

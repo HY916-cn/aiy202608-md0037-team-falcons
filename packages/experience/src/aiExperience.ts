@@ -16,9 +16,21 @@ export type AiExperienceState = (typeof AI_EXPERIENCE_STATES)[number];
 
 export type AiExperienceSnapshot = {
   readonly actionPreview: AiExperienceActionPreview | null;
+  readonly auditResult: AiAuditResult | null;
   readonly explanation: string;
   readonly result: string | null;
   readonly state: AiExperienceState;
+  readonly structuredResult: AiStructuredResult | null;
+};
+
+export type AiAuditResult = {
+  readonly receipt: Readonly<Record<string, unknown>>;
+  readonly requestId: string | null;
+};
+
+export type AiStructuredResult = {
+  readonly kind: string;
+  readonly payload: unknown;
 };
 
 export type AiExperienceActionPreview = WriteActionPreview & {
@@ -29,9 +41,12 @@ export type AiExperienceListener = (snapshot: AiExperienceSnapshot) => void;
 
 export interface AiExperienceAdapter {
   cancelAction(): Promise<void>;
+  cancelRequest(): void;
   confirmAction(dangerousConfirmed: boolean): Promise<void>;
   getSnapshot(): AiExperienceSnapshot;
+  newConversation(): void;
   reset(): void;
+  retry(): Promise<void>;
   returnToModify(): Promise<void>;
   selectActiveRole(roleScope: AuthRoleScope): Promise<void>;
   startListening(): void;
@@ -58,8 +73,17 @@ export function createAiExperienceSnapshot(
   state: AiExperienceState,
   result: string | null = null,
   actionPreview: AiExperienceActionPreview | null = null,
+  structuredResult: AiStructuredResult | null = null,
+  auditResult: AiAuditResult | null = null,
 ): AiExperienceSnapshot {
-  return { actionPreview, explanation: STATE_EXPLANATIONS[state], result, state };
+  return {
+    actionPreview,
+    auditResult,
+    explanation: STATE_EXPLANATIONS[state],
+    result,
+    state,
+    structuredResult,
+  };
 }
 
 export class MockAiExperienceAdapter implements AiExperienceAdapter {
@@ -83,7 +107,15 @@ export class MockAiExperienceAdapter implements AiExperienceAdapter {
     return this.snapshot;
   }
 
+  newConversation(): void {
+    this.reset();
+  }
+
   async cancelAction(): Promise<void> {
+    this.reset();
+  }
+
+  cancelRequest(): void {
     this.reset();
   }
 
@@ -100,6 +132,12 @@ export class MockAiExperienceAdapter implements AiExperienceAdapter {
   }
 
   reset(): void {
+    this.setSnapshot(
+      createAiExperienceSnapshot(this.isOffline ? 'offline' : 'idle'),
+    );
+  }
+
+  async retry(): Promise<void> {
     this.setSnapshot(
       createAiExperienceSnapshot(this.isOffline ? 'offline' : 'idle'),
     );

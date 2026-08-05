@@ -1,5 +1,4 @@
 import {
-  MockAiExperienceAdapter,
   type AiExperienceAdapter,
   type TeachingDemoAdapter,
   type TodaySummaryDataSource,
@@ -8,6 +7,8 @@ import { SupabaseAiExperienceAdapter } from '@dolphincloud/api-client';
 import { createContext, useContext, useState, type ReactNode } from 'react';
 
 import { useSupabaseServices } from '@/features/supabase';
+
+import { UnavailableAiExperienceAdapter } from './UnavailableAiExperienceAdapter';
 
 type ExperienceContextValue = {
   readonly aiAdapter: AiExperienceAdapter;
@@ -26,7 +27,7 @@ export function ExperienceProvider({ children }: { readonly children: ReactNode 
             client,
             process.env.EXPO_PUBLIC_AI_GATEWAY_FUNCTION,
           )
-        : new MockAiExperienceAdapter({ isOffline: true }),
+        : new UnavailableAiExperienceAdapter(),
     summaryDataSource,
     teachingAdapter,
   }));

@@ -458,7 +458,7 @@ export function AdminWorkspaceScreen({
   const sourceNotice =
     snapshot.source === 'supabase'
       ? `来源：Supabase + RLS；读取时间 ${formatDateTime(snapshot.loadedAt)}。列表工具只处理本次成功加载的数据。`
-      : '当前未配置 Supabase。账号、范围、审计与系统状态均保持可验证离线，不生成演示记录，也不提供写按钮。';
+      : '当前未配置学校服务。账号、范围和审计信息暂不可用，请联系系统管理员。';
 
   if (activeNavigation === 'users') {
     const handleExport = async () => {
@@ -509,7 +509,7 @@ export function AdminWorkspaceScreen({
         title="权限矩阵"
       >
         <WorkspaceBoundaryNotice label="权限来源说明">
-          权限等级来自 docs/01、docs/03 与 docs/07 的固定产品基线；“已加载范围”来自当前 Supabase 读取。此处没有假写按钮，也不宣称已修改服务端权限。
+          权限等级为产品权限基线；“已加载范围”来自当前服务读取。本页面只读展示，不修改服务端权限。
         </WorkspaceBoundaryNotice>
         <PermissionMatrix isCompact={isCompact} users={snapshot.users} />
       </WorkspaceSurface>
