@@ -80,6 +80,7 @@ export interface TeachingDemoAdapter {
 const CLASS_ONE = '20000000-0000-0000-0000-000000000001';
 const CLASS_TWO = '20000000-0000-0000-0000-000000000002';
 const STUDENT_ONE = '50000000-0000-0000-0000-000000000001';
+const STUDENT_OTHER = '50000000-0000-0000-0000-000000000002';
 const STUDENT_TWO = '50000000-0000-0000-0000-000000000009';
 
 export class MockTeachingDemoAdapter implements TeachingDemoAdapter {
@@ -89,6 +90,7 @@ export class MockTeachingDemoAdapter implements TeachingDemoAdapter {
   ];
   private readonly students: TeachingStudent[] = [
     { classId: CLASS_ONE, id: STUDENT_ONE, name: '演示学生01' },
+    { classId: CLASS_ONE, id: STUDENT_OTHER, name: '演示学生02' },
     { classId: CLASS_TWO, id: STUDENT_TWO, name: '演示学生09' },
   ];
   private courseware: TeachingCourseware[] = [];

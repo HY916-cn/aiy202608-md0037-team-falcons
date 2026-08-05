@@ -21,5 +21,6 @@ export * from './coursewareService';
 export * from './gradeService';
 export * from './gradeReportImport';
 export * from './gradeReportSheetService';
+export * from './mockGradeReportSheetService';
 export * from './supabaseTeachingDemoAdapter';
 export * from './supabaseAiExperienceAdapter';

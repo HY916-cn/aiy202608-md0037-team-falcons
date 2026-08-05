@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { normalizeGradeReportCsv, normalizeGradeReportMatrix } from '../gradeReportImport';
+import {
+  normalizeGradeReportCsv,
+  normalizeGradeReportCsvUpload,
+  normalizeGradeReportMatrix,
+} from '../gradeReportImport';
 
 const context = {
   classId: '20000000-0000-0000-0000-000000000001',
@@ -89,5 +93,34 @@ describe('grade report imports', () => {
         'student_id,笔试,笔试评语,实践\n50000000-0000-0000-0000-000000000001,90.999,,18',
       ),
     ).toThrowError(expect.objectContaining({ code: 'VALIDATION_ERROR' }));
+  });
+
+  it('从用户上传的 CSV 表头推导多个成绩项目并保留评语', () => {
+    const result = normalizeGradeReportCsvUpload(
+      context,
+      [
+        'student_id,笔试[100],笔试评语,实践[20],表达[10]',
+        '50000000-0000-0000-0000-000000000001,92,稳定,18,9',
+      ].join('\n'),
+    );
+
+    expect(result.columns.map(({ name, maxScore }) => [name, maxScore])).toEqual([
+      ['笔试', 100],
+      ['实践', 20],
+      ['表达', 10],
+    ]);
+    expect(result.rows[0]?.values[0]?.comment).toBe('稳定');
+  });
+
+  it.each([
+    ['缺少学生 ID', '笔试[100]\n90'],
+    ['重复列', 'student_id,笔试,笔试\n50000000-0000-0000-0000-000000000001,90,91'],
+    ['非法数字', 'student_id,笔试[100]\n50000000-0000-0000-0000-000000000001,九十'],
+    ['超过满分', 'student_id,笔试[100]\n50000000-0000-0000-0000-000000000001,101'],
+    ['三位小数', 'student_id,笔试[100]\n50000000-0000-0000-0000-000000000001,90.999'],
+  ])('拒绝%s且不返回部分 DTO', (_label, csv) => {
+    expect(() => normalizeGradeReportCsvUpload(context, csv)).toThrowError(
+      expect.objectContaining({ code: 'VALIDATION_ERROR' }),
+    );
   });
 });

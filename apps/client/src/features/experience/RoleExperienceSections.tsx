@@ -21,7 +21,6 @@ import {
 import * as DocumentPicker from 'expo-document-picker';
 import {
   Bot,
-  ChartColumn,
   ClipboardList,
   FolderUp,
   History,
@@ -33,6 +32,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { useExperience } from './ExperienceProvider';
+import { GradeReportSection } from '../grades';
 import { RoleDashboardOverview } from './RoleDashboardOverview';
 import {
   countStudentsForClass,
@@ -188,7 +188,6 @@ function TeachingDemoSection({
   const [selectedFile, setSelectedFile] = useState<TeachingFilePayload | null>(null);
   const [title, setTitle] = useState('合成演示教学内容');
   const [content, setContent] = useState('完成合成练习内容。');
-  const [score, setScore] = useState('92');
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -222,11 +221,6 @@ function TeachingDemoSection({
   useEffect(() => {
     void Promise.resolve().then(load);
   }, [load]);
-
-  const selectedStudents = useMemo(
-    () => snapshot.students.filter((student) => student.classId === selectedClassId),
-    [selectedClassId, snapshot.students],
-  );
 
   const runAction = useCallback(
     async (successMessage: string, action: () => Promise<void>) => {
@@ -430,27 +424,6 @@ function TeachingDemoSection({
               ) : null}
             </View>
           ))}
-          <View style={styles.featureDivider} />
-          <View style={styles.featureHeading}>
-            <ChartColumn color={theme.color.brand.primary} size={18} />
-            <View><Text style={styles.featureTitle}>成绩</Text><Text style={styles.featureDescription}>成绩发布后仅绑定家庭可见</Text></View>
-          </View>
-          <Text style={styles.fieldLabel}>成绩分数</Text>
-          <TextInput inputMode="decimal" onChangeText={setScore} style={styles.input} value={score} />
-          <ActionButton
-            disabled={selectedClassId === null || selectedStudents[0] === undefined || isPending}
-            label="创建成绩草稿"
-            onPress={() => requestWrite('grade.create_draft', [selectedStudents[0]?.name ?? '绑定学生'], ['创建仅教师可见的成绩草稿'], [`分数：${score}`, `测验：${title}`], () => teachingAdapter.createGradeDraft({ classId: selectedClassId!, comment: '合成演示评语', score: Number(score), studentId: selectedStudents[0]!.id, subject: '数学', title }), '成绩草稿已创建。')}
-          />
-          {snapshot.grades.map((grade) => (
-            <View key={grade.id} style={styles.listItem}>
-              <Text style={styles.itemTitle}>{grade.studentName} · {grade.score} · {grade.status}</Text>
-              <View style={styles.actions}>
-                {grade.status === 'draft' ? <ActionButton label="发布成绩" onPress={() => requestWrite('grade.publish', [grade.studentName], ['绑定家庭端将可见该成绩'], [`分数：${grade.score}`, `测验：${grade.assessmentTitle}`], () => teachingAdapter.publishGrade(grade.id), '成绩已发布。', true)} /> : null}
-                {grade.status === 'published' ? <ActionButton label="修订成绩" onPress={() => requestWrite('grade.revise', [grade.studentName], ['修改已发布成绩并产生修订历史'], [`原分数：${grade.score}`, `新分数：${grade.score + 1}`, '原因：现场演示复核'], () => teachingAdapter.reviseGrade({ comment: '复核后的合成评语', gradeId: grade.id, reason: '现场演示复核', score: grade.score + 1 }), '成绩已修订并记录原因。', true)} /> : null}
-              </View>
-            </View>
-          ))}
         </>
       ) : null}
 
@@ -521,20 +494,6 @@ function TeachingDemoSection({
         </>
       ) : null}
 
-      {role === 'family' && presentation.mode === 'growth' ? (
-        <>
-          <Text style={styles.fieldLabel}>绑定学生已发布成绩</Text>
-          {snapshot.grades.length === 0 ? (
-            <Text style={styles.helper}>暂无已发布成绩。</Text>
-          ) : (
-            snapshot.grades.map((grade) => (
-              <Text key={grade.id} style={styles.listItem}>
-                {grade.studentName} · {grade.score}
-              </Text>
-            ))
-          )}
-        </>
-      ) : null}
     </View>
   );
 }
@@ -565,6 +524,13 @@ export function RoleExperienceSections({
 
   if (activeNavigation === 'ai') {
     return <AiExperienceSection roleScope={roleScope} />;
+  }
+
+  if (
+    (role === 'teacher' && activeNavigation === 'class') ||
+    (role === 'family' && activeNavigation === 'growth')
+  ) {
+    return <GradeReportSection role={role} roleScope={roleScope} />;
   }
 
   if (
