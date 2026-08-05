@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
   card: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, gap: theme.space.sm, padding: theme.space.lg },
   disabled: { opacity: 0.5 },
   eyebrow: { color: theme.color.brand.primary, fontSize: theme.text.size.xs, fontWeight: '800', letterSpacing: 0.6 },
-  focused: { borderColor: theme.color.brand.primary, borderWidth: 1, shadowColor: theme.color.brand.primary, shadowOpacity: 0.2, shadowRadius: 4 },
+  focused: { borderColor: theme.color.brand.primary, borderWidth: 1, boxShadow: '0 0 0 3px rgba(22, 119, 254, 0.18)' },
   heading: { alignItems: 'flex-start', flexDirection: 'row', gap: theme.space.base },
   headingCopy: { flex: 1, gap: theme.space.xs },
   headingDescription: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, lineHeight: 18 },

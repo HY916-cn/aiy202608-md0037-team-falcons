@@ -1,4 +1,5 @@
-export { AiResultCard, DolphinMascotCard } from './AiExperienceCards';
+export { AiAuditResultCard, AiResultCard, DolphinMascotCard } from './AiExperienceCards';
+export { DolphinCloudLogo } from './DolphinCloudLogo';
 export {
   InteractivePressable,
   type InteractivePressableProps,

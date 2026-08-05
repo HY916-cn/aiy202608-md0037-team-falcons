@@ -127,7 +127,6 @@ describe('createSupabaseServiceRuntime', () => {
     const runtime = createSupabaseServiceRuntime(
       {
         anonKey: 'anon-key',
-        mockRole: undefined,
         url: 'https://example.supabase.co',
       },
       clientFactory,
@@ -159,57 +158,39 @@ describe('createSupabaseServiceRuntime', () => {
     unsubscribe?.();
   });
 
-  it('Supabase 配置只提供一半时安全失败', () => {
-    expect(() =>
-      createSupabaseServiceRuntime({
-        anonKey: undefined,
-        mockRole: undefined,
-        url: 'https://example.supabase.co',
-      }),
-    ).toThrow('SUPABASE_CONFIG_INCOMPLETE');
+  it('Supabase 配置只提供一半时进入不可用边界而不是 Mock', async () => {
+    const clientFactory = vi.fn();
+    const runtime = createSupabaseServiceRuntime(
+      { anonKey: undefined, url: 'https://example.supabase.co' },
+      clientFactory,
+    );
+
+    expect(runtime.mode).toBe('unconfigured');
+    expect(runtime.configurationIssue).toBe('incomplete');
+    expect(runtime.client).toBeNull();
+    expect(clientFactory).not.toHaveBeenCalled();
+    await expect(
+      runtime.authAdapter.login({ email: 'user@example.com', password: 'password' }),
+    ).rejects.toMatchObject({ code: 'SERVICE_UNCONFIGURED' });
   });
 
-  it('无 Supabase 配置时明确使用演示数据模式', async () => {
+  it('无 Supabase 配置时不创建合成会话、摘要或教学数据', async () => {
     const runtime = createSupabaseServiceRuntime({
       anonKey: undefined,
-      mockRole: 'teacher',
       url: undefined,
     });
 
-    expect(runtime.mode).toBe('demo');
-    await expect(runtime.summaryDataSource.load(teacherScope)).resolves.toMatchObject({
-      dataMode: 'demo',
-      title: '今日摘要（演示数据）',
+    expect(runtime.mode).toBe('unconfigured');
+    expect(runtime.configurationIssue).toBe('missing');
+    await expect(runtime.authAdapter.getSession()).resolves.toMatchObject({
+      currentRole: null,
+      user: null,
     });
-  });
-
-  it('班级端首页摘要、统计和列表来自同一个当前班级快照', async () => {
-    const runtime = createSupabaseServiceRuntime({
-      anonKey: undefined,
-      mockRole: 'class_terminal',
-      url: undefined,
+    await expect(runtime.summaryDataSource.load(teacherScope)).rejects.toMatchObject({
+      code: 'SERVICE_UNCONFIGURED',
     });
-    const classScope = {
-      assignmentId: 'demo_assignment_class_terminal',
-      id: '20000000-0000-0000-0000-000000000001',
-      label: '演示班级',
-      role: 'class_terminal',
-      type: 'class',
-    } as const;
-
-    const [snapshot, summary] = await Promise.all([
-      runtime.teachingAdapter.load(classScope),
-      runtime.summaryDataSource.load(classScope),
-    ]);
-
-    expect(snapshot.students).toHaveLength(2);
-    expect(snapshot.courseware).toHaveLength(3);
-    expect(snapshot.assignments).toHaveLength(2);
-    expect(summary.items.find(({ id }) => id === 'new-courseware')?.value).toBe(
-      `${snapshot.courseware.length} 份`,
-    );
-    expect(summary.items.find(({ id }) => id === 'today-assignments')?.value).toBe(
-      `${snapshot.assignments.length} 项`,
-    );
+    await expect(runtime.teachingAdapter.load(teacherScope)).rejects.toMatchObject({
+      code: 'SERVICE_UNCONFIGURED',
+    });
   });
 });

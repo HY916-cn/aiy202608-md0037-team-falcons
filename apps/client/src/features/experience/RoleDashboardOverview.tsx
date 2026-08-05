@@ -158,7 +158,7 @@ function TeachingWorkspace({
             ))
           )}
           <Text style={styles.boundaryNote}>
-            治理数据在对应任务页面按当前权限范围读取；演示数据会明确标识。
+            治理数据在对应任务页面按当前权限范围读取，不在首页生成替代统计。
           </Text>
         </View>
       </View>
@@ -213,7 +213,7 @@ function ServiceWorkspace({
           ))}
         </View>
         <Text style={styles.boundaryNote}>
-          治理页面使用当前 AuthRoleScope；正式模式调用 Supabase RPC，演示模式会明确标识合成数据。
+          治理页面使用当前权限范围并通过服务端 RPC 与 RLS 再次校验。
         </Text>
       </View>
     </View>
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
   metricLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, marginTop: 4 },
   metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm },
   metricValue: { color: theme.color.text.primary, fontSize: theme.text.size.xl, fontWeight: '800' },
-  focused: { borderColor: theme.color.brand.primary, shadowColor: theme.color.brand.primary, shadowOpacity: 0.2, shadowRadius: 4 },
+  focused: { borderColor: theme.color.brand.primary, boxShadow: '0 0 0 3px rgba(22, 119, 254, 0.18)' },
   pressed: { opacity: 0.72, transform: [{ scale: 0.985 }] },
   retryButton: { alignItems: 'center', alignSelf: 'flex-start', backgroundColor: theme.color.brand.primary, borderRadius: theme.radius.control, justifyContent: 'center', marginTop: theme.space.base, minHeight: 42, paddingHorizontal: theme.space.lg },
   retryButtonHover: { opacity: 0.88 },

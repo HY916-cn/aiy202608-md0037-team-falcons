@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
-  <title id="title">DolphinCloud Mark</title>
-  <desc id="description">主蓝色背景内跃过青色弧线的白色极简海豚</desc>
-  <rect width="512" height="512" rx="112" fill="#1677FF" />
-  <path d="M112 252c45-52 103-83 174-92l25-46c18 13 29 31 31 54 36 9 67 28 94 56l42 18-44 11c-34 39-81 62-141 67-57 4-107-15-150-58l-31-10Z" fill="#FFFFFF" />
-  <path d="M119 249c-25-8-46-24-64-47 0 27 10 50 29 68-14 17-21 38-20 64 23-20 42-43 58-69l-3-16Z" fill="#FFFFFF" />
-  <path d="M273 316c14 27 36 45 66 55 0-24-8-44-24-58l-42 3Z" fill="#FFFFFF" />
-  <path d="M97 349c78-62 155-62 232 0 31 25 60 25 86 1" fill="none" stroke="#22D3EE" stroke-linecap="round" stroke-width="28" />
-</svg>

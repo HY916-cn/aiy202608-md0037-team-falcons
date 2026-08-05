@@ -20,7 +20,6 @@ import {
   SlidersHorizontal,
   Star,
   UsersRound,
-  Waves,
   type LucideIcon,
 } from 'lucide-react-native';
 import type { ReactNode } from 'react';
@@ -34,6 +33,7 @@ import {
 } from 'react-native';
 
 import { RoleIcon } from './RoleIcon';
+import { DolphinCloudLogo } from './DolphinCloudLogo';
 import { InteractivePressable } from './InteractivePressable';
 import {
   resolveRolePageHeader,
@@ -112,12 +112,7 @@ function BrandLockup({ compact = false }: { readonly compact?: boolean }) {
   return (
     <View style={styles.brandLockup}>
       <View style={styles.brandMark}>
-        <Waves
-          accessibilityLabel="DolphinCloud Mark"
-          color={theme.color.surface.card}
-          size={25}
-          strokeWidth={2.4}
-        />
+        <DolphinCloudLogo size={compact ? 34 : 38} />
       </View>
       {compact ? null : (
         <View>
@@ -318,7 +313,7 @@ export function RoleHomeScreen({
 
   const accountMenu = isAccountOpen ? (
     <View style={[styles.accountMenu, !isWide && styles.accountMenuMobile]}>
-      <Text style={styles.accountName}>{user?.displayName ?? '演示用户'}</Text>
+      <Text style={styles.accountName}>{user?.displayName ?? '当前用户'}</Text>
       <Text style={styles.accountScope}>{roleScope?.label ?? ROLE_LABELS[role]}</Text>
       <View style={styles.menuDivider} />
       <Text style={styles.menuLabel}>切换角色</Text>
@@ -429,7 +424,7 @@ export function RoleHomeScreen({
           <View style={styles.avatar}><Text style={styles.avatarText}>{userInitial}</Text></View>
           {isWide ? (
             <View style={styles.accountCopy}>
-              <Text numberOfLines={1} style={styles.accountButtonName}>{user?.displayName ?? '演示用户'}</Text>
+              <Text numberOfLines={1} style={styles.accountButtonName}>{user?.displayName ?? '当前用户'}</Text>
               <Text style={styles.accountButtonRole}>{ROLE_LABELS[role]}</Text>
             </View>
           ) : null}
@@ -497,7 +492,7 @@ const styles = StyleSheet.create({
   shell: { backgroundColor: theme.color.surface.page, flex: 1, flexDirection: 'row' },
   sidebar: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRightWidth: 1, padding: theme.space.lg, width: 244 },
   brandLockup: { alignItems: 'center', flexDirection: 'row', gap: theme.space.base },
-  brandMark: { alignItems: 'center', backgroundColor: theme.color.brand.primary, borderRadius: 13, height: 42, justifyContent: 'center', width: 42 },
+  brandMark: { alignItems: 'center', backgroundColor: theme.color.surface.card, borderRadius: 13, height: 42, justifyContent: 'center', width: 42 },
   brandName: { color: theme.color.text.primary, fontSize: 18, fontWeight: '800', letterSpacing: 0.4 },
   brandEnglish: { color: theme.color.text.secondary, fontSize: 10, fontWeight: '600', letterSpacing: 0.6, marginTop: 1 },
   navigation: { gap: theme.space.xs, marginTop: 42 },
@@ -505,7 +500,7 @@ const styles = StyleSheet.create({
   navItemActive: { backgroundColor: theme.color.surface.primaryTint },
   navLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.sm, fontWeight: '600' },
   navLabelActive: { color: theme.color.brand.primary, fontWeight: '700' },
-  interactiveFocus: { borderColor: theme.color.brand.primary, borderWidth: 1, shadowColor: theme.color.brand.primary, shadowOpacity: 0.2, shadowRadius: 4 },
+  interactiveFocus: { borderColor: theme.color.brand.primary, borderWidth: 1, boxShadow: '0 0 0 3px rgba(22, 119, 254, 0.18)' },
   interactiveHover: { backgroundColor: theme.color.surface.primaryTint },
   pressed: { opacity: 0.68, transform: [{ scale: 0.985 }] },
   sidebarFooter: { flex: 1, justifyContent: 'flex-end' },

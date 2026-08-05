@@ -1,114 +1,100 @@
 # 海豚云 · DolphinCloud
 
-海豚云是一套使用 React Native、Expo、Supabase 和 Electron 构建的校园协作应用，计划交付 Web、Android APK、iOS 本地测试版和 Windows EXE。
+> 面向校园日常协作的 AI 平台，让教学、成长评价、激励与自治在同一个可信空间中完成。
 
-当前仓库已进入工程实现阶段：使用 pnpm workspace 管理 Expo 客户端与共享 package，工程规范和 GitHub 协作约束继续作为实现边界。
+- 🏆 **AIY 黑客松 2026 深圳站**参赛作品
+- 🏷 **命题企业 / 赛道：** Coze · 校园生活 AI 助手
+- 👥 **团队：** Team Falcons
+- 🔢 **团队编号：** MD0037
 
-## 开发团队
+![海豚云 AI 中心](./docs/assets/product-ai-center.jpg)
 
-| 成员 | GitHub | 职责 |
+## 👥 团队分工
+
+| 成员 | GitHub | 负责内容 |
 | --- | --- | --- |
-| 开发者 A | `@cskunkuncskk` | Expo 客户端、六端导航、课件、作业、成绩和共享 UI |
-| 开发者 B | `@Simen111216` | Supabase、学生分、班级分、银行、罚款、撤销和 AI 网关 |
-| 负责人 C | `@HY916-cn` | 代码 Review、测试、缺陷修复、CI 和 Web/APK/iOS/EXE 构建 |
+| Haoyu Huang | [@HY916-cn](https://github.com/HY916-cn) | 产品设计、架构协调、代码审查、测试构建与路演 |
+| Qiteng Jiang | [@cskunkuncskk](https://github.com/cskunkuncskk) | Web 前端、六角色工作台、教学与成绩体验 |
+| Lilun Yan | [@Simen111216](https://github.com/Simen111216) | Supabase、治理账本、权限安全与发布工程 |
 
-A、B 的功能 PR 由 C 主审；C 提交的修复或构建 PR 必须由 A 或 B Review，禁止自审自合并。
+## ✨ 它能做什么
 
-## 重要边界
+- **六角色协作：** 教师端、班级端、家庭端、银行端、自治会端和管理端共享同一套业务事实，同时保持权限隔离。
+- **教学闭环：** 教师向班级发送课件、发布作业与成绩单；家庭端只能查看绑定学生的数据。
+- **三套独立体系：** 学生分、班级分和海豚币分别授权、分别记账，不互相混算。
+- **治理可追溯：** 支持罚款、班级排行、操作审计及指定历史操作撤销。
+- **AI 中心：** 通过服务端网关接入 Coze，结合当前角色和范围整理信息；写操作先生成确认草稿，用户确认后才调用海豚云服务。
+- **今日摘要：** 汇总当前角色真正有权查看的课件、作业、成绩与治理动态。
 
-- 三位成员使用 Codex 完成开发、Review、测试、修复和构建。
-- GitHub 是需求、代码、审查和发布状态的唯一协作中心。
-- 开发过程中禁止使用 Coze、Coze CLI 或外部代码生成服务。
-- Coze 只作为应用运行时 AI 服务，通过海豚云后端受控接口接入。
-- Coze 不可用时，普通页面和核心业务必须继续工作。
-- `main` 必须保持可构建、可演示；禁止直接推送。
+## 🎬 演示
 
-## 新成员如何开始
+建议按以下路线体验核心闭环：
 
-只需要把本仓库地址和一段角色提示词交给 Codex：
+1. 教师端发布作业或成绩单，并完成一次学生加分。
+2. 班级端查看班级表现和排行。
+3. 家庭端验证只能查看绑定学生的成绩与成长记录。
+4. 银行端创建罚款并执行指定撤销；自治会端查看班级分。
+5. AI 中心查询今日摘要，并观察写操作的确认流程。
 
-1. 打开 [START_HERE.md](./START_HERE.md)。
-2. 选择开发者 A、开发者 B 或负责人 C 的提示词。
-3. 将仓库地址和提示词一起发给 Codex。
-4. Codex 会读取 `AGENTS.md`、文档、当前 Issue 和 Git 状态后开始工作。
+> 在线体验地址将在完成公网 HTTPS 部署后补充。仓库不提供真实学生数据、演示账号密码或服务端密钥。
 
-更完整的开发、Review、修复和构建提示词位于 [Codex 提示词库](./prompts/CODEX提示词库.md)。
+## 🛠 技术与 AI 工具
 
-## 文档导航
-
-| 文档 | 内容 |
+| 层级 | 技术 |
 | --- | --- |
-| [START_HERE.md](./START_HERE.md) | 三位成员最快开工方式和可复制提示词 |
-| [AGENTS.md](./AGENTS.md) | 所有 Codex 会话必须遵守的仓库规则 |
-| [CONTRIBUTING.md](./CONTRIBUTING.md) | 本地检查和 PR 贡献流程 |
-| [00-项目介绍与交付方案](./docs/00-项目介绍与交付方案.md) | 最新项目介绍、六端、三套体系、工期与演示 |
-| [01-产品范围与验收](./docs/01-产品范围与验收.md) | MVP 范围、角色、功能和验收 |
-| [02-架构与数据设计](./docs/02-架构与数据设计.md) | 工程结构、数据模型、权限、账务与撤销 |
-| [03-API与Coze接入](./docs/03-API与Coze接入.md) | API 契约和 Coze 运行时安全边界 |
-| [04-GitHub协作规范](./docs/04-GitHub协作规范.md) | Issue、分支、提交、PR、Review 和发布规范 |
-| [05-三人开发计划](./docs/05-三人开发计划.md) | 两位开发者和一位质量构建负责人的十天排期 |
-| [06-测试发布与应急](./docs/06-测试发布与应急.md) | CI、QA、四端构建、RC 和演示应急 |
-| [07-产品语言与视觉规范](./docs/07-产品语言与视觉规范.md) | 固定名称、导航、颜色、图标、状态和界面文案 |
-| [08-代码与资源命名规范](./docs/08-代码与资源命名规范.md) | TypeScript、API、数据库、文件、测试和资源命名 |
-| [09-实时协作与测试反馈规范](./docs/09-实时协作与测试反馈规范.md) | A/B 持续推送、Draft PR 和 C 按 SHA 测试的流程 |
-| [QA-M0首轮冒烟清单](./docs/QA-M0首轮冒烟清单.md) | C 的自动门禁、六端冒烟和 SHA 记录模板 |
-| [ADR 模板](./docs/ADR模板.md) | 跨模块技术决策记录模板 |
-| [GitHub 所有权模板](./docs/CODEOWNERS模板.md) | A、B、C 的路径所有权参考 |
+| Web 客户端 | React Native、Expo Router、TypeScript |
+| 身份与数据 | Supabase Auth、PostgreSQL、RLS、RPC、Storage |
+| AI 运行时 | Coze，经海豚云服务端 AI Gateway 受控接入 |
+| 质量保障 | Vitest、pgTAP、ESLint、GitHub Actions、Gitleaks |
+| 协作开发 | Git、GitHub、Codex |
 
-## 产品核心
+Coze 仅作为产品运行时 AI 服务。客户端不保存 Coze Token，AI 不可用时课件、作业、成绩和治理功能仍可使用；任何 AI 写操作都不能绕过角色权限和用户确认。
 
-六种角色界面：教师端、班级端、家庭端、银行端、自治会端、管理端。
+## 🚀 怎么跑起来
 
-三套独立体系：
-
-1. 学生分：教师端和授权班级端管理，教师、班级、家庭查看。
-2. 班级分：自治会端管理，教师端和班级端查看。
-3. 海豚币：银行端管理，教师端和家庭端查看。
-
-学生成绩不计入学生分，学生分不自动兑换海豚币，班级分不分摊给个人。
-
-## 仓库管理
-
-- 一项 GitHub Issue 对应一个短生命周期分支和一个 Pull Request。
-- A、B 开工后建立 Draft PR，每完成一个可验证小步骤或最长 90 分钟提交并推送一次。
-- C 对 Draft PR 持续测试，所有测试结论必须标明 commit SHA。
-- 分支从最新 `main` 创建，格式为 `feat/<issue>-<name>` 等。
-- 提交遵循 Conventional Commits。
-- PR 必须通过 lint、typecheck、测试和负责人 Review。
-- 新页面、字段、状态、图标和颜色必须遵守 `docs/07` 与 `docs/08`，不得自行创建同义名称。
-- 四端构建只能来自已验收的干净 tag，不从本地脏工作区构建。
-
-## 工程启动
+环境要求：Node.js 22.13 或更高版本、pnpm 11.9。
 
 ```bash
 pnpm install --frozen-lockfile
+cp apps/client/.env.example apps/client/.env
 pnpm web
-# 提交前的自动质量与跨端 bundle 验证
+```
+
+浏览器打开终端输出的本地地址。连接真实服务前，请在 `apps/client/.env` 配置自己的 Supabase 公共地址与匿名密钥；Coze Token 等服务端机密只能配置在部署平台的 Secret 中，不能写入仓库。
+
+提交前运行完整 Web 质量门禁：
+
+```bash
 pnpm verify:deps
 pnpm format:check
 pnpm lint
 pnpm typecheck
 pnpm test
+pnpm database:test
 pnpm smoke:web
-pnpm smoke:android
 ```
 
-默认启动后会进入 Mock 登录页，可依次选择教师端、班级端、家庭端、银行端、自治会端和管理端，验证角色切换、退出与路由守卫：
+更详细的工程入口见 [START_HERE.md](./START_HERE.md)，架构、权限和协作规范位于 [docs](./docs)。
 
-```bash
-pnpm web
-```
+## 🔐 安全与隐私
 
-开发阶段也可在 `apps/client/.env` 设置 `EXPO_PUBLIC_MOCK_ROLE` 为 `teacher`、`class_terminal`、`family`、`bank_operator`、`council` 或 `admin`，自动进入对应角色首页。该变量只控制客户端 Mock 演示入口，不作为服务端授权依据；删除该变量即可恢复未登录入口。
+- 认证身份来自 Supabase JWT，客户端声明的角色和用户 ID 不作为授权依据。
+- 成绩、学生分、班级分、海豚币、罚款和文件均受角色范围及 RLS 约束。
+- 写操作具备服务端授权、幂等控制和审计；指定撤销生成新的补偿记录，不修改历史流水。
+- `.env`、Token、密码、真实学生信息和命题企业私有数据禁止提交。
+- GitHub Actions 对仓库完整历史执行 Secret scan。
 
-认证与跨端导出验证命令：
+如发现安全问题，请不要在公开 Issue 中粘贴凭据或个人信息，改用仓库维护者提供的私密联系方式报告。
 
-```bash
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm web:export
-pnpm android:export
-```
+## 📌 后续计划
 
-工程能力与可运行端点会随对应 Issue 和 Pull Request 持续更新。
+- 完成公网 HTTPS Web 部署与可公开访问的体验入口。
+- 接入赛事提供的 Coze 资源，完成真实 AI 网关联调。
+- 增加关键业务路径的浏览器端自动化回归。
+- 持续改善无障碍、移动端排版和低网速体验。
+
+## 📄 版权与许可
+
+本作品版权归 **Haoyu Huang、Lilun Yan、Qiteng Jiang** 共同所有，采用 [MIT License](./LICENSE) 开源，使用请署名。
+
+> 本项目为 AIY 黑客松参赛作品，作品归团队所有；AIY 组委会仅作收录与展示。

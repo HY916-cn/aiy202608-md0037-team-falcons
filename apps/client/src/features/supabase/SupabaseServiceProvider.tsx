@@ -12,6 +12,13 @@ import {
 
 const SupabaseServiceContext = createContext<SupabaseServiceRuntime | null>(null);
 
+function nonEmpty(value: string | undefined): string | undefined {
+  const normalized = value?.trim();
+  return normalized === undefined || normalized.length === 0
+    ? undefined
+    : normalized;
+}
+
 export function SupabaseServiceProvider({
   children,
   runtime,
@@ -22,9 +29,8 @@ export function SupabaseServiceProvider({
   const [value] = useState(() =>
     runtime ??
     createSupabaseServiceRuntime({
-      anonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
-      mockRole: process.env.EXPO_PUBLIC_MOCK_ROLE,
-      url: process.env.EXPO_PUBLIC_SUPABASE_URL,
+      anonKey: nonEmpty(process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY),
+      url: nonEmpty(process.env.EXPO_PUBLIC_SUPABASE_URL),
     }),
   );
 

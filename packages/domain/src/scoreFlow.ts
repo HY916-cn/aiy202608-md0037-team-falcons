@@ -1,4 +1,5 @@
 import { DomainError } from './errors';
+import { SCORE_DELTA_MAX, SCORE_DELTA_MIN } from './constants';
 import { buildLedgerEntry, type LedgerEntry } from './ledger';
 import {
   createPendingOperation,
@@ -6,15 +7,13 @@ import {
   type AuthorizedOperationCommand,
   type OperationRecord,
 } from './operation';
-import {
-  SCORE_DELTA_MAX,
-  SCORE_DELTA_MIN,
-  type LedgerKind,
-  type OperationKind,
-  type OperationTargetType,
-  type StudentScoreCategoryKind,
-  type Timestamp,
-  type Uuid,
+import type {
+  LedgerKind,
+  OperationKind,
+  OperationTargetType,
+  StudentScoreCategoryKind,
+  Timestamp,
+  Uuid,
 } from './index';
 
 /**

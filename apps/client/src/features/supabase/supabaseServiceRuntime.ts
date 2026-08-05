@@ -1,6 +1,4 @@
 import {
-  MockGradeReportSheetService,
-  MockGovernanceService,
   SupabaseGradeReportSheetService,
   SupabaseGovernanceService,
   SupabaseTeachingDemoAdapter,
@@ -8,32 +6,39 @@ import {
   type GovernanceService,
 } from '@dolphincloud/api-client';
 import {
-  MockAuthSessionAdapter,
   SupabaseAuthSessionAdapter,
-  parseMockRole,
   type AuthSessionAdapter,
 } from '@dolphincloud/auth';
 import {
-  MockTeachingDemoAdapter,
   TeachingTodaySummaryDataSource,
   type TeachingDemoAdapter,
   type TodaySummaryDataSource,
 } from '@dolphincloud/experience';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
+import {
+  UnavailableAuthSessionAdapter,
+  createUnavailableGovernanceService,
+  createUnavailableGradeReportService,
+  createUnavailableSummaryDataSource,
+  createUnavailableTeachingAdapter,
+} from './unavailableServices';
+
+export type SupabaseConfigurationIssue = 'incomplete' | 'missing';
+
 export type SupabaseServiceRuntime = {
   readonly authAdapter: AuthSessionAdapter;
   readonly client: SupabaseClient | null;
+  readonly configurationIssue: SupabaseConfigurationIssue | null;
   readonly gradeReportService: GradeReportSheetService;
   readonly governanceService: GovernanceService;
-  readonly mode: 'demo' | 'supabase';
+  readonly mode: 'supabase' | 'unconfigured';
   readonly summaryDataSource: TodaySummaryDataSource;
   readonly teachingAdapter: TeachingDemoAdapter;
 };
 
 export type SupabaseRuntimeConfiguration = {
   readonly anonKey: string | undefined;
-  readonly mockRole: string | undefined;
   readonly url: string | undefined;
 };
 
@@ -55,30 +60,19 @@ export function createSupabaseServiceRuntime(
   configuration: SupabaseRuntimeConfiguration,
   clientFactory: SupabaseClientFactory = defaultClientFactory,
 ): SupabaseServiceRuntime {
-  const { anonKey, mockRole, url } = configuration;
-  if ((url === undefined) !== (anonKey === undefined)) {
-    throw new Error('SUPABASE_CONFIG_INCOMPLETE');
-  }
+  const { anonKey, url } = configuration;
 
   if (url === undefined || anonKey === undefined) {
-    const role = parseMockRole(mockRole);
-    const authAdapter =
-      role === null
-        ? new MockAuthSessionAdapter()
-        : new MockAuthSessionAdapter({ initialRole: role });
-    const teachingAdapter = new MockTeachingDemoAdapter({ seedData: true });
     return {
-      authAdapter,
+      authAdapter: new UnavailableAuthSessionAdapter(),
       client: null,
-      gradeReportService: new MockGradeReportSheetService(),
-      governanceService: new MockGovernanceService(),
-      mode: 'demo',
-      summaryDataSource: new TeachingTodaySummaryDataSource(
-        teachingAdapter,
-        () => new Date(),
-        'demo',
-      ),
-      teachingAdapter,
+      configurationIssue:
+        url === undefined && anonKey === undefined ? 'missing' : 'incomplete',
+      gradeReportService: createUnavailableGradeReportService(),
+      governanceService: createUnavailableGovernanceService(),
+      mode: 'unconfigured',
+      summaryDataSource: createUnavailableSummaryDataSource(),
+      teachingAdapter: createUnavailableTeachingAdapter(),
     };
   }
 
@@ -87,6 +81,7 @@ export function createSupabaseServiceRuntime(
   return {
     authAdapter: new SupabaseAuthSessionAdapter({ client }),
     client,
+    configurationIssue: null,
     gradeReportService: new SupabaseGradeReportSheetService(client),
     governanceService: new SupabaseGovernanceService(client),
     mode: 'supabase',

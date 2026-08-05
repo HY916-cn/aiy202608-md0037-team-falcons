@@ -1,5 +1,5 @@
 import type { TodaySummary } from '@dolphincloud/experience';
-import { AlertCircle, ArrowRight, CalendarDays, RefreshCw } from 'lucide-react-native';
+import { AlertCircle, CalendarDays, RefreshCw } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { theme } from './theme';
@@ -27,10 +27,6 @@ export function TodaySummaryCard({
           <Text style={styles.title}>{summary?.title ?? '今日摘要'}</Text>
           <Text style={styles.caption}>只汇总已发生的事实与待处理事项</Text>
         </View>
-        <Pressable accessibilityRole="button" style={styles.allButton}>
-          <Text style={styles.allButtonLabel}>查看全部</Text>
-          <ArrowRight color={theme.color.brand.primary} size={16} />
-        </Pressable>
       </View>
       {isLoading ? <Text style={styles.helper}>正在加载今日摘要……</Text> : null}
       {!isLoading && errorMessage !== null ? (
@@ -75,8 +71,6 @@ const styles = StyleSheet.create({
     gap: theme.space.md,
     padding: theme.space.lg,
   },
-  allButton: { alignItems: 'center', flexDirection: 'row', gap: theme.space.xs, minHeight: 36 },
-  allButtonLabel: { color: theme.color.brand.primary, fontSize: theme.text.size.xs, fontWeight: '700' },
   caption: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, marginTop: 3 },
   feedback: { gap: theme.space.sm },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },

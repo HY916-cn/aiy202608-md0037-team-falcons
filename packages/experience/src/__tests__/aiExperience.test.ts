@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { MockAiExperienceAdapter } from '../aiExperience';
+import { MockAiExperienceAdapter } from '../mockAiExperienceAdapter';
 import { MockTeachingDemoAdapter } from '../teachingDemo';
 
 const TEACHER_SCOPE = {
