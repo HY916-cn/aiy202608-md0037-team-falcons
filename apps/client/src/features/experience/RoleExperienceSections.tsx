@@ -69,10 +69,12 @@ function ActionButton({
   disabled = false,
   label,
   onPress,
+  secondary = false,
 }: {
   readonly disabled?: boolean;
   readonly label: string;
   readonly onPress: () => void;
+  readonly secondary?: boolean;
 }) {
   return (
     <InteractivePressable
@@ -81,13 +83,14 @@ function ActionButton({
       onPress={onPress}
       style={({ focused, hovered, pressed }) => [
         styles.actionButton,
-        hovered && styles.interactiveHover,
+        secondary && styles.actionButtonSecondary,
+        hovered && (secondary ? styles.actionButtonSecondaryHover : styles.actionButtonHover),
         focused && styles.interactiveFocus,
         pressed && styles.interactivePressed,
         disabled && styles.disabled,
       ]}
     >
-      <Text style={styles.actionLabel}>{label}</Text>
+      <Text style={[styles.actionLabel, secondary && styles.actionLabelSecondary]}>{label}</Text>
     </InteractivePressable>
   );
 }
@@ -238,9 +241,9 @@ function AiExperienceSection({ roleScope }: { readonly roleScope: AuthRoleScope 
           <Bot color={theme.color.brand.secondary} size={20} />
         </View>
         <View style={styles.sectionHeadingCopy}>
-          <Text style={styles.sectionTitle}>AI 中心</Text>
+          <Text style={styles.sectionTitle}>海豚助手</Text>
           <Text style={styles.sectionDescription}>
-            在当前角色和数据范围内查询信息；涉及写操作时必须再次确认。
+            查询当前范围内的信息，或让助手协助整理日常事务。
           </Text>
         </View>
       </View>
@@ -250,7 +253,7 @@ function AiExperienceSection({ roleScope }: { readonly roleScope: AuthRoleScope 
       </View>
       <DolphinMascotCard snapshot={snapshot} />
       <View style={styles.aiGuidance}>
-        <Text style={styles.fieldLabel}>建议问题</Text>
+        <Text style={styles.fieldLabel}>你可以这样问</Text>
         <View style={styles.actions}>
           {guidance.suggestions.map((suggestion) => (
             <InteractivePressable
@@ -289,12 +292,12 @@ function AiExperienceSection({ roleScope }: { readonly roleScope: AuthRoleScope 
       </View>
       <View style={styles.actions}>
         {snapshot.state === 'thinking' ? (
-          <ActionButton label="取消等待" onPress={() => aiAdapter.cancelRequest()} />
+          <ActionButton label="取消等待" onPress={() => aiAdapter.cancelRequest()} secondary />
         ) : null}
         {snapshot.state === 'error' || snapshot.state === 'offline' ? (
           <ActionButton label="重试" onPress={() => void retry()} />
         ) : null}
-        <ActionButton label="新对话" onPress={newConversation} />
+        <ActionButton label="新对话" onPress={newConversation} secondary />
       </View>
       <View style={styles.conversationPanel}>
         <Text style={styles.fieldLabel}>当前会话</Text>
@@ -592,7 +595,7 @@ function TeachingDemoSection({
                 </View>
               )}
               <View style={styles.actions}>
-                <ActionButton label={selectedFile === null ? '选择课件文件' : '重新选择文件'} onPress={() => void pickFile()} />
+                <ActionButton label={selectedFile === null ? '选择课件文件' : '重新选择文件'} onPress={() => void pickFile()} secondary />
                 <ActionButton
                   disabled={selectedClassId === null || selectedFile === null || coursewareTitle.trim().length === 0 || coursewareSubject.trim().length === 0 || isPending}
                   label="预览并发送"
@@ -611,7 +614,7 @@ function TeachingDemoSection({
                     )
                   }
                 />
-                <ActionButton label="刷新列表" onPress={() => void load()} />
+                <ActionButton label="刷新列表" onPress={() => void load()} secondary />
               </View>
               <View style={styles.featureDivider} />
               <Text style={styles.fieldLabel}>已发送课件</Text>
@@ -686,9 +689,9 @@ function TeachingDemoSection({
                   }}
                 />
                 {editingAssignmentId === null ? null : (
-                  <ActionButton label="取消编辑" onPress={() => { setEditingAssignmentId(null); setAssignmentTitle(''); setAssignmentContent(''); setAssignmentDueDays('1'); }} />
+                  <ActionButton label="取消编辑" onPress={() => { setEditingAssignmentId(null); setAssignmentTitle(''); setAssignmentContent(''); setAssignmentDueDays('1'); }} secondary />
                 )}
-                <ActionButton label="刷新列表" onPress={() => void load()} />
+                <ActionButton label="刷新列表" onPress={() => void load()} secondary />
               </View>
               <View style={styles.featureDivider} />
               <Text style={styles.fieldLabel}>作业列表</Text>
@@ -705,7 +708,7 @@ function TeachingDemoSection({
                     <Text style={styles.itemBody}>{item.content}</Text>
                     {item.status === 'draft' ? (
                       <View style={styles.actions}>
-                        <ActionButton label="编辑草稿" onPress={() => { setEditingAssignmentId(item.id); setAssignmentTitle(item.title); setAssignmentSubject(item.subject); setAssignmentContent(item.content); setAssignmentDueDays(daysUntil(item.dueAt)); }} />
+                        <ActionButton label="编辑草稿" onPress={() => { setEditingAssignmentId(item.id); setAssignmentTitle(item.title); setAssignmentSubject(item.subject); setAssignmentContent(item.content); setAssignmentDueDays(daysUntil(item.dueAt)); }} secondary />
                         <ActionButton label="预览并发布" onPress={() => requestWrite('发布作业', [item.title], ['班级端和绑定家庭端将可见'], [`截止：${item.dueAt}`], () => teachingAdapter.publishAssignment(item.id), '作业已发布。', true)} />
                       </View>
                     ) : null}
@@ -759,7 +762,7 @@ function TeachingDemoSection({
         <>
           <View style={styles.listHeading}>
             <Text style={styles.fieldLabel}>课件</Text>
-            <ActionButton label="刷新列表" onPress={() => void load()} />
+            <ActionButton label="刷新列表" onPress={() => void load()} secondary />
           </View>
           {snapshot.courseware.length === 0 ? (
             <Text style={styles.helper}>暂无已发送课件。</Text>
@@ -783,7 +786,7 @@ function TeachingDemoSection({
         <>
           <View style={styles.listHeading}>
             <Text style={styles.fieldLabel}>已发布作业</Text>
-            <ActionButton label="刷新列表" onPress={() => void load()} />
+            <ActionButton label="刷新列表" onPress={() => void load()} secondary />
           </View>
           {snapshot.assignments.length === 0 ? (
             <Text style={styles.helper}>暂无已发布作业。</Text>
@@ -914,11 +917,15 @@ function daysUntil(value: string): string {
 }
 
 const styles = StyleSheet.create({
-  actionButton: { alignItems: 'center', backgroundColor: theme.color.brand.primary, borderRadius: theme.radius.control, justifyContent: 'center', minHeight: 44, paddingHorizontal: theme.space.md },
+  actionButton: { alignItems: 'center', backgroundColor: theme.color.brand.primary, borderColor: theme.color.brand.primary, borderRadius: theme.radius.control, borderWidth: 1, justifyContent: 'center', minHeight: 44, paddingHorizontal: theme.space.md },
+  actionButtonHover: { backgroundColor: '#1D4ED8', borderColor: '#1D4ED8' },
+  actionButtonSecondary: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default },
+  actionButtonSecondaryHover: { backgroundColor: theme.color.surface.primaryTint, borderColor: theme.color.brand.primary },
   actionLabel: { color: theme.color.surface.card, fontSize: theme.text.size.sm, fontWeight: '700' },
+  actionLabelSecondary: { color: theme.color.text.primary },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm },
   aiComposer: { alignItems: 'center', flexDirection: 'row', gap: theme.space.sm },
-  aiGuidance: { backgroundColor: theme.color.surface.page, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, gap: theme.space.sm, padding: theme.space.md },
+  aiGuidance: { borderBottomColor: theme.color.border.default, borderBottomWidth: 1, gap: theme.space.sm, paddingBottom: theme.space.md },
   aiInput: { flex: 1 },
   aiScopeBar: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.md },
   aiScopeLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, fontWeight: '700' },
@@ -962,15 +969,15 @@ const styles = StyleSheet.create({
   performanceValue: { color: theme.color.text.primary, fontSize: theme.text.size.xl, fontWeight: '800' },
   recentPanel: { borderTopColor: theme.color.border.default, borderTopWidth: 1, gap: theme.space.xs, paddingTop: theme.space.sm },
   recentPrompt: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, lineHeight: 18 },
-  section: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, gap: theme.space.md, padding: theme.space.lg },
+  section: { gap: theme.space.lg },
   sectionDescription: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, lineHeight: 18, marginTop: 3 },
   sectionHeading: { alignItems: 'center', flexDirection: 'row', gap: theme.space.base },
   sectionHeadingCopy: { flex: 1 },
-  sectionIcon: { alignItems: 'center', backgroundColor: theme.color.surface.secondaryTint, borderRadius: theme.radius.control, height: 40, justifyContent: 'center', width: 40 },
+  sectionIcon: { alignItems: 'center', borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, height: 40, justifyContent: 'center', width: 40 },
   sectionTitle: { color: theme.color.text.primary, fontSize: theme.text.size.lg, fontWeight: '800' },
   success: { color: theme.color.brand.primary, fontSize: theme.text.size.sm, fontWeight: '700' },
   statusBadge: { backgroundColor: theme.color.surface.primaryTint, borderRadius: theme.radius.pill, color: theme.color.brand.primary, fontSize: theme.text.size.xs, fontWeight: '800', overflow: 'hidden', paddingHorizontal: theme.space.sm, paddingVertical: 4 },
   statusBadgeMuted: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.pill, borderWidth: 1, color: theme.color.text.secondary, fontSize: theme.text.size.xs, fontWeight: '800', overflow: 'hidden', paddingHorizontal: theme.space.sm, paddingVertical: 4 },
-  suggestionButton: { borderColor: theme.color.border.default, borderRadius: theme.radius.pill, borderWidth: 1, justifyContent: 'center', minHeight: 38, paddingHorizontal: theme.space.base },
+  suggestionButton: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, justifyContent: 'center', minHeight: 40, paddingHorizontal: theme.space.base },
   suggestionLabel: { color: theme.color.text.primary, fontSize: theme.text.size.xs, fontWeight: '700' },
 });

@@ -14,7 +14,7 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { useExperience } from './ExperienceProvider';
 
@@ -65,9 +65,25 @@ function ActionButton({
   );
 }
 
-function Metric({ label, value }: { readonly label: string; readonly value: string }) {
+function Metric({
+  label,
+  separated = false,
+  stacked = false,
+  value,
+}: {
+  readonly label: string;
+  readonly separated?: boolean;
+  readonly stacked?: boolean;
+  readonly value: string;
+}) {
   return (
-    <View style={styles.metric}>
+    <View
+      style={[
+        styles.metric,
+        separated && styles.metricSeparated,
+        stacked && styles.metricStacked,
+      ]}
+    >
       <Text style={styles.metricValue}>{value}</Text>
       <Text style={styles.metricLabel}>{label}</Text>
     </View>
@@ -85,6 +101,8 @@ function TeachingWorkspace({
   readonly roleScope: AuthRoleScope;
   readonly snapshot: TeachingDemoSnapshot;
 }) {
+  const { width } = useWindowDimensions();
+  const isNarrow = width < 640;
   const actions = useMemo<readonly NavigateAction[]>(() => {
     if (role === 'family') {
       return [
@@ -116,23 +134,30 @@ function TeachingWorkspace({
             <Text style={styles.scopeLabel}>{roleScope.label}</Text>
           </View>
         </View>
-        <Text style={styles.scopeHint}>可在右上角账号菜单切换范围</Text>
+        <Text style={styles.scopeHint}>账号菜单中可切换</Text>
       </View>
 
       <View style={styles.metrics}>
         <Metric label="可见班级" value={String(snapshot.classes.length)} />
-        <Metric label="已发课件" value={String(snapshot.courseware.length)} />
-        <Metric label="已发作业" value={String(publishedAssignments.length)} />
+        <Metric label="已发课件" separated value={String(snapshot.courseware.length)} />
+        <Metric
+          label="已发作业"
+          separated={!isNarrow}
+          stacked={isNarrow}
+          value={String(publishedAssignments.length)}
+        />
         <Metric
           label={role === 'family' ? '已发成绩' : '学生档案'}
+          separated
+          stacked={isNarrow}
           value={String(role === 'family' ? publishedGrades.length : snapshot.students.length)}
         />
       </View>
 
       <View style={styles.contentGrid}>
         <View style={styles.surface}>
-          <Text style={styles.surfaceEyebrow}>快捷入口</Text>
-          <Text style={styles.surfaceTitle}>选择今天要处理的工作</Text>
+          <Text style={styles.surfaceTitle}>常用操作</Text>
+          <Text style={styles.surfaceDescription}>继续处理当前班级的教学事务</Text>
           <View style={styles.actionGrid}>
             {actions.map((action) => (
               <ActionButton action={action} key={action.key} onNavigate={onNavigate} />
@@ -141,8 +166,8 @@ function TeachingWorkspace({
         </View>
 
         <View style={styles.surface}>
-          <Text style={styles.surfaceEyebrow}>实时教学数据</Text>
-          <Text style={styles.surfaceTitle}>当前范围摘要</Text>
+          <Text style={styles.surfaceTitle}>班级概况</Text>
+          <Text style={styles.surfaceDescription}>当前权限范围内的最新数据</Text>
           {snapshot.classes.length === 0 ? (
             <Text style={styles.emptyText}>当前角色范围暂无教学数据。</Text>
           ) : (
@@ -157,9 +182,7 @@ function TeachingWorkspace({
               </View>
             ))
           )}
-          <Text style={styles.boundaryNote}>
-            治理数据在对应任务页面按当前权限范围读取，不在首页生成替代统计。
-          </Text>
+          <Text style={styles.boundaryNote}>数据按当前权限范围实时读取</Text>
         </View>
       </View>
     </View>
@@ -204,7 +227,6 @@ function ServiceWorkspace({
         </View>
       </View>
       <View style={styles.surface}>
-        <Text style={styles.surfaceEyebrow}>服务边界</Text>
         <Text style={styles.surfaceTitle}>{title}</Text>
         <Text style={styles.emptyText}>{description}</Text>
         <View style={styles.actionGrid}>
@@ -212,9 +234,7 @@ function ServiceWorkspace({
             <ActionButton action={action} key={action.key} onNavigate={onNavigate} />
           ))}
         </View>
-        <Text style={styles.boundaryNote}>
-          治理页面使用当前权限范围并通过服务端 RPC 与 RLS 再次校验。
-        </Text>
+        <Text style={styles.boundaryNote}>所有操作均按当前权限范围校验并记录</Text>
       </View>
     </View>
   );
@@ -295,33 +315,35 @@ export function RoleDashboardOverview({
 }
 
 const styles = StyleSheet.create({
-  actionButton: { alignItems: 'center', backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, flexDirection: 'row', gap: theme.space.sm, minHeight: 52, paddingHorizontal: theme.space.base },
-  actionButtonHover: { backgroundColor: theme.color.surface.primaryTint, borderColor: theme.color.brand.primary, transform: [{ translateY: -1 }] },
+  actionButton: { alignItems: 'center', backgroundColor: theme.color.surface.muted, borderRadius: theme.radius.control, flexDirection: 'row', gap: theme.space.sm, minHeight: 50, paddingHorizontal: theme.space.base },
+  actionButtonHover: { backgroundColor: theme.color.surface.primaryTint, transform: [{ translateX: 2 }] },
   actionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm, marginTop: theme.space.base },
   actionLabel: { color: theme.color.text.primary, flex: 1, fontSize: theme.text.size.sm, fontWeight: '700', minWidth: 110 },
-  boundaryNote: { backgroundColor: theme.color.surface.secondaryTint, borderLeftColor: theme.color.brand.secondary, borderLeftWidth: 3, color: theme.color.text.secondary, fontSize: theme.text.size.xs, lineHeight: 19, marginTop: theme.space.base, padding: theme.space.base },
-  contentGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.base },
+  boundaryNote: { color: theme.color.text.disabled, fontSize: 11, lineHeight: 18, marginTop: theme.space.base },
+  contentGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.md },
   dataMarker: { backgroundColor: theme.color.brand.primary, borderRadius: theme.radius.pill, height: 8, width: 8 },
   dataPrimary: { color: theme.color.text.primary, flex: 1, fontSize: theme.text.size.sm, fontWeight: '700' },
   dataRow: { alignItems: 'center', borderBottomColor: theme.color.border.default, borderBottomWidth: 1, flexDirection: 'row', gap: theme.space.sm, minHeight: 52 },
   dataSecondary: { color: theme.color.text.secondary, fontSize: theme.text.size.xs },
   emptyText: { color: theme.color.text.secondary, fontSize: theme.text.size.sm, lineHeight: 22, marginTop: theme.space.sm },
-  metric: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, flex: 1, minWidth: 140, padding: theme.space.base },
+  metric: { flex: 1, minWidth: 140, paddingHorizontal: theme.space.lg, paddingVertical: theme.space.md },
+  metricSeparated: { borderLeftColor: theme.color.border.default, borderLeftWidth: 1 },
+  metricStacked: { borderTopColor: theme.color.border.default, borderTopWidth: 1 },
   metricLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, marginTop: 4 },
-  metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm },
+  metrics: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, flexDirection: 'row', flexWrap: 'wrap', overflow: 'hidden' },
   metricValue: { color: theme.color.text.primary, fontSize: theme.text.size.xl, fontWeight: '800' },
   focused: { borderColor: theme.color.brand.primary, boxShadow: '0 0 0 3px rgba(22, 119, 254, 0.18)' },
   pressed: { opacity: 0.72, transform: [{ scale: 0.985 }] },
   retryButton: { alignItems: 'center', alignSelf: 'flex-start', backgroundColor: theme.color.brand.primary, borderRadius: theme.radius.control, justifyContent: 'center', marginTop: theme.space.base, minHeight: 42, paddingHorizontal: theme.space.lg },
   retryButtonHover: { opacity: 0.88 },
   retryLabel: { color: theme.color.surface.card, fontSize: theme.text.size.sm, fontWeight: '700' },
-  scopeBar: { alignItems: 'center', backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.base, justifyContent: 'space-between', minHeight: 64, paddingHorizontal: theme.space.base, paddingVertical: 10 },
+  scopeBar: { alignItems: 'center', borderBottomColor: theme.color.border.default, borderBottomWidth: 1, flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.base, justifyContent: 'space-between', minHeight: 52, paddingBottom: theme.space.base },
   scopeEyebrow: { color: theme.color.text.secondary, fontSize: 10, fontWeight: '700', lineHeight: 14 },
   scopeHint: { color: theme.color.text.secondary, fontSize: theme.text.size.xs },
   scopeIdentity: { alignItems: 'center', flexDirection: 'row', gap: theme.space.sm },
   scopeLabel: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '800', lineHeight: 20, marginTop: 2 },
   surface: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, flex: 1, minWidth: 290, padding: theme.space.lg },
-  surfaceEyebrow: { color: theme.color.brand.primary, fontSize: theme.text.size.xs, fontWeight: '800', letterSpacing: 0.8 },
-  surfaceTitle: { color: theme.color.text.primary, fontSize: theme.text.size.lg, fontWeight: '800', marginTop: theme.space.xs },
-  workspace: { gap: theme.space.base },
+  surfaceDescription: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, lineHeight: 18, marginTop: 4 },
+  surfaceTitle: { color: theme.color.text.primary, fontSize: theme.text.size.lg, fontWeight: '700' },
+  workspace: { gap: theme.space.md },
 });
