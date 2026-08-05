@@ -3,6 +3,7 @@ import { DolphinCloudLogo, InteractivePressable, theme } from '@dolphincloud/ui'
 import { ArrowRight, CheckCircle2, LockKeyhole, Mail } from 'lucide-react-native';
 import { useState } from 'react';
 import {
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,6 +11,10 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+
+const webInputFocusReset = Platform.select({
+  web: { outlineColor: 'transparent', outlineStyle: 'solid' as const, outlineWidth: 0 },
+});
 
 type LoginScreenProps = {
   readonly configurationIssue: 'incomplete' | 'missing' | null;
@@ -108,7 +113,7 @@ export function LoginScreen({ configurationIssue, onLogin }: LoginScreenProps) {
                 onFocus={() => setFocusedField('email')}
                 placeholder="name@school.example"
                 placeholderTextColor={theme.color.text.disabled}
-                style={styles.input}
+                style={[styles.input, webInputFocusReset]}
                 value={email}
               />
             </View>
@@ -125,7 +130,7 @@ export function LoginScreen({ configurationIssue, onLogin }: LoginScreenProps) {
                 placeholder="请输入密码"
                 placeholderTextColor={theme.color.text.disabled}
                 secureTextEntry
-                style={styles.input}
+                style={[styles.input, webInputFocusReset]}
                 value={password}
               />
             </View>

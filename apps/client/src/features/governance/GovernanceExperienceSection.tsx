@@ -19,7 +19,6 @@ import {
   ClipboardCheck,
   History,
   ReceiptText,
-  Scale,
   Settings2,
   ShieldCheck,
   Trophy,
@@ -33,6 +32,7 @@ import {
   type ReactNode,
 } from 'react';
 import {
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -196,25 +196,63 @@ function StudentScorePanel({
   readonly roleScope: AuthRoleScope;
   readonly snapshot: GovernanceSnapshot;
 }) {
+  const { width } = useWindowDimensions();
+  const compact = width < 760;
+  const initialCategory = snapshot.studentCategories.find((item) => item.isActive);
+  const [activeView, setActiveView] = useState<'appeals' | 'categories' | 'ranking' | 'score'>('score');
   const [studentId, setStudentId] = useState(snapshot.students[0]?.id ?? '');
-  const [categoryId, setCategoryId] = useState(snapshot.studentCategories[0]?.id ?? '');
+  const [studentQuery, setStudentQuery] = useState('');
+  const [scoreDirection, setScoreDirection] = useState<'negative' | 'positive'>(initialCategory?.kind ?? 'positive');
+  const [categoryId, setCategoryId] = useState(initialCategory?.id ?? '');
   const selectedCategory = snapshot.studentCategories.find((item) => item.id === categoryId);
-  const [delta, setDelta] = useState(String(selectedCategory?.defaultDelta ?? 1));
-  const [reason, setReason] = useState('课堂表现记录');
+  const [delta, setDelta] = useState(String(initialCategory?.defaultDelta ?? 1));
+  const [reason, setReason] = useState(initialCategory?.description ?? '课堂表现记录');
   const [categoryName, setCategoryName] = useState('互助协作');
   const [categorySlug, setCategorySlug] = useState('teamwork');
   const [categoryDefault, setCategoryDefault] = useState('2');
   const [categoryKind, setCategoryKind] = useState<'negative' | 'positive'>('positive');
   const [entryId, setEntryId] = useState(snapshot.classEntries[0]?.id ?? '');
   const [appealReason, setAppealReason] = useState('该记录需要复核更正');
-  const [fineRuleId, setFineRuleId] = useState(snapshot.fineRules[0]?.id ?? '');
-  const selectedRule = snapshot.fineRules.find((item) => item.id === fineRuleId);
-  const [fineAmount, setFineAmount] = useState(String(selectedRule?.defaultAmount ?? 10));
-  const [fineReason, setFineReason] = useState('物品损坏待银行处理');
 
   const familyRow = snapshot.studentRanking[0];
   const selectedStudent = snapshot.students.find((item) => item.id === studentId);
   const service = useSupabaseServices().governanceService;
+  const activeCategories = snapshot.studentCategories.filter(
+    (item) => item.isActive && item.kind === scoreDirection,
+  );
+  const filteredStudents = snapshot.students.filter((student) =>
+    student.name.toLocaleLowerCase().includes(studentQuery.trim().toLocaleLowerCase()),
+  );
+  const parsedDelta = Number(delta);
+  const deltaMatchesDirection = Number.isInteger(parsedDelta) &&
+    parsedDelta !== 0 &&
+    Math.abs(parsedDelta) <= 1_000 &&
+    (scoreDirection === 'positive' ? parsedDelta > 0 : parsedDelta < 0);
+
+  const selectDirection = (nextDirection: 'negative' | 'positive') => {
+    setScoreDirection(nextDirection);
+    const nextCategory = snapshot.studentCategories.find(
+      (item) => item.isActive && item.kind === nextDirection,
+    );
+    setCategoryId(nextCategory?.id ?? '');
+    setDelta(String(nextCategory?.defaultDelta ?? (nextDirection === 'positive' ? 1 : -1)));
+    setReason(nextCategory?.description ?? '');
+  };
+
+  const selectCategory = (nextCategoryId: string) => {
+    const nextCategory = snapshot.studentCategories.find((item) => item.id === nextCategoryId);
+    if (nextCategory === undefined) return;
+    setCategoryId(nextCategory.id);
+    setScoreDirection(nextCategory.kind);
+    setDelta(String(nextCategory.defaultDelta));
+    setReason(nextCategory.description);
+  };
+
+  const adjustDelta = (amount: number) => {
+    const currentMagnitude = Math.max(1, Math.abs(Number(delta) || 1));
+    const nextMagnitude = Math.max(1, Math.min(1_000, currentMagnitude + amount));
+    setDelta(String(scoreDirection === 'positive' ? nextMagnitude : -nextMagnitude));
+  };
 
   if (roleScope.role === 'family') {
     return (
@@ -232,49 +270,341 @@ function StudentScorePanel({
     );
   }
 
+  const tabs: readonly {
+    readonly id: 'appeals' | 'categories' | 'ranking' | 'score';
+    readonly label: string;
+  }[] = [
+    { id: 'score', label: '快速记分' },
+    { id: 'ranking', label: '排行与记录' },
+    ...(roleScope.role === 'teacher' ? [{ id: 'categories' as const, label: '评价条目' }] : []),
+    { id: 'appeals', label: '更正申请' },
+  ];
+
   return (
-    <>
-      <Panel description="选择学生和分值条目；默认分值可在本次操作中覆盖。" icon={ChartNoAxesColumnIncreasing} title="学生分操作">
-        <Selector label="学生" onChange={setStudentId} options={snapshot.students.map((item) => ({ id: item.id, label: item.name }))} value={studentId} />
-        <Selector label="加减分条目" onChange={(next) => { setCategoryId(next); const category = snapshot.studentCategories.find((item) => item.id === next); if (category !== undefined) setDelta(String(category.defaultDelta)); }} options={snapshot.studentCategories.filter((item) => item.isActive).map((item) => ({ id: item.id, label: `${item.displayName}（默认 ${item.defaultDelta > 0 ? '+' : ''}${item.defaultDelta}）` }))} value={categoryId} />
-        <View style={styles.formRow}>
-          <Field label="本次分值" onChange={setDelta} value={delta} />
-          <Field label="原因" onChange={setReason} value={reason} />
-        </View>
-        <Button disabled={studentId === '' || categoryId === '' || !validInteger(delta)} label="预览并确认加减分" onPress={() => requestWrite({ execute: () => service.applyStudentScore(roleScope, { categoryId, delta: Number(delta), reason, studentId }), impact: ['新增不可变学生分记录并刷新班内排行'], isDangerous: Number(delta) < 0, operationType: '学生分调整', parameters: [`条目：${selectedCategory?.displayName ?? '-'}`, `本次分值：${delta}`, `原因：${reason}`], targets: [selectedStudent?.name ?? '所选学生'] }, '学生分记录已生效')} />
-        {roleScope.role === 'teacher' ? (
-          <View style={styles.subsection}>
-            <Text style={styles.subTitle}>维护分数条目</Text>
-            <View style={styles.formRow}><Field label="条目名称" onChange={setCategoryName} value={categoryName} /><Field label="英文标识" onChange={setCategorySlug} value={categorySlug} /><Field label="默认分值" onChange={setCategoryDefault} value={categoryDefault} /></View>
-            <Selector label="类型" onChange={(value) => { const kind = value as 'negative' | 'positive'; setCategoryKind(kind); const amount = Math.abs(Number(categoryDefault) || 1); setCategoryDefault(String(kind === 'negative' ? -amount : amount)); }} options={[{ id: 'positive', label: '加分' }, { id: 'negative', label: '减分' }]} value={categoryKind} />
-            <Button disabled={!validInteger(categoryDefault) || categoryName.trim() === '' || snapshot.classes[0] === undefined} label="预览并保存条目" secondary onPress={() => requestWrite({ execute: () => service.manageStudentCategory(roleScope, { defaultDelta: Number(categoryDefault), description: categoryName, displayName: categoryName, isActive: true, kind: categoryKind, schoolId: snapshot.classes[0]!.schoolId, slug: categorySlug }), impact: ['更新当前学校可选学生分条目'], isDangerous: false, operationType: '维护学生分条目', parameters: [`默认值：${categoryDefault}`, `类型：${categoryKind}`], targets: [categoryName] }, '学生分条目已保存')} />
-          </View>
-        ) : null}
-      </Panel>
-
-      <Panel description="教师端和班级端查看全班真实排行；家庭端不会取得其他学生行。" icon={Trophy} title="全班排行">
-        {snapshot.studentRanking.map((row) => (
-          <View key={row.studentId} style={styles.rankingRow}><Text style={styles.rank}>#{row.rank}</Text><Text style={styles.recordTitle}>{row.displayName ?? '当前学生'}</Text><Text style={styles.score}>{row.score} 分</Text></View>
+    <Panel
+      description="高频记分、排行记录、评价条目和更正申请分区处理，避免把不同任务塞进同一张表单。"
+      icon={ChartNoAxesColumnIncreasing}
+      title="学生表现"
+    >
+      <View accessibilityLabel="学生表现功能" style={styles.scoreTabs}>
+        {tabs.map((tab) => (
+          <InteractivePressable
+            accessibilityRole="tab"
+            accessibilityState={{ selected: activeView === tab.id }}
+            key={tab.id}
+            onPress={() => setActiveView(tab.id)}
+            style={({ focused, hovered, pressed }) => [
+              styles.scoreTab,
+              activeView === tab.id && styles.scoreTabSelected,
+              hovered && styles.hovered,
+              focused && styles.focused,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text style={[styles.scoreTabText, activeView === tab.id && styles.scoreTabTextSelected]}>
+              {tab.label}
+            </Text>
+          </InteractivePressable>
         ))}
-      </Panel>
+      </View>
 
-      <Panel description="班级分由自治会管理；教师和班级端只能针对指定记录提交更正申请。" icon={Scale} title="班级分与更正申请">
-        <View style={styles.metricRow}>{snapshot.classScores.map((item) => <View key={item.id} style={styles.metric}><Text style={styles.metricValue}>{item.score}</Text><Text style={styles.metricLabel}>{item.name} · 第 {item.rank} 名</Text></View>)}</View>
-        <Selector label="指定变动记录" onChange={setEntryId} options={snapshot.classEntries.map((item) => ({ id: item.id, label: `${item.delta > 0 ? '+' : ''}${item.delta} · ${item.reason}` }))} value={entryId} />
-        <Field label="更正申请原因" multiline onChange={setAppealReason} value={appealReason} />
-        <Button disabled={entryId === '' || appealReason.trim().length < 5} label="预览并提交更正申请" secondary onPress={() => requestWrite({ execute: () => service.createAppeal(roleScope, entryId, appealReason), impact: ['自治会端将收到待处理申请；不会直接修改班级分'], isDangerous: false, operationType: '提交班级分更正申请', parameters: [`原因：${appealReason}`], targets: [entryId] }, '更正申请已提交')} />
-      </Panel>
+      {activeView === 'score' ? (
+        <View style={[styles.scoreWorkbench, compact && styles.scoreWorkbenchCompact]}>
+          <View style={styles.scoreFormColumn}>
+            <View style={styles.scoreStep}>
+              <View style={styles.stepHeading}>
+                <Text style={styles.stepNumber}>1</Text>
+                <View style={styles.headingCopy}>
+                  <Text style={styles.subTitle}>选择学生</Text>
+                  <Text style={styles.stepDescription}>搜索并选中本次记分对象。</Text>
+                </View>
+              </View>
+              <TextInput
+                accessibilityLabel="搜索学生"
+                onChangeText={setStudentQuery}
+                placeholder="输入学生姓名"
+                placeholderTextColor={theme.color.text.disabled}
+                style={styles.input}
+                value={studentQuery}
+              />
+              <ScrollView
+                contentContainerStyle={styles.studentGrid}
+                nestedScrollEnabled
+                style={styles.studentPickerScroll}
+              >
+                {filteredStudents.map((student) => (
+                  <InteractivePressable
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: student.id === studentId }}
+                    key={student.id}
+                    onPress={() => setStudentId(student.id)}
+                    style={({ focused, hovered, pressed }) => [
+                      styles.studentChoice,
+                      student.id === studentId && styles.studentChoiceSelected,
+                      hovered && styles.hovered,
+                      focused && styles.focused,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <UserRound color={student.id === studentId ? theme.color.brand.primary : theme.color.text.secondary} size={17} />
+                    <Text style={[styles.studentChoiceText, student.id === studentId && styles.studentChoiceTextSelected]}>
+                      {student.name}
+                    </Text>
+                  </InteractivePressable>
+                ))}
+                {filteredStudents.length === 0 ? <Text style={styles.empty}>没有匹配的学生。</Text> : null}
+              </ScrollView>
+            </View>
 
-      {roleScope.role === 'teacher' ? (
-        <Panel description="教师创建罚款单后由银行端结算或取消；教师不能直接扣币。" icon={ReceiptText} title="教师罚款单">
-          <Selector label="罚款学生" onChange={setStudentId} options={snapshot.students.map((item) => ({ id: item.id, label: item.name }))} value={studentId} />
-          <Selector label="罚款规则" onChange={(id) => { setFineRuleId(id); const rule = snapshot.fineRules.find((item) => item.id === id); if (rule !== undefined) setFineAmount(String(rule.defaultAmount)); }} options={snapshot.fineRules.filter((item) => item.isActive).map((item) => ({ id: item.id, label: `${item.displayName}（${item.defaultAmount} 币）` }))} value={fineRuleId} />
-          <View style={styles.formRow}><Field label="本次金额" onChange={setFineAmount} value={fineAmount} /><Field label="原因" onChange={setFineReason} value={fineReason} /></View>
-          <Button disabled={studentId === '' || fineRuleId === '' || !validPositiveInteger(fineAmount)} label="预览并创建罚款单" onPress={() => requestWrite({ execute: () => service.createFine(roleScope, { amount: Number(fineAmount), reason: fineReason, ruleId: fineRuleId, studentId }), impact: ['生成待处理罚款单；尚不扣除海豚币'], isDangerous: true, operationType: '创建罚款单', parameters: [`金额：${fineAmount}`, `原因：${fineReason}`], targets: [selectedStudent?.name ?? '所选学生'] }, '罚款单已提交银行处理')} />
-          {snapshot.fineOrders.map((order) => <View key={order.id} style={styles.record}><Text style={styles.recordTitle}>{studentName(snapshot, order.studentId)} · {order.amount} 币</Text><Text style={styles.status}>{fineStatus(order.status)}</Text><Text style={styles.recordMeta}>{order.reason}</Text></View>)}
-        </Panel>
+            <View style={styles.scoreStep}>
+              <View style={styles.stepHeading}>
+                <Text style={styles.stepNumber}>2</Text>
+                <View style={styles.headingCopy}>
+                  <Text style={styles.subTitle}>选择加分或减分条目</Text>
+                  <Text style={styles.stepDescription}>条目给出默认分值，本次仍可单独调整。</Text>
+                </View>
+              </View>
+              <View style={styles.directionRow}>
+                {(['positive', 'negative'] as const).map((direction) => {
+                  const selected = scoreDirection === direction;
+                  return (
+                    <InteractivePressable
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      key={direction}
+                      onPress={() => selectDirection(direction)}
+                      style={({ focused, hovered, pressed }) => [
+                        styles.directionButton,
+                        selected && styles.directionButtonSelected,
+                        direction === 'negative' && selected && styles.directionButtonNegative,
+                        hovered && styles.hovered,
+                        focused && styles.focused,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <Text style={[styles.directionButtonText, selected && styles.directionButtonTextSelected]}>
+                        {direction === 'positive' ? '加分' : '减分'}
+                      </Text>
+                    </InteractivePressable>
+                  );
+                })}
+              </View>
+              <View style={styles.categoryGrid}>
+                {activeCategories.map((category) => (
+                  <InteractivePressable
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: category.id === categoryId }}
+                    key={category.id}
+                    onPress={() => selectCategory(category.id)}
+                    style={({ focused, hovered, pressed }) => [
+                      styles.categoryCard,
+                      category.id === categoryId && styles.categoryCardSelected,
+                      hovered && styles.hovered,
+                      focused && styles.focused,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={styles.categoryName}>{category.displayName}</Text>
+                    <Text style={styles.categoryDescription}>{category.description}</Text>
+                    <Text style={styles.categoryDefault}>
+                      默认 {category.defaultDelta > 0 ? '+' : ''}{category.defaultDelta}
+                    </Text>
+                  </InteractivePressable>
+                ))}
+                {activeCategories.length === 0 ? <Text style={styles.empty}>当前没有可用的{scoreDirection === 'positive' ? '加分' : '减分'}条目，请由教师在“评价条目”中添加。</Text> : null}
+              </View>
+            </View>
+
+            <View style={styles.scoreStep}>
+              <View style={styles.stepHeading}>
+                <Text style={styles.stepNumber}>3</Text>
+                <View style={styles.headingCopy}>
+                  <Text style={styles.subTitle}>确认本次分值和原因</Text>
+                  <Text style={styles.stepDescription}>调整只影响本次记录，不会修改条目默认值。</Text>
+                </View>
+              </View>
+              <View style={styles.scoreAdjustRow}>
+                <InteractivePressable
+                  accessibilityLabel="减少本次分值绝对值"
+                  accessibilityRole="button"
+                  onPress={() => adjustDelta(-1)}
+                  style={styles.scoreAdjustButton}
+                >
+                  <Text style={styles.scoreAdjustButtonText}>−</Text>
+                </InteractivePressable>
+                <TextInput
+                  accessibilityLabel="本次分值"
+                  inputMode="numeric"
+                  onChangeText={setDelta}
+                  style={[styles.input, styles.scoreInput]}
+                  value={delta}
+                />
+                <InteractivePressable
+                  accessibilityLabel="增加本次分值绝对值"
+                  accessibilityRole="button"
+                  onPress={() => adjustDelta(1)}
+                  style={styles.scoreAdjustButton}
+                >
+                  <Text style={styles.scoreAdjustButtonText}>＋</Text>
+                </InteractivePressable>
+                <InteractivePressable
+                  accessibilityRole="button"
+                  onPress={() => setDelta(String(selectedCategory?.defaultDelta ?? (scoreDirection === 'positive' ? 1 : -1)))}
+                  style={styles.resetButton}
+                >
+                  <Text style={styles.resetButtonText}>恢复默认</Text>
+                </InteractivePressable>
+              </View>
+              <Field label="记录原因" multiline onChange={setReason} placeholder="说明这次加分或减分的具体原因" value={reason} />
+              {!deltaMatchesDirection ? (
+                <Text style={styles.validationText}>
+                  {scoreDirection === 'positive' ? '加分必须填写 1–1000 的正整数。' : '减分必须填写 -1 到 -1000 的负整数。'}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+
+          <View style={[styles.scoreSummary, compact && styles.scoreSummaryCompact]}>
+            <Text style={styles.summaryEyebrow}>操作预览</Text>
+            <Text style={styles.summaryTitle}>{selectedStudent?.name ?? '尚未选择学生'}</Text>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>行为条目</Text>
+              <Text style={styles.summaryValue}>{selectedCategory?.displayName ?? '尚未选择'}</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>本次变化</Text>
+              <Text style={[styles.summaryDelta, scoreDirection === 'negative' && styles.summaryDeltaNegative]}>
+                {parsedDelta > 0 ? '+' : ''}{Number.isFinite(parsedDelta) ? parsedDelta : 0}
+              </Text>
+            </View>
+            <View style={styles.summaryReason}>
+              <Text style={styles.summaryLabel}>记录原因</Text>
+              <Text style={styles.summaryReasonText}>{reason.trim() === '' ? '尚未填写' : reason}</Text>
+            </View>
+            <Text style={styles.summaryHint}>提交后先进入确认页；确认成功才会生成不可变记录并刷新排行。</Text>
+            <Button
+              dangerous={scoreDirection === 'negative'}
+              disabled={studentId === '' || categoryId === '' || !deltaMatchesDirection || reason.trim().length < 2}
+              label={scoreDirection === 'positive' ? '预览加分' : '预览减分'}
+              onPress={() => requestWrite({
+                execute: () => service.applyStudentScore(roleScope, { categoryId, delta: parsedDelta, reason: reason.trim(), studentId }),
+                impact: ['新增不可变学生分记录并刷新班内排行'],
+                isDangerous: parsedDelta < 0,
+                operationType: parsedDelta < 0 ? '学生减分' : '学生加分',
+                parameters: [`条目：${selectedCategory?.displayName ?? '-'}`, `本次分值：${delta}`, `原因：${reason.trim()}`],
+                targets: [selectedStudent?.name ?? '所选学生'],
+              }, '学生分记录已生效')}
+            />
+          </View>
+        </View>
       ) : null}
-    </>
+
+      {activeView === 'ranking' ? (
+        <View style={styles.scoreView}>
+          <View style={styles.sectionHeadingCompact}>
+            <View style={styles.headingCopy}>
+              <Text style={styles.subTitle}>班内排行</Text>
+              <Text style={styles.stepDescription}>教师端和班级端查看全班排行；家庭端不会取得其他学生行。</Text>
+            </View>
+          </View>
+          {snapshot.studentRanking.length === 0 ? <Text style={styles.empty}>当前班级暂无学生分记录。</Text> : snapshot.studentRanking.map((row) => (
+            <View key={row.studentId} style={styles.rankingRow}>
+              <Text style={styles.rank}>#{row.rank}</Text>
+              <Text style={styles.recordTitle}>{row.displayName ?? '当前学生'}</Text>
+              <Text style={styles.score}>{row.score} 分</Text>
+            </View>
+          ))}
+          <View style={styles.subsection}>
+            <Text style={styles.subTitle}>最近记录</Text>
+            {snapshot.studentEntries.length === 0 ? <Text style={styles.empty}>暂无学生分变动。</Text> : snapshot.studentEntries.slice(0, 12).map((entry) => (
+              <View key={entry.id} style={styles.record}>
+                <View style={styles.recordHeading}>
+                  <Text style={styles.recordTitle}>{studentName(snapshot, entry.studentId)}</Text>
+                  <Text style={[styles.score, entry.delta < 0 && styles.negativeScore]}>{entry.delta > 0 ? '+' : ''}{entry.delta}</Text>
+                </View>
+                <Text style={styles.recordMeta}>{entry.reason} · {new Date(entry.appliedAt).toLocaleString()}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      ) : null}
+
+      {activeView === 'categories' && roleScope.role === 'teacher' ? (
+        <View style={styles.scoreView}>
+          <View>
+            <Text style={styles.subTitle}>现有评价条目</Text>
+            <Text style={styles.stepDescription}>默认分值用于快速录入，教师每次操作时仍可调整本次分值。</Text>
+          </View>
+          <View style={styles.categoryGrid}>
+            {snapshot.studentCategories.map((category) => (
+              <View key={category.id} style={styles.categoryCardStatic}>
+                <View style={styles.recordHeading}>
+                  <Text style={styles.categoryName}>{category.displayName}</Text>
+                  <Text style={[styles.categoryBadge, category.kind === 'negative' && styles.categoryBadgeNegative]}>{category.kind === 'positive' ? '加分' : '减分'}</Text>
+                </View>
+                <Text style={styles.categoryDescription}>{category.description}</Text>
+                <Text style={styles.categoryDefault}>默认 {category.defaultDelta > 0 ? '+' : ''}{category.defaultDelta} · {category.isActive ? '启用' : '停用'}</Text>
+              </View>
+            ))}
+          </View>
+          <View style={styles.subsection}>
+            <Text style={styles.subTitle}>新增或更新条目</Text>
+            <View style={styles.formRow}>
+              <Field label="条目名称" onChange={setCategoryName} value={categoryName} />
+              <Field label="英文标识" onChange={setCategorySlug} value={categorySlug} />
+              <Field label="默认分值" onChange={setCategoryDefault} value={categoryDefault} />
+            </View>
+            <Selector label="条目类型" onChange={(value) => {
+              const kind = value as 'negative' | 'positive';
+              setCategoryKind(kind);
+              const amount = Math.max(1, Math.abs(Number(categoryDefault) || 1));
+              setCategoryDefault(String(kind === 'negative' ? -amount : amount));
+            }} options={[{ id: 'positive', label: '加分条目' }, { id: 'negative', label: '减分条目' }]} value={categoryKind} />
+            <Button
+              disabled={!validInteger(categoryDefault) || categoryName.trim() === '' || categorySlug.trim() === '' || snapshot.classes[0] === undefined || (categoryKind === 'positive' ? Number(categoryDefault) < 1 || Number(categoryDefault) > 1000 : Number(categoryDefault) > -1 || Number(categoryDefault) < -1000)}
+              label="预览并保存条目"
+              secondary
+              onPress={() => requestWrite({
+                execute: () => service.manageStudentCategory(roleScope, {
+                  defaultDelta: Number(categoryDefault),
+                  description: categoryName.trim(),
+                  displayName: categoryName.trim(),
+                  isActive: true,
+                  kind: categoryKind,
+                  schoolId: snapshot.classes[0]!.schoolId,
+                  slug: categorySlug.trim(),
+                }),
+                impact: ['更新当前学校可选学生分条目'],
+                isDangerous: false,
+                operationType: '维护学生分条目',
+                parameters: [`默认值：${categoryDefault}`, `类型：${categoryKind === 'positive' ? '加分' : '减分'}`],
+                targets: [categoryName.trim()],
+              }, '学生分条目已保存')}
+            />
+          </View>
+        </View>
+      ) : null}
+
+      {activeView === 'appeals' ? (
+        <View style={styles.scoreView}>
+          <View>
+            <Text style={styles.subTitle}>班级分更正申请</Text>
+            <Text style={styles.stepDescription}>这里仅提交复核申请，不会直接修改班级分。</Text>
+          </View>
+          <View style={styles.metricRow}>
+            {snapshot.classScores.map((item) => (
+              <View key={item.id} style={styles.metric}>
+                <Text style={styles.metricValue}>{item.score}</Text>
+                <Text style={styles.metricLabel}>{item.name} · 第 {item.rank} 名</Text>
+              </View>
+            ))}
+          </View>
+          <Selector label="指定班级分记录" onChange={setEntryId} options={snapshot.classEntries.map((item) => ({ id: item.id, label: `${item.delta > 0 ? '+' : ''}${item.delta} · ${item.reason}` }))} value={entryId} />
+          <Field label="申请原因" multiline onChange={setAppealReason} value={appealReason} />
+          <Button disabled={entryId === '' || appealReason.trim().length < 5} label="预览并提交更正申请" secondary onPress={() => requestWrite({ execute: () => service.createAppeal(roleScope, entryId, appealReason.trim()), impact: ['自治会端将收到待处理申请；不会直接修改班级分'], isDangerous: false, operationType: '提交班级分更正申请', parameters: [`原因：${appealReason.trim()}`], targets: [entryId] }, '更正申请已提交')} />
+        </View>
+      ) : null}
+    </Panel>
   );
 }
 
@@ -328,13 +658,30 @@ function WalletPanel({ requestWrite, roleScope, snapshot }: { readonly requestWr
     return (
       <>
         <Panel description={isFamily ? '仅显示当前家庭 scope 绑定学生的余额与流水。' : '教师可查看当前授权班级学生的余额与流水，但不能直接调整账户。'} icon={CircleDollarSign} title="海豚币账户">
-          {isFamily ? <View style={styles.heroMetric}><Text style={styles.heroValue}>{account?.balance ?? 0}</Text><Text style={styles.metricLabel}>当前余额（海豚币）</Text></View> : snapshot.accounts.map((item) => <View key={item.id} style={styles.record}><Text style={styles.recordTitle}>{studentName(snapshot, item.studentId)}</Text><Text style={styles.recordMeta}>余额 {item.balance} 海豚币</Text></View>)}
-          {snapshot.accounts.length === 0 ? <Text style={styles.empty}>当前范围暂无海豚币账户。</Text> : null}
-          {snapshot.transactions.map((item) => <View key={item.id} style={styles.record}><Text style={styles.recordTitle}>{item.delta > 0 ? '+' : ''}{item.delta} · {transactionKind(item.kind)}</Text><Text style={styles.recordMeta}>{item.reason} · 余额 {item.balanceAfter}</Text></View>)}
+        {isFamily ? <View style={styles.heroMetric}><Text style={styles.heroValue}>{account?.balance ?? 0}</Text><Text style={styles.metricLabel}>当前余额（海豚币）</Text></View> : snapshot.accounts.map((item) => <View key={item.id} style={styles.record}><Text style={styles.recordTitle}>{studentName(snapshot, item.studentId)}</Text><Text style={styles.recordMeta}>余额 {item.balance} 海豚币</Text></View>)}
+        {snapshot.accounts.length === 0 ? <Text style={styles.empty}>当前范围暂无海豚币账户。</Text> : null}
+        {snapshot.transactions.map((item) => <View key={item.id} style={styles.record}><Text style={styles.recordTitle}>{item.delta > 0 ? '+' : ''}{item.delta} · {transactionKind(item.kind)}</Text><Text style={styles.recordMeta}>{item.reason} · 余额 {item.balanceAfter}</Text></View>)}
+      </Panel>
+      {roleScope.role === 'teacher' ? (
+        <Panel description="教师可选择班级内学生并关联罚款规则创建罚款单，结算或撤销由校园银行端执行。" icon={ReceiptText} title="罚款单">
+          <Selector label="选择学生" onChange={setStudentId} options={snapshot.students.map((item) => ({ id: item.id, label: item.name }))} value={studentId} />
+          <Selector label="适用规则" onChange={(id) => {
+            setRuleSlug(id);
+            const rule = snapshot.fineRules.find((item) => item.id === id);
+            if (rule !== undefined) {
+              setAmount(String(rule.defaultAmount));
+              setReason(rule.description);
+            }
+          }} options={snapshot.fineRules.filter((item) => item.isActive).map((item) => ({ id: item.id, label: `${item.displayName}（默认 ${item.defaultAmount}）` }))} value={ruleSlug} />
+          <View style={styles.formRow}><Field label="本次罚款金额" onChange={setAmount} value={amount} /><Field label="补充说明" onChange={setReason} value={reason} /></View>
+          <Button disabled={studentId === '' || ruleSlug === '' || !validPositiveInteger(amount)} label="预览并开具罚单" onPress={() => requestWrite({ execute: () => service.createFine(roleScope, { amount: Number(amount), reason, ruleId: ruleSlug, studentId }), impact: ['开具待处理罚款单，不直接扣除余额'], isDangerous: true, operationType: '创建罚款单', parameters: [`金额：${amount}`, `说明：${reason}`], targets: [selectedStudent?.name ?? '所选学生'] }, '罚款单已开具')} />
+          {snapshot.fineOrders.length === 0 ? <Text style={styles.empty}>当前范围暂无罚款单记录。</Text> : snapshot.fineOrders.map((order) => <View key={order.id} style={styles.record}><Text style={styles.recordTitle}>{studentName(snapshot, order.studentId)} · {order.amount} 币 · {order.reason}</Text><Text style={styles.status}>{fineStatus(order.status)}</Text></View>)}
         </Panel>
-        <Panel description={isFamily ? '家庭端只读取绑定学生的罚款状态，不能结算、取消或撤销。' : '教师可查看已创建罚款单的处理状态；结算、取消和撤销由银行端执行。'} icon={ReceiptText} title="罚款状态">
-          {snapshot.fineOrders.length === 0 ? <Text style={styles.empty}>{isFamily ? '当前学生' : '当前范围'}暂无罚款单。</Text> : snapshot.fineOrders.map((order) => <View key={order.id} style={styles.record}><Text style={styles.recordTitle}>{isFamily ? '' : `${studentName(snapshot, order.studentId)} · `}{order.amount} 币 · {order.reason}</Text><Text style={styles.status}>{fineStatus(order.status)}</Text></View>)}
+      ) : (
+        <Panel description="家庭端只读取绑定学生的罚款状态，不能结算、取消或撤销。" icon={ReceiptText} title="罚款状态">
+          {snapshot.fineOrders.length === 0 ? <Text style={styles.empty}>当前学生暂无罚款单。</Text> : snapshot.fineOrders.map((order) => <View key={order.id} style={styles.record}><Text style={styles.recordTitle}>{order.amount} 币 · {order.reason}</Text><Text style={styles.status}>{fineStatus(order.status)}</Text></View>)}
         </Panel>
+      )}
       </>
     );
   }
@@ -491,12 +838,27 @@ function transactionKind(kind: GovernanceSnapshot['transactions'][number]['kind'
 const styles = StyleSheet.create({
   button: { alignItems: 'center', backgroundColor: theme.color.brand.primary, borderColor: theme.color.brand.primary, borderRadius: theme.radius.control, borderWidth: 1, justifyContent: 'center', minHeight: 44, paddingHorizontal: theme.space.md },
   buttonText: { color: theme.color.surface.card, fontSize: theme.text.size.sm, fontWeight: '700' },
+  categoryBadge: { backgroundColor: theme.color.surface.primaryTint, borderRadius: theme.radius.pill, color: theme.color.brand.primary, fontSize: theme.text.size.xs, fontWeight: '800', overflow: 'hidden', paddingHorizontal: theme.space.sm, paddingVertical: 4 },
+  categoryBadgeNegative: { backgroundColor: theme.color.surface.secondaryTint, color: theme.color.brand.secondary },
+  categoryCard: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, flexBasis: '46%', flexGrow: 1, gap: 5, minHeight: 100, minWidth: 180, padding: theme.space.base },
+  categoryCardSelected: { backgroundColor: theme.color.surface.primaryTint, borderColor: theme.color.brand.primary },
+  categoryCardStatic: { backgroundColor: theme.color.surface.muted, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, flexBasis: '46%', flexGrow: 1, gap: 5, minWidth: 180, padding: theme.space.base },
+  categoryDefault: { color: theme.color.brand.primary, fontSize: theme.text.size.xs, fontWeight: '900', marginTop: 2 },
+  categoryDescription: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, lineHeight: 18 },
+  categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm },
+  categoryName: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '800' },
   choice: { borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, minHeight: 42, paddingHorizontal: theme.space.base, paddingVertical: 10 },
   choiceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm },
   choiceSelected: { backgroundColor: theme.color.surface.primaryTint, borderColor: theme.color.brand.primary },
   choiceText: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '600' },
   dangerButton: { backgroundColor: theme.color.text.primary, borderColor: theme.color.text.primary },
   disabled: { opacity: 0.45 },
+  directionButton: { alignItems: 'center', backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, flex: 1, justifyContent: 'center', minHeight: 44, minWidth: 120, paddingHorizontal: theme.space.md },
+  directionButtonNegative: { backgroundColor: theme.color.surface.secondaryTint, borderColor: theme.color.brand.secondary },
+  directionButtonSelected: { backgroundColor: theme.color.surface.primaryTint, borderColor: theme.color.brand.primary },
+  directionButtonText: { color: theme.color.text.secondary, fontSize: theme.text.size.sm, fontWeight: '800' },
+  directionButtonTextSelected: { color: theme.color.text.primary },
+  directionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm },
   empty: { color: theme.color.text.secondary, fontSize: theme.text.size.sm, lineHeight: 22 },
   error: { color: theme.color.text.primary, flex: 1, fontSize: theme.text.size.sm, fontWeight: '700' },
   feedback: { alignItems: 'center', backgroundColor: theme.color.surface.secondaryTint, borderRadius: theme.radius.control, flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm, padding: theme.space.base },
@@ -524,18 +886,59 @@ const styles = StyleSheet.create({
   rank: { color: theme.color.brand.primary, fontSize: theme.text.size.sm, fontWeight: '900', width: 44 },
   rankingRow: { alignItems: 'center', borderBottomColor: theme.color.border.default, borderBottomWidth: 1, flexDirection: 'row', gap: theme.space.sm, minHeight: 48 },
   record: { backgroundColor: theme.color.surface.muted, borderRadius: theme.radius.control, gap: 4, padding: theme.space.base },
+  recordHeading: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm, justifyContent: 'space-between' },
   recordMeta: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, lineHeight: 18 },
   recordTitle: { color: theme.color.text.primary, flex: 1, fontSize: theme.text.size.sm, fontWeight: '700' },
+  resetButton: { alignItems: 'center', borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, justifyContent: 'center', minHeight: 44, paddingHorizontal: theme.space.base },
+  resetButtonText: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, fontWeight: '800' },
+  scoreAdjustButton: { alignItems: 'center', backgroundColor: theme.color.surface.muted, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, height: 44, justifyContent: 'center', width: 44 },
+  scoreAdjustButtonText: { color: theme.color.text.primary, fontSize: theme.text.size.lg, fontWeight: '800' },
+  scoreAdjustRow: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm },
+  scoreFormColumn: { flex: 1, gap: theme.space.base, minWidth: 0 },
+  scoreInput: { maxWidth: 112, minWidth: 84, textAlign: 'center' },
+  scoreStep: { borderBottomColor: theme.color.border.default, borderBottomWidth: 1, gap: theme.space.sm, paddingBottom: theme.space.base },
+  scoreSummary: { alignSelf: 'flex-start', backgroundColor: theme.color.surface.muted, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, gap: theme.space.base, padding: theme.space.lg, width: 310 },
+  scoreSummaryCompact: { alignSelf: 'stretch', padding: theme.space.md, width: '100%' },
+  scoreTab: { alignItems: 'center', borderBottomColor: 'transparent', borderBottomWidth: 3, justifyContent: 'center', minHeight: 44, paddingHorizontal: theme.space.base },
+  scoreTabSelected: { borderBottomColor: theme.color.brand.primary },
+  scoreTabText: { color: theme.color.text.secondary, fontSize: theme.text.size.sm, fontWeight: '700' },
+  scoreTabTextSelected: { color: theme.color.brand.primary, fontWeight: '900' },
+  scoreTabs: { borderBottomColor: theme.color.border.default, borderBottomWidth: 1, flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.xs },
+  scoreView: { gap: theme.space.base, minWidth: 0 },
+  scoreWorkbench: { alignItems: 'flex-start', flexDirection: 'row', gap: theme.space.lg, minWidth: 0 },
+  scoreWorkbenchCompact: { flexDirection: 'column' },
+  sectionHeadingCompact: { alignItems: 'flex-start', flexDirection: 'row', gap: theme.space.sm },
   scopeBanner: { alignItems: 'center', backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.base, padding: theme.space.base },
   scopeMeta: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, marginTop: 3 },
   scopeTitle: { color: theme.color.text.primary, fontSize: theme.text.size.md, fontWeight: '900' },
   score: { color: theme.color.brand.primary, fontSize: theme.text.size.sm, fontWeight: '900' },
+  negativeScore: { color: theme.color.brand.secondary },
   secondaryButton: { backgroundColor: theme.color.surface.card, borderColor: theme.color.brand.primary },
   secondaryButtonText: { color: theme.color.brand.primary },
   status: { color: theme.color.brand.secondary, fontSize: theme.text.size.xs, fontWeight: '800' },
+  stepDescription: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, lineHeight: 19, marginTop: 2 },
+  stepHeading: { alignItems: 'center', flexDirection: 'row', gap: theme.space.sm },
+  stepNumber: { backgroundColor: theme.color.brand.primary, borderRadius: theme.radius.pill, color: theme.color.surface.card, fontSize: theme.text.size.xs, fontWeight: '900', height: 28, lineHeight: 28, overflow: 'hidden', textAlign: 'center', width: 28 },
+  studentChoice: { alignItems: 'center', backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, flexBasis: '30%', flexDirection: 'row', flexGrow: 1, gap: theme.space.sm, minHeight: 42, minWidth: 140, paddingHorizontal: theme.space.base },
+  studentChoiceSelected: { backgroundColor: theme.color.surface.primaryTint, borderColor: theme.color.brand.primary },
+  studentChoiceText: { color: theme.color.text.secondary, flex: 1, fontSize: theme.text.size.sm, fontWeight: '700' },
+  studentChoiceTextSelected: { color: theme.color.brand.primary },
+  studentGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm, paddingRight: theme.space.xs },
+  studentPickerScroll: { maxHeight: 190 },
   subsection: { borderTopColor: theme.color.border.default, borderTopWidth: 1, gap: theme.space.sm, paddingTop: theme.space.base },
   subTitle: { color: theme.color.text.primary, fontSize: theme.text.size.md, fontWeight: '800' },
   success: { backgroundColor: theme.color.surface.primaryTint, borderRadius: theme.radius.control, color: theme.color.brand.primary, fontSize: theme.text.size.sm, fontWeight: '800', padding: theme.space.base },
+  summaryDelta: { color: theme.color.brand.primary, fontSize: 34, fontWeight: '900' },
+  summaryDeltaNegative: { color: theme.color.brand.secondary },
+  summaryEyebrow: { color: theme.color.brand.primary, fontSize: theme.text.size.xs, fontWeight: '900', letterSpacing: 0.8 },
+  summaryHint: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, lineHeight: 19 },
+  summaryLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, fontWeight: '700' },
+  summaryReason: { backgroundColor: theme.color.surface.card, borderRadius: theme.radius.control, gap: 5, padding: theme.space.base },
+  summaryReasonText: { color: theme.color.text.primary, fontSize: theme.text.size.sm, lineHeight: 20 },
+  summaryRow: { alignItems: 'center', borderBottomColor: theme.color.border.default, borderBottomWidth: 1, flexDirection: 'row', gap: theme.space.sm, justifyContent: 'space-between', paddingBottom: theme.space.sm },
+  summaryTitle: { color: theme.color.text.primary, fontSize: theme.text.size.xl, fontWeight: '900' },
+  summaryValue: { color: theme.color.text.primary, flexShrink: 1, fontSize: theme.text.size.sm, fontWeight: '800', textAlign: 'right' },
+  validationText: { color: theme.color.brand.secondary, fontSize: theme.text.size.xs, fontWeight: '700' },
   workspace: { gap: theme.space.base, minWidth: 0 },
   workspaceCompact: { width: '100%' },
 });

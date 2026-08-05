@@ -280,7 +280,7 @@ export function TeacherGradeReportWorkspace({
     : sheets.find((sheet) => sheet.id === form?.sheetId) ?? null;
 
   return (
-    <View style={styles.section}>
+    <View style={[styles.section, compact && styles.sectionCompact]}>
       <GradeReportHeader
         description="填写或导入整张成绩单，保存草稿后预览并一次发布给绑定家庭。"
         title="成绩单工作区"
@@ -480,6 +480,7 @@ const styles = StyleSheet.create({
   scopeText: { color: theme.color.text.primary, fontSize: 13, fontWeight: '700' },
   scopeTextSelected: { color: '#ffffff' },
   section: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, gap: 20, maxWidth: '100%', padding: 20 },
+  sectionCompact: { gap: 16, padding: 16 },
   selectorBlock: { gap: 9 },
   sheetLibrary: { backgroundColor: theme.color.surface.muted, borderRadius: 14, gap: 5, padding: 14 },
   subtitle: { color: theme.color.text.primary, fontSize: 16, fontWeight: '800' },
