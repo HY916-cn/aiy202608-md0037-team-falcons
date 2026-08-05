@@ -215,15 +215,15 @@ jobs:
             exit 1
           fi
 
-          # Verify valid route via HTTP
-          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/%28teacher%29/index.html)
+          # Verify an exported route through Nginx
+          HTTP_STATUS=$(curl -sL -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/login)
           if [ "$HTTP_STATUS" != "200" ]; then
             echo "Valid route check failed"
             exit 1
           fi
 
-          # Verify invalid route via HTTP returns 404 for direct html file request
-          INVALID_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/invalid-route-that-does-not-exist/index.html)
+          # A missing static asset must return 404 instead of the SPA HTML shell
+          INVALID_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/_expo/static/missing-asset.js)
           if [ "$INVALID_STATUS" != "404" ]; then
             echo "Invalid route check failed (expected 404, got $INVALID_STATUS)"
             exit 1
