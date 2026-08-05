@@ -22,7 +22,7 @@
     "format:check": "node scripts/ci/check-format.mjs",
     "web": "pnpm --filter @dolphincloud/client web",
     "web:export": "pnpm --filter @dolphincloud/client web:export",
-    "lint": "eslint apps packages scripts",
+    "lint": "eslint apps packages scripts && node scripts/ci/check-interactions.mjs",
     "smoke:android": "pnpm android:export && node scripts/ci/verify-export.mjs android",
     "smoke:web": "pnpm web:export && node scripts/ci/verify-export.mjs web",
     "release:preflight": "node scripts/release/run-rc-preflight.mjs",
