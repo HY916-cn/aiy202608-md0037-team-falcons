@@ -24,10 +24,7 @@ import {
   Bot,
   ClipboardList,
   FolderUp,
-  History,
   Star,
-  Trophy,
-  UsersRound,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
@@ -47,7 +44,7 @@ import {
 } from '../governance';
 import { RoleDashboardOverview } from './RoleDashboardOverview';
 import {
-  countStudentsForClass,
+  filterTeachingSnapshotForClass,
   resolveTeachingSectionPresentation,
 } from './roleTeachingPresentation';
 
@@ -386,7 +383,7 @@ function TeachingDemoSection({
   const SectionIcon =
     presentation.mode === 'class_performance' ? Star : FolderUp;
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (preferredClassId: string | null = null) => {
     setIsLoading(true);
     setError(null);
     setSnapshot(EMPTY_SNAPSHOT);
@@ -400,13 +397,17 @@ function TeachingDemoSection({
     } else {
       const next = result.data;
       setSnapshot(next);
-      setSelectedClassId(next.classes[0]?.id ?? null);
+      setSelectedClassId(
+        next.classes.some((item) => item.id === preferredClassId)
+          ? preferredClassId
+          : (next.classes[0]?.id ?? null),
+      );
     }
     setIsLoading(false);
   }, [roleScope, teachingAdapter]);
 
   useEffect(() => {
-    void Promise.resolve().then(load);
+    void Promise.resolve().then(() => load());
   }, [load]);
 
   const runAction = useCallback(
@@ -420,7 +421,7 @@ function TeachingDemoSection({
       try {
         await action();
         setFeedback(successMessage);
-        await load();
+        await load(selectedClassId);
       } catch (cause) {
         setError('操作失败，请检查输入后重试。');
         throw cause;
@@ -428,8 +429,24 @@ function TeachingDemoSection({
         setIsPending(false);
       }
     },
-    [isPending, load],
+    [isPending, load, selectedClassId],
   );
+
+  const selectedSnapshot = useMemo(
+    () => filterTeachingSnapshotForClass(snapshot, selectedClassId),
+    [selectedClassId, snapshot],
+  );
+
+  const selectClass = (classId: string) => {
+    if (classId === selectedClassId) return;
+    setSelectedClassId(classId);
+    setSelectedFile(null);
+    setTitle('');
+    setContent('');
+    setFeedback(null);
+    setError(null);
+    setPendingWrite(null);
+  };
 
   const writeExecutionAdapter = useMemo<WriteActionExecutionAdapter>(
     () => ({
@@ -516,7 +533,7 @@ function TeachingDemoSection({
       {error === null ? null : (
         <View style={styles.feedbackBox}>
           <Text style={styles.error}>{error}</Text>
-          <ActionButton label="重试" onPress={() => void load()} />
+          <ActionButton label="重试" onPress={() => void load(selectedClassId)} />
         </View>
       )}
       {feedback === null ? null : <Text style={styles.success}>{feedback}</Text>}
@@ -540,7 +557,7 @@ function TeachingDemoSection({
             {snapshot.classes.map((item) => (
               <InteractivePressable
                 key={item.id}
-                onPress={() => setSelectedClassId(item.id)}
+                onPress={() => selectClass(item.id)}
                 style={({ focused, hovered, pressed }) => [
                   styles.classButton,
                   selectedClassId === item.id && styles.classButtonSelected,
@@ -600,7 +617,7 @@ function TeachingDemoSection({
               );
             }}
           />
-          {snapshot.assignments.map((item) => (
+          {selectedSnapshot.assignments.map((item) => (
             <View key={item.id} style={styles.listItem}>
               <Text style={styles.itemTitle}>{item.title} · {item.status}</Text>
               {item.status === 'draft' ? (
@@ -609,44 +626,6 @@ function TeachingDemoSection({
                   <ActionButton label="发布作业" onPress={() => requestWrite('assignment.publish', [item.title], ['班级端和绑定家庭端将可见'], [`截止：${item.dueAt}`], () => teachingAdapter.publishAssignment(item.id), '作业已发布。', true)} />
                 </View>
               ) : null}
-            </View>
-          ))}
-        </>
-      ) : null}
-
-      {role === 'class_terminal' && presentation.mode === 'class_performance' ? (
-        <>
-          <View style={styles.performanceGrid}>
-            <View style={styles.performanceCard}>
-              <UsersRound color={theme.color.brand.primary} size={19} />
-              <Text style={styles.performanceValue}>
-                {snapshot.classes.reduce(
-                  (count, item) => count + countStudentsForClass(snapshot, item.id),
-                  0,
-                )}
-              </Text>
-              <Text style={styles.performanceLabel}>学生档案</Text>
-            </View>
-            <View style={styles.performanceCard}>
-              <Star color={theme.color.brand.primary} size={19} />
-              <Text style={styles.performancePending}>待治理服务接入</Text>
-              <Text style={styles.performanceLabel}>班级分</Text>
-            </View>
-            <View style={styles.performanceCard}>
-              <Trophy color={theme.color.brand.primary} size={19} />
-              <Text style={styles.performancePending}>待治理服务接入</Text>
-              <Text style={styles.performanceLabel}>班内排行</Text>
-            </View>
-            <View style={styles.performanceCard}>
-              <History color={theme.color.brand.primary} size={19} />
-              <Text style={styles.performancePending}>暂无真实记录</Text>
-              <Text style={styles.performanceLabel}>表现记录</Text>
-            </View>
-          </View>
-          <Text style={styles.fieldLabel}>当前班级学生</Text>
-          {snapshot.students.map((student) => (
-            <View key={student.id} style={styles.listItem}>
-              <Text style={styles.itemTitle}>{student.name}</Text>
             </View>
           ))}
         </>
@@ -757,7 +736,7 @@ export function RoleExperienceSections({
 
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>当前功能尚未接入业务服务</Text>
+      <Text style={styles.sectionTitle}>当前功能在此权限范围不可用</Text>
       <Text style={styles.sectionDescription}>
         权限范围：{roleScope.label}。为避免展示伪造数据或无效按钮，服务完成接入前仅保留明确边界说明。
       </Text>
@@ -800,11 +779,6 @@ const styles = StyleSheet.create({
   messageRowUser: { alignSelf: 'flex-end', backgroundColor: theme.color.surface.primaryTint },
   messageText: { color: theme.color.text.primary, fontSize: theme.text.size.sm, lineHeight: 21 },
   multiline: { minHeight: 88, paddingVertical: theme.space.md, textAlignVertical: 'top' },
-  performanceCard: { backgroundColor: theme.color.surface.muted, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, flex: 1, gap: theme.space.xs, minWidth: 180, padding: theme.space.md },
-  performanceGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm },
-  performanceLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.xs },
-  performancePending: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '700' },
-  performanceValue: { color: theme.color.text.primary, fontSize: theme.text.size.xl, fontWeight: '800' },
   recentPanel: { borderTopColor: theme.color.border.default, borderTopWidth: 1, gap: theme.space.xs, paddingTop: theme.space.sm },
   recentPrompt: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, lineHeight: 18 },
   section: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, gap: theme.space.md, padding: theme.space.lg },
