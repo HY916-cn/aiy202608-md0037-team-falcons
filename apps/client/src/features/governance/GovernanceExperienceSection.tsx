@@ -247,7 +247,7 @@ function StudentScorePanel({
             <Text style={styles.subTitle}>维护分数条目</Text>
             <View style={styles.formRow}><Field label="条目名称" onChange={setCategoryName} value={categoryName} /><Field label="英文标识" onChange={setCategorySlug} value={categorySlug} /><Field label="默认分值" onChange={setCategoryDefault} value={categoryDefault} /></View>
             <Selector label="类型" onChange={(value) => { const kind = value as 'negative' | 'positive'; setCategoryKind(kind); const amount = Math.abs(Number(categoryDefault) || 1); setCategoryDefault(String(kind === 'negative' ? -amount : amount)); }} options={[{ id: 'positive', label: '加分' }, { id: 'negative', label: '减分' }]} value={categoryKind} />
-            <Button disabled={!validInteger(categoryDefault) || categoryName.trim() === '' || snapshot.classes[0] === undefined} label="预览并保存条目" secondary onPress={() => requestWrite({ execute: () => service.manageStudentCategory(roleScope, { defaultDelta: Number(categoryDefault), description: `${categoryName}演示条目`, displayName: categoryName, isActive: true, kind: categoryKind, schoolId: snapshot.classes[0]!.schoolId, slug: categorySlug }), impact: ['更新当前学校可选学生分条目'], isDangerous: false, operationType: '维护学生分条目', parameters: [`默认值：${categoryDefault}`, `类型：${categoryKind}`], targets: [categoryName] }, '学生分条目已保存')} />
+            <Button disabled={!validInteger(categoryDefault) || categoryName.trim() === '' || snapshot.classes[0] === undefined} label="预览并保存条目" secondary onPress={() => requestWrite({ execute: () => service.manageStudentCategory(roleScope, { defaultDelta: Number(categoryDefault), description: categoryName, displayName: categoryName, isActive: true, kind: categoryKind, schoolId: snapshot.classes[0]!.schoolId, slug: categorySlug }), impact: ['更新当前学校可选学生分条目'], isDangerous: false, operationType: '维护学生分条目', parameters: [`默认值：${categoryDefault}`, `类型：${categoryKind}`], targets: [categoryName] }, '学生分条目已保存')} />
           </View>
         ) : null}
       </Panel>
@@ -450,7 +450,7 @@ export function GovernanceExperienceSection({ activeNavigation, roleScope }: { r
     <View style={[styles.workspace, layout.compact && styles.workspaceCompact]}>
       <View style={styles.scopeBanner}>
         <View style={styles.headingCopy}><Text style={styles.scopeTitle}>治理工作区 · {roleScope.label}</Text><Text style={styles.scopeMeta}>权限：{roleScope.role} / {roleScope.type}</Text></View>
-        {snapshot.isDemo ? <Text style={styles.demoBadge}>演示数据</Text> : <Text style={styles.liveBadge}>Supabase 实时数据</Text>}
+        <Text style={styles.liveBadge}>已按当前权限加载</Text>
       </View>
       {error === null ? null : <View style={styles.feedback}><Text accessibilityRole="alert" style={styles.error}>{error}</Text><Button label="重试加载" secondary onPress={() => void load()} /></View>}
       {success === null ? null : <Text style={styles.success}>{success}</Text>}
@@ -496,14 +496,13 @@ const styles = StyleSheet.create({
   choiceSelected: { backgroundColor: theme.color.surface.primaryTint, borderColor: theme.color.brand.primary },
   choiceText: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '600' },
   dangerButton: { backgroundColor: theme.color.text.primary, borderColor: theme.color.text.primary },
-  demoBadge: { alignSelf: 'flex-start', backgroundColor: theme.color.surface.secondaryTint, borderRadius: theme.radius.pill, color: theme.color.brand.secondary, fontSize: theme.text.size.xs, fontWeight: '800', overflow: 'hidden', paddingHorizontal: theme.space.base, paddingVertical: theme.space.xs },
   disabled: { opacity: 0.45 },
   empty: { color: theme.color.text.secondary, fontSize: theme.text.size.sm, lineHeight: 22 },
   error: { color: theme.color.text.primary, flex: 1, fontSize: theme.text.size.sm, fontWeight: '700' },
   feedback: { alignItems: 'center', backgroundColor: theme.color.surface.secondaryTint, borderRadius: theme.radius.control, flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm, padding: theme.space.base },
   fieldGroup: { flex: 1, gap: theme.space.xs, minWidth: 180 },
   fieldLabel: { color: theme.color.text.primary, fontSize: theme.text.size.xs, fontWeight: '800' },
-  focused: { borderColor: theme.color.brand.secondary, shadowColor: theme.color.brand.primary, shadowOpacity: 0.2, shadowRadius: 4 },
+  focused: { borderColor: theme.color.brand.secondary, boxShadow: '0 0 0 3px rgba(22, 119, 254, 0.18)' },
   formRow: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm },
   headingCopy: { flex: 1, minWidth: 0 },
   heroMetric: { alignItems: 'flex-start', backgroundColor: theme.color.surface.primaryTint, borderRadius: theme.radius.control, padding: theme.space.lg },

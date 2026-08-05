@@ -137,7 +137,7 @@ describe('TeachingTodaySummaryDataSource', () => {
   });
 
   it.each(['bank_operator', 'council', 'admin'] as const)(
-    '%s 在治理数据源未接入时明确显示待接入',
+    '%s 没有真实摘要数据源时返回空列表而非占位统计',
     async (role) => {
       const load = vi.fn();
       const source = new TeachingTodaySummaryDataSource(
@@ -148,8 +148,8 @@ describe('TeachingTodaySummaryDataSource', () => {
       const summary = await source.load(roleScope(role));
 
       expect(load).not.toHaveBeenCalled();
-      expect(summary.title).toContain('数据待接入');
-      expect(summary.items.every(({ value }) => value === '待接入')).toBe(true);
+      expect(summary.title).toBe('今日摘要');
+      expect(summary.items).toEqual([]);
     },
   );
 });

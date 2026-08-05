@@ -16080,27 +16080,6 @@ var SupabaseTeachingDemoAdapter = class {
 };
 
 // packages/experience/src/todaySummary.ts
-var GOVERNANCE_SUMMARY_ITEMS = {
-  bank_operator: [
-    ["coin-ledger", "\u6D77\u8C5A\u5E01\u6D41\u6C34", "\u5F85\u63A5\u5165", "info"],
-    ["fine-orders", "\u7F5A\u6B3E\u5355", "\u5F85\u63A5\u5165", "attention"],
-    ["pending-items", "\u5F85\u5904\u7406\u4E8B\u9879", "\u5F85\u63A5\u5165", "attention"]
-  ],
-  council: [
-    ["class-score-adjustments", "\u73ED\u7EA7\u5206\u8C03\u6574", "\u5F85\u63A5\u5165", "info"],
-    ["evidence", "\u51ED\u8BC1", "\u5F85\u63A5\u5165", "attention"],
-    ["class-ranking", "\u73ED\u7EA7\u6392\u884C", "\u5F85\u63A5\u5165", "positive"]
-  ],
-  admin: [
-    ["users", "\u7528\u6237", "\u5F85\u63A5\u5165", "info"],
-    ["audit-events", "\u5BA1\u8BA1", "\u5F85\u63A5\u5165", "info"],
-    ["anomalies", "\u5F02\u5E38", "\u5F85\u63A5\u5165", "attention"],
-    ["system-status", "\u7CFB\u7EDF\u72B6\u6001", "\u5F85\u63A5\u5165", "positive"]
-  ]
-};
-function mapItems(items) {
-  return items.map(([id, label, value, tone]) => ({ id, label, tone, value }));
-}
 function isToday(value, today) {
   return value !== null && value.slice(0, 10) === today;
 }
@@ -16132,16 +16111,12 @@ function createTeachingItems(role, snapshot, today) {
     ).length;
     return [
       { id: "new-courseware", label: "\u65B0\u8BFE\u4EF6", tone: "info", value: `${newCourseware} \u4EFD` },
-      { id: "today-assignments", label: "\u4ECA\u65E5\u4F5C\u4E1A", tone: "attention", value: `${todayAssignments} \u9879` },
-      { id: "class-score", label: "\u73ED\u7EA7\u5206", tone: "info", value: "\u5F85\u63A5\u5165" },
-      { id: "class-ranking", label: "\u73ED\u7EA7\u6392\u884C", tone: "info", value: "\u5F85\u63A5\u5165" }
+      { id: "today-assignments", label: "\u4ECA\u65E5\u4F5C\u4E1A", tone: "attention", value: `${todayAssignments} \u9879` }
     ];
   }
   return [
     { id: "linked-assignments", label: "\u7ED1\u5B9A\u5B66\u751F\u4F5C\u4E1A", tone: "attention", value: `${snapshot.assignments.length} \u9879` },
-    { id: "published-grades", label: "\u5DF2\u53D1\u5E03\u6210\u7EE9", tone: "info", value: `${snapshot.grades.length} \u9879` },
-    { id: "student-score", label: "\u5B66\u751F\u5206", tone: "info", value: "\u5F85\u63A5\u5165" },
-    { id: "dolphin-coins", label: "\u6D77\u8C5A\u5E01", tone: "info", value: "\u5F85\u63A5\u5165" }
+    { id: "published-grades", label: "\u5DF2\u53D1\u5E03\u6210\u7EE9", tone: "info", value: `${snapshot.grades.length} \u9879` }
   ];
 }
 var TeachingTodaySummaryDataSource = class {
@@ -16157,9 +16132,9 @@ var TeachingTodaySummaryDataSource = class {
       return {
         dataMode: this.dataMode,
         generatedAt,
-        items: mapItems(GOVERNANCE_SUMMARY_ITEMS[role]),
+        items: [],
         role,
-        title: "\u4ECA\u65E5\u6458\u8981\uFF08\u6570\u636E\u5F85\u63A5\u5165\uFF09"
+        title: "\u4ECA\u65E5\u6458\u8981"
       };
     }
     const snapshot = await this.teachingAdapter.load(roleScope);

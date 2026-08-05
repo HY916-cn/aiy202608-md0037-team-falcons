@@ -458,7 +458,7 @@ export function AdminWorkspaceScreen({
   const sourceNotice =
     snapshot.source === 'supabase'
       ? `来源：Supabase + RLS；读取时间 ${formatDateTime(snapshot.loadedAt)}。列表工具只处理本次成功加载的数据。`
-      : '当前未配置 Supabase。账号、范围、审计与系统状态均保持可验证离线，不生成演示记录，也不提供写按钮。';
+      : '当前未配置学校服务。账号、范围和审计信息暂不可用，请联系系统管理员。';
 
   if (activeNavigation === 'users') {
     const handleExport = async () => {
@@ -509,7 +509,7 @@ export function AdminWorkspaceScreen({
         title="权限矩阵"
       >
         <WorkspaceBoundaryNotice label="权限来源说明">
-          权限等级来自 docs/01、docs/03 与 docs/07 的固定产品基线；“已加载范围”来自当前 Supabase 读取。此处没有假写按钮，也不宣称已修改服务端权限。
+          权限等级为产品权限基线；“已加载范围”来自当前服务读取。本页面只读展示，不修改服务端权限。
         </WorkspaceBoundaryNotice>
         <PermissionMatrix isCompact={isCompact} users={snapshot.users} />
       </WorkspaceSurface>
@@ -607,7 +607,7 @@ const styles = StyleSheet.create({
   emptyTitle: { color: theme.color.text.primary, fontSize: theme.text.size.md, fontWeight: '800', marginBottom: theme.space.xs },
   errorText: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '700', lineHeight: 21 },
   feedback: { color: theme.color.brand.primary, fontSize: theme.text.size.sm, fontWeight: '700' },
-  focused: { borderColor: theme.color.brand.primary, borderWidth: 1, shadowColor: theme.color.brand.primary, shadowOpacity: 0.2, shadowRadius: 4 },
+  focused: { borderColor: theme.color.brand.primary, borderWidth: 1, boxShadow: '0 0 0 3px rgba(22, 119, 254, 0.18)' },
   headerCell: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, fontWeight: '800' },
   permissionCell: { flex: 1, minWidth: 0 },
   pressed: { opacity: 0.72, transform: [{ scale: 0.985 }] },

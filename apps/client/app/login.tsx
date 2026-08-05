@@ -5,10 +5,12 @@ import {
   LoginScreen,
   useAuthSession,
 } from '@/features/auth';
+import { useSupabaseServices } from '@/features/supabase';
 import { ROLE_HOME_PATHS } from '@/shared/routing/roleRoutes';
 
 export default function LoginRoute() {
   const { currentRole, isLoading, login, user } = useAuthSession();
+  const { configurationIssue } = useSupabaseServices();
 
   if (isLoading) {
     return <AuthLoadingScreen />;
@@ -18,5 +20,10 @@ export default function LoginRoute() {
     return <Redirect href={ROLE_HOME_PATHS[currentRole]} />;
   }
 
-  return <LoginScreen onLogin={login} />;
+  return (
+    <LoginScreen
+      configurationIssue={configurationIssue}
+      onLogin={login}
+    />
+  );
 }

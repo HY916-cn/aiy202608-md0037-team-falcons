@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
   filterGroup: { alignItems: 'center', borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.xs, minHeight: 44, paddingHorizontal: theme.space.xs },
   filterLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, fontWeight: '700' },
   filterLabelSelected: { color: theme.color.brand.primary },
-  focused: { borderColor: theme.color.brand.primary, borderWidth: 1, shadowColor: theme.color.brand.primary, shadowOpacity: 0.2, shadowRadius: 4 },
+  focused: { borderColor: theme.color.brand.primary, borderWidth: 1, boxShadow: '0 0 0 3px rgba(22, 119, 254, 0.18)' },
   hovered: { backgroundColor: theme.color.surface.primaryTint },
   insightItem: { flex: 1, minWidth: 110, paddingHorizontal: theme.space.md, paddingVertical: theme.space.base },
   insightItemSeparated: { borderLeftColor: theme.color.border.default, borderLeftWidth: 1 },
