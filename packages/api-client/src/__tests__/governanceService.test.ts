@@ -101,6 +101,8 @@ describe('SupabaseGovernanceService writes', () => {
     const service = new SupabaseGovernanceService(client);
 
     await expect(service.grantDolphin(scopes.classTerminal, { amount: 10, reason: '越权', studentId: '50000000-0000-0000-0000-000000000001' })).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(service.createFine(scopes.bank, { amount: 10, reason: '越权', ruleId: '71000000-0000-0000-0000-000000000001', studentId: '50000000-0000-0000-0000-000000000001' })).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(service.settleFine(scopes.teacher, '73000000-0000-0000-0000-000000000001')).rejects.toMatchObject({ code: 'FORBIDDEN' });
     expect(rpc).not.toHaveBeenCalled();
   });
 });

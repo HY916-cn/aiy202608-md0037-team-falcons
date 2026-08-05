@@ -1,4 +1,4 @@
-# 03｜API 与 Coze 接入
+# 03｜API 与 DeepSeek 接入
 
 ## 1. 接口原则
 
@@ -50,7 +50,7 @@
 | `DUPLICATE_REQUEST` | 409 | 幂等请求已处理 |
 | `INSUFFICIENT_BALANCE` | 422 | 海豚币余额不足 |
 | `ALREADY_REVERSED` | 409 | 目标操作已经撤销 |
-| `AI_UNAVAILABLE` | 503 | Coze 暂不可用，仅影响 AI 中心 |
+| `AI_UNAVAILABLE` | 503 | DeepSeek 暂不可用，仅影响 AI 中心 |
 | `INTERNAL_ERROR` | 500 | 未预期服务端错误 |
 
 ## 3. MVP API 清单
@@ -195,22 +195,22 @@
 
 最终撤销请求必须携带预览返回的短期确认 token 或版本号，避免用户确认前状态已经变化。
 
-## 5. Coze 的唯一定位
+## 5. DeepSeek 的定位
 
-Coze 是海豚云运行时的外部 AI 服务，不是开发平台。
+DeepSeek 是海豚云 AI 网关使用的模型服务，只负责理解自然语言并返回白名单结构。
 
 ### 禁止事项
 
-- 不使用 Coze 或 Coze CLI 创建项目、生成代码、修改代码、执行测试、修复缺陷或构建安装包。
-- 不把 GitHub 仓库、服务角色密钥、数据库直连地址或用户 JWT 提供给 Coze。
-- 不让 Coze 决定最终权限、不让 Coze 直接执行未经确认的写操作。
-- 不因 Coze 故障阻塞普通功能。
+- 不把 GitHub 仓库、服务角色密钥、数据库直连地址或用户 JWT 提供给模型。
+- 不让模型决定最终权限，不让模型直接读写数据库或执行未经确认的操作。
+- 不因模型服务故障阻塞普通功能。
 
 ### 允许事项
 
 - 应用运行时将用户对话发送给海豚云 AI 网关。
-- AI 网关调用 Coze Agent 获取意图、回复或工具调用建议。
-- Coze 通过受控海豚云 Skill 查询授权数据或生成写操作草稿。
+- AI 网关调用 DeepSeek 获取文本回复、查询意图或写操作建议。
+- AI 网关只接受预定义 JSON 类型和白名单技能、操作代码。
+- 海豚云服务端按当前 JWT、角色与范围执行查询或生成写操作草稿。
 - 用户在海豚云客户端确认后，由海豚云服务执行真实写操作。
 
 ## 6. AI 运行时架构
@@ -220,20 +220,17 @@ sequenceDiagram
     participant U as 用户
     participant C as 海豚云客户端
     participant G as AI 网关
-    participant Z as Coze Agent
-    participant K as 海豚云 Skill API
+    participant Z as DeepSeek API
     participant B as 业务服务
 
     U->>C: 输入自然语言
     C->>G: 用户 JWT + message
     G->>G: 校验用户并创建会话上下文
-    G->>Z: 脱敏消息 + 临时会话引用
-    Z->>K: 查询或提出工具调用
-    K->>K: 校验服务凭证与会话上下文
-    K->>B: 按当前用户权限查询
-    B-->>K: 结构化结果
-    K-->>Z: 最小必要数据
-    Z-->>G: 回复或写操作建议
+    G->>Z: 用户消息 + 严格 JSON 输出约束
+    Z-->>G: 文本、查询意图或写操作建议
+    G->>G: 校验返回类型与白名单
+    G->>B: 按当前用户权限查询或生成草稿
+    B-->>G: 结构化结果
     G-->>C: 回复或确认草稿
     U->>C: 确认写操作
     C->>B: 用户 JWT + action_draft_id
@@ -241,7 +238,7 @@ sequenceDiagram
     B-->>C: operation_id + 结果
 ```
 
-关键点：Coze 返回的是“建议”或“草稿”，真正的写操作由海豚云服务根据已登录用户执行。
+关键点：DeepSeek 返回的只是“意图”或“建议”，真正的数据查询和写操作由海豚云服务根据已登录用户执行。
 
 ## 7. AI 接口
 
@@ -251,10 +248,8 @@ sequenceDiagram
 | `GET /ai/sessions/{id}/messages` | 查询当前用户的 AI 消息 |
 | `POST /ai/action-drafts/{id}/confirm` | 用户确认后执行草稿 |
 | `POST /ai/action-drafts/{id}/cancel` | 取消草稿 |
-| `POST /skills/query` | Coze 调用的受控只读工具入口 |
-| `POST /skills/propose-action` | Coze 提出写操作草稿，不执行业务 |
 
-`/skills/*` 不能只凭请求体中的用户 ID 授权。AI 网关为每次对话签发短期、单用途、绑定用户和允许工具集合的上下文 token；Skill API 校验后再解析真实用户范围。
+DeepSeek API Key 只存在于 Edge Function 的服务端环境。客户端只提交当前 Supabase JWT、角色范围标识和消息；服务端重新解析真实用户及授权范围。
 
 ## 8. AI 返回类型
 
@@ -266,9 +261,9 @@ type AiResponse =
   | { type: 'error'; code: string; fallback_message: string };
 ```
 
-客户端只渲染白名单卡片类型，不执行 Coze 返回的任意脚本、URL 或组件代码。
+客户端只渲染白名单卡片类型，不执行模型返回的任意脚本、URL 或组件代码。
 
-## 9. Skill 最小能力
+## 9. AI 能力白名单
 
 | 工具名 | 类型 | 角色范围 |
 | --- | --- | --- |
@@ -302,35 +297,30 @@ EXPO_PUBLIC_AI_GATEWAY_FUNCTION
 
 ```text
 SUPABASE_SERVICE_ROLE_KEY
-COZE_API_BASE_URL
-COZE_BOT_ID
-COZE_API_TOKEN
-SUPABASE_JWT_SECRET
-AI_SKILL_ENDPOINT
+DEEPSEEK_API_BASE_URL
+DEEPSEEK_API_KEY
+DEEPSEEK_MODEL
 AI_GATEWAY_TIMEOUT_MS
-COZE_SKILL_SHARED_SECRET
-AI_CONTEXT_SIGNING_SECRET
 ```
 
 服务端密钥通过部署平台 Secret 管理；禁止写入 `.env.example` 的真实值。PR 日志中只检查变量是否存在，不输出内容。
 
-当前 `ai-gateway` Edge Function 使用 `SUPABASE_URL`、`SUPABASE_ANON_KEY` 和调用者 JWT 访问数据，刻意不使用 service role 绕过 RLS。`SUPABASE_JWT_SECRET` 只在服务端签发 60 秒、单用途 Skill 上下文 JWT；`AI_SKILL_ENDPOINT` 指向受控 `/skills/query`。部署前执行 `pnpm build:edge`，生成函数目录内不依赖 workspace 源码的单文件 bundle。
+当前 `ai-gateway` Edge Function 使用 `SUPABASE_URL`、`SUPABASE_ANON_KEY` 和调用者 JWT 访问数据，刻意不使用 service role 绕过 RLS。DeepSeek API Key 只用于服务端调用模型。部署前执行 `pnpm build:edge`，生成函数目录内不依赖 workspace 源码的单文件 bundle。
 
 ## 11. 降级与超时
 
-- Coze 调用设置明确的连接和总超时。
+- DeepSeek 调用设置明确的连接和总超时。
 - 查询失败时显示“AI 暂不可用”，并提供对应普通页面入口。
 - 已创建但未确认的草稿在短时间后过期。
-- Coze 返回不合法结构时拒绝执行并记录错误码。
+- DeepSeek 返回不合法结构或非白名单操作时拒绝执行并记录错误码。
 - AI 重试不得复用新的幂等键执行同一写操作。
-- 演示现场准备关闭 Coze 后的普通功能备用路径和录屏。
+- AI 服务不可用时，用户仍可从普通页面完成核心操作。
 
 ## 12. AI 接入验收
 
-- 客户端包和 Web 资源中搜索不到 Coze token。
-- Coze 无法通过 Skill 查询当前用户权限外的数据。
+- 客户端包和 Web 资源中搜索不到 DeepSeek API Key。
+- 模型无法直接访问数据库，也无法查询当前用户权限外的数据。
 - 写操作必须先返回预览，未确认时数据库不变化。
 - 确认时服务端再次检查权限和数据版本。
 - 重复确认同一草稿只产生一条业务流水。
-- Coze 超时或返回错误时，普通功能、导航和账号会话不受影响。
-
+- DeepSeek 超时或返回错误时，普通功能、导航和账号会话不受影响。

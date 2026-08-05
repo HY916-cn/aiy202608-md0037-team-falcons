@@ -24,7 +24,7 @@
 - **教学闭环：** 教师向班级发送课件、发布作业与成绩单；家庭端只能查看绑定学生的数据。
 - **三套独立体系：** 学生分、班级分和海豚币分别授权、分别记账，不互相混算。
 - **治理可追溯：** 支持罚款、班级排行、操作审计及指定历史操作撤销。
-- **AI 中心：** 通过服务端网关接入 Coze，结合当前角色和范围整理信息；写操作先生成确认草稿，用户确认后才调用海豚云服务。
+- **AI 中心：** 通过服务端网关直连 DeepSeek，结合当前角色和范围整理信息；写操作先生成确认草稿，用户确认后才调用海豚云服务。
 - **今日摘要：** 汇总当前角色真正有权查看的课件、作业、成绩与治理动态。
 
 ## 🎬 演示
@@ -52,11 +52,12 @@
 | --- | --- |
 | Web 客户端（正式交付） | React Native、Expo Router、TypeScript |
 | 身份与数据 | Supabase Auth、PostgreSQL、RLS、RPC、Storage |
-| AI 运行时 | Coze，经海豚云服务端 AI Gateway 受控接入 |
+| AI 运行时 | DeepSeek，经海豚云服务端 AI Gateway 受控接入 |
+| AI 方案验证 | Coze 对话、Agent、Skill 与 Workflow 思路，用于校园场景拆解和助手流程验证 |
 | 质量保障 | Vitest、pgTAP、ESLint、GitHub Actions、Gitleaks |
 | 协作开发 | Git、GitHub、Codex |
 
-Coze 仅作为产品运行时 AI 服务。客户端不保存 Coze Token，AI 不可用时课件、作业、成绩和治理功能仍可使用；任何 AI 写操作都不能绕过角色权限和用户确认。
+DeepSeek 只承担意图理解和回复生成。客户端不保存模型密钥，AI 不可用时课件、作业、成绩和治理功能仍可使用；查询和写操作都由海豚云服务端重新校验权限，任何 AI 写操作都不能绕过用户确认。
 
 ## 🚀 怎么跑起来
 
@@ -68,7 +69,7 @@ cp apps/client/.env.example apps/client/.env
 pnpm web
 ```
 
-浏览器打开终端输出的本地地址。连接真实服务前，请在 `apps/client/.env` 配置自己的 Supabase 公共地址与匿名密钥；Coze Token 等服务端机密只能配置在部署平台的 Secret 中，不能写入仓库。
+浏览器打开终端输出的本地地址。连接真实服务前，请在 `apps/client/.env` 配置自己的 Supabase 公共地址与匿名密钥；`DEEPSEEK_API_KEY` 等服务端机密只能配置在部署平台的 Secret 中，不能写入仓库。
 
 提交前运行完整 Web 质量门禁：
 
@@ -97,7 +98,7 @@ pnpm smoke:web
 ## 📌 交付边界与后续计划
 
 - 完成公网 HTTPS Web 部署与可公开访问的体验入口。
-- 接入赛事提供的 Coze 资源，完成真实 AI 网关联调。
+- 完成 DeepSeek AI 网关的公网部署与线上回归。
 - 增加关键业务路径的浏览器端自动化回归。
 - 持续改善无障碍、移动端排版和低网速体验。
 
