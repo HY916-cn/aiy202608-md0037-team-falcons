@@ -74,7 +74,7 @@ select throws_ok(
   $$
     select public.apply_dolphin_grant(
       'coin-teacher-cross-class-0001',
-      '50000000-0000-0000-0000-000000000077',
+      '50000000-0000-0000-0000-000000000017',
       5,
       '教师跨校奖励'
     )
@@ -125,8 +125,8 @@ select is(
     -5,
     '银行调整'
   ) as r),
-  35::numeric(12, 2),
-  '银行调整后余额为 35'
+  40::numeric(12, 2),
+  '银行调整后余额为 40'
 );
 
 -- Wallet RLS: class_terminal cannot read wallets/transactions.

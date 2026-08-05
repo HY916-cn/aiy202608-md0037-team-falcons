@@ -166,3 +166,7 @@ using (
 
 revoke all on function public._governance_can_view_fine_order(uuid) from public;
 revoke all on function public._governance_can_view_operation(public.governance_target_type, uuid) from public;
+grant execute on function public._governance_can_view_fine_order(uuid) to authenticated;
+grant execute on function public._governance_can_view_operation(public.governance_target_type, uuid) to authenticated;
+grant execute on function public._governance_can_view_class_score(uuid) to authenticated;
+grant execute on function public._governance_can_view_wallet(uuid) to authenticated;

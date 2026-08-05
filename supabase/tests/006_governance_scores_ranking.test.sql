@@ -2,7 +2,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(42);
+select plan(44);
 
 -- Bootstrap fixture for cross-school batch validation (before switching to authenticated).
 insert into public.schools (id, name) values ('10000000-0000-0000-0000-000000000077', '其他学校');
@@ -278,6 +278,25 @@ select is(
   '本次学生分可覆盖条目默认值'
 );
 
+select is(
+  (
+    select c.is_active
+    from public.manage_student_score_category(
+      'ss-category-disable-0002',
+      '10000000-0000-0000-0000-000000000001',
+      (select id from public.student_score_categories where school_id = '10000000-0000-0000-0000-000000000001' and slug = 'reading_star'),
+      'reading_star',
+      '阅读之星',
+      'positive',
+      6,
+      '恢复后再次停用以验证运行时校验',
+      false
+    ) as c
+  )::text,
+  'false',
+  '条目可再次停用'
+);
+
 select throws_ok(
   $$
     select public.apply_student_score(
@@ -291,6 +310,25 @@ select throws_ok(
   'P0001',
   'CATEGORY_NOT_FOUND',
   '停用条目不能用于新学生分'
+);
+
+select is(
+  (
+    select c.is_active
+    from public.manage_student_score_category(
+      'ss-category-reenable-0002',
+      '10000000-0000-0000-0000-000000000001',
+      (select id from public.student_score_categories where school_id = '10000000-0000-0000-0000-000000000001' and slug = 'reading_star'),
+      'reading_star',
+      '阅读之星',
+      'positive',
+      6,
+      '停用校验后恢复启用',
+      true
+    ) as c
+  )::text,
+  'true',
+  '停用校验后可恢复启用'
 );
 
 select throws_ok(
