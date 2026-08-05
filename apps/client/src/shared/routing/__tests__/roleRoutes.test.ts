@@ -10,12 +10,12 @@ describe('ROLE_HOME_PATHS', () => {
     );
     expect(new Set(Object.values(ROLE_HOME_PATHS)).size).toBe(6);
     expect(ROLE_HOME_PATHS).toEqual({
-      admin: '/(admin)',
-      bank_operator: '/(bank-operator)',
-      class_terminal: '/(class-terminal)',
-      council: '/(council)',
-      family: '/(family)',
-      teacher: '/(teacher)',
+      admin: '/admin',
+      bank_operator: '/bank',
+      class_terminal: '/class-terminal',
+      council: '/council',
+      family: '/family',
+      teacher: '/teacher',
     });
   });
 });
