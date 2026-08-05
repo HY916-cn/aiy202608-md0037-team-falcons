@@ -143,7 +143,17 @@ var AI_WRITE_ACTION_TYPES = [
   "assessment_publish"
 ];
 
-// packages/ai-service/src/cozeGatewayClient.ts
+// packages/ai-service/src/deepSeekGatewayClient.ts
+var SYSTEM_PROMPT = `\u4F60\u662F\u6D77\u8C5A\u4E91 AI \u4E2D\u5FC3\u7684\u6D77\u8C5A\u52A9\u624B\u3002\u4F60\u53EA\u80FD\u8F93\u51FA\u4E00\u4E2A JSON \u5BF9\u8C61\uFF0C\u4E0D\u5F97\u8F93\u51FA Markdown \u6216\u989D\u5916\u6587\u5B57\u3002
+
+\u6309\u7528\u6237\u610F\u56FE\u9009\u62E9\u4EE5\u4E0B\u4E00\u79CD\u7ED3\u6784\uFF1A
+1. \u666E\u901A\u56DE\u7B54\uFF1A{"type":"text","text":"\u7B80\u6D01\u3001\u53CB\u597D\u7684\u4E2D\u6587\u56DE\u7B54"}
+2. \u67E5\u8BE2\u4E1A\u52A1\u6570\u636E\uFF1A{"type":"skill_query","skill":"\u767D\u540D\u5355\u6280\u80FD","arguments":{}}
+3. \u63D0\u8BAE\u5199\u64CD\u4F5C\uFF1A{"type":"action_proposal","action_type":"\u767D\u540D\u5355\u64CD\u4F5C","parameters":{}}
+
+\u53EA\u8BFB\u6280\u80FD\u767D\u540D\u5355\uFF1A${AI_READ_SKILLS.join(", ")}\u3002
+\u5199\u64CD\u4F5C\u767D\u540D\u5355\uFF1A${AI_WRITE_ACTION_TYPES.join(", ")}\u3002
+\u4E0D\u5F97\u4F2A\u9020\u67E5\u8BE2\u7ED3\u679C\uFF0C\u4E0D\u5F97\u58F0\u79F0\u5C1A\u672A\u786E\u8BA4\u7684\u64CD\u4F5C\u5DF2\u7ECF\u6267\u884C\u3002\u6D89\u53CA\u6570\u636E\u67E5\u8BE2\u65F6\u8FD4\u56DE skill_query\uFF1B\u6D89\u53CA\u5199\u5165\u65F6\u53EA\u8FD4\u56DE action_proposal\uFF0C\u670D\u52A1\u7AEF\u4F1A\u8FDB\u884C\u6743\u9650\u6821\u9A8C\u5E76\u8981\u6C42\u7528\u6237\u786E\u8BA4\u3002\u4FE1\u606F\u4E0D\u8DB3\u65F6\u8FD4\u56DE text \u5E76\u8BE2\u95EE\u5FC5\u8981\u4FE1\u606F\u3002`;
 function isRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -153,12 +163,12 @@ function isReadSkill(value) {
 function isWriteActionType(value) {
   return typeof value === "string" && AI_WRITE_ACTION_TYPES.some((item) => item === value);
 }
-function parseBotContent(content) {
+function parseModelContent(content) {
   let value;
   try {
     value = JSON.parse(content);
   } catch {
-    return { text: content, type: "text" };
+    throw new AiServiceError("AI_INVALID_RESPONSE", 502);
   }
   if (!isRecord(value) || typeof value.type !== "string") {
     throw new AiServiceError("AI_INVALID_RESPONSE", 502);
@@ -178,25 +188,23 @@ function parseBotContent(content) {
   }
   throw new AiServiceError("AI_INVALID_RESPONSE", 502);
 }
-function readData(value) {
-  if (!isRecord(value) || value.code !== void 0 && value.code !== 0 || !isRecord(value.data)) {
+function readAnswer(value) {
+  if (!isRecord(value) || !Array.isArray(value.choices)) {
     throw new AiServiceError("AI_INVALID_RESPONSE", 502);
   }
-  return value.data;
+  const first = value.choices[0];
+  if (!isRecord(first) || !isRecord(first.message) || typeof first.message.content !== "string") {
+    throw new AiServiceError("AI_INVALID_RESPONSE", 502);
+  }
+  return first.message.content;
 }
-var CozeGatewayClient = class {
+var DeepSeekGatewayClient = class {
   constructor(options) {
     this.options = options;
     this.fetchImplementation = options.fetchImplementation ?? fetch;
-    this.pollIntervalMs = options.pollIntervalMs ?? 250;
-    this.sleep = options.sleep ?? ((milliseconds) => new Promise((resolve) => {
-      setTimeout(resolve, milliseconds);
-    }));
-    this.timeoutMs = options.timeoutMs ?? 8e3;
+    this.timeoutMs = options.timeoutMs ?? 12e3;
   }
   fetchImplementation;
-  pollIntervalMs;
-  sleep;
   timeoutMs;
   async send(input) {
     const controller = new AbortController();
@@ -204,78 +212,10 @@ var CozeGatewayClient = class {
     const cancel = () => controller.abort();
     input.signal?.addEventListener("abort", cancel, { once: true });
     try {
-      const query = input.conversationReference === null ? "" : `?conversation_id=${encodeURIComponent(input.conversationReference)}`;
-      const created = readData(
-        await this.requestJson(
-          `${this.baseUrl()}/v3/chat${query}`,
-          {
-            body: JSON.stringify({
-              additional_messages: [
-                {
-                  content: input.message,
-                  content_type: "text",
-                  role: "user",
-                  type: "question"
-                }
-              ],
-              auto_save_history: true,
-              bot_id: this.options.botId,
-              parameters: input.skillContextToken === void 0 ? {} : {
-                skill_context_token: input.skillContextToken,
-                skill_endpoint: this.options.skillEndpoint
-              },
-              stream: false,
-              user_id: input.sessionReference
-            }),
-            method: "POST",
-            signal: controller.signal
-          }
-        )
-      );
-      const chatId = created.id;
-      const conversationId = created.conversation_id;
-      if (typeof chatId !== "string" || typeof conversationId !== "string") {
-        throw new AiServiceError("AI_INVALID_RESPONSE", 502);
-      }
-      let status = created.status;
-      while (status === "created" || status === "in_progress") {
-        await this.sleep(this.pollIntervalMs);
-        const retrieved = readData(
-          await this.requestJson(
-            `${this.baseUrl()}/v3/chat/retrieve?conversation_id=${encodeURIComponent(conversationId)}&chat_id=${encodeURIComponent(chatId)}`,
-            { method: "GET", signal: controller.signal }
-          )
-        );
-        status = retrieved.status;
-      }
-      if (status !== "completed") {
-        throw new AiServiceError("AI_UNAVAILABLE", 503);
-      }
-      const messagesEnvelope = await this.requestJson(
-        `${this.baseUrl()}/v3/chat/message/list?conversation_id=${encodeURIComponent(conversationId)}&chat_id=${encodeURIComponent(chatId)}`,
-        { method: "GET", signal: controller.signal }
-      );
-      if (!isRecord(messagesEnvelope) || messagesEnvelope.code !== 0) {
-        throw new AiServiceError("AI_INVALID_RESPONSE", 502);
-      }
-      const messages = messagesEnvelope.data;
-      if (!Array.isArray(messages)) {
-        throw new AiServiceError("AI_INVALID_RESPONSE", 502);
-      }
-      let answer;
-      for (let index = messages.length - 1; index >= 0; index -= 1) {
-        const message = messages[index];
-        if (isRecord(message) && message.role === "assistant" && message.type === "answer" && typeof message.content === "string") {
-          answer = message;
-          break;
-        }
-      }
-      if (!isRecord(answer) || typeof answer.content !== "string") {
-        throw new AiServiceError("AI_INVALID_RESPONSE", 502);
-      }
+      const response = await this.requestJson(controller.signal, input.message);
       return {
-        conversationReference: conversationId,
-        result: parseBotContent(answer.content)
+        conversationReference: input.conversationReference ?? input.sessionReference,
+        result: parseModelContent(readAnswer(response))
       };
     } catch (error51) {
       if (error51 instanceof AiServiceError) throw error51;
@@ -293,24 +233,41 @@ var CozeGatewayClient = class {
     }
   }
   baseUrl() {
-    return this.options.apiBaseUrl.replace(/\/$/, "");
+    return (this.options.apiBaseUrl ?? "https://api.deepseek.com").replace(
+      /\/$/,
+      ""
+    );
   }
-  async requestJson(url2, init) {
+  async requestJson(signal, message) {
     for (let attempt = 0; attempt < 2; attempt += 1) {
-      const response = await this.fetchImplementation(url2, {
-        ...init,
-        headers: {
-          Authorization: `Bearer ${this.options.token}`,
-          "Content-Type": "application/json"
+      const response = await this.fetchImplementation(
+        `${this.baseUrl()}/chat/completions`,
+        {
+          body: JSON.stringify({
+            messages: [
+              { content: SYSTEM_PROMPT, role: "system" },
+              { content: message, role: "user" }
+            ],
+            model: this.options.model ?? "deepseek-chat",
+            response_format: { type: "json_object" },
+            stream: false,
+            temperature: 0.2
+          }),
+          headers: {
+            Authorization: `Bearer ${this.options.apiKey}`,
+            "Content-Type": "application/json"
+          },
+          method: "POST",
+          signal
         }
-      });
+      );
       if ((response.status === 429 || response.status >= 500) && attempt === 0) {
         continue;
       }
       if (response.status === 429) {
         throw new AiServiceError("AI_RATE_LIMITED", 503);
       }
-      if (response.status >= 500 || !response.ok) {
+      if (!response.ok) {
         throw new AiServiceError("AI_UNAVAILABLE", 503);
       }
       return response.json();
@@ -321,13 +278,12 @@ var CozeGatewayClient = class {
 
 // packages/ai-service/src/gatewayService.ts
 var AiGatewayService = class {
-  constructor(sessions, provider, skills, drafts, requestGuard, skillTokenIssuer) {
+  constructor(sessions, provider, skills, drafts, requestGuard) {
     this.sessions = sessions;
     this.provider = provider;
     this.skills = skills;
     this.drafts = drafts;
     this.requestGuard = requestGuard;
-    this.skillTokenIssuer = skillTokenIssuer;
   }
   async chat(body, principal, skillContext, signal) {
     const request = parseGatewayRequest(body);
@@ -341,15 +297,10 @@ var AiGatewayService = class {
       session
     });
     let conversationReference = null;
-    const skillContextToken = await this.skillTokenIssuer.issue(
-      session,
-      AI_READ_SKILLS
-    );
     const providerInput = {
       conversationReference: session.conversationReference,
       message: request.message,
       sessionReference: session.id,
-      skillContextToken,
       ...signal === void 0 ? {} : { signal }
     };
     try {
@@ -608,88 +559,6 @@ var SkillQueryService = class {
     return snapshot.grades;
   }
 };
-
-// packages/ai-service/src/skillContextToken.ts
-function base64Url(value) {
-  const bytes = typeof value === "string" ? new TextEncoder().encode(value) : value;
-  let binary = "";
-  bytes.forEach((byte) => {
-    binary += String.fromCharCode(byte);
-  });
-  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
-}
-var AiSkillContextTokenIssuer = class {
-  constructor(secret, registry2, now = () => Math.floor(Date.now() / 1e3)) {
-    this.secret = secret;
-    this.registry = registry2;
-    this.now = now;
-  }
-  async issue(session, allowedSkills) {
-    const tokenId = crypto.randomUUID();
-    await this.registry.register({ allowedSkills, sessionId: session.id, tokenId });
-    const encodedHeader = base64Url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
-    const encodedPayload = base64Url(
-      JSON.stringify({
-        ai_context_id: session.roleAssignmentId,
-        ai_session_id: session.id,
-        aud: "authenticated",
-        exp: this.now() + 60,
-        iat: this.now(),
-        iss: "supabase",
-        jti: tokenId,
-        role: "authenticated",
-        skills: allowedSkills,
-        sub: session.userId
-      })
-    );
-    const key = await crypto.subtle.importKey(
-      "raw",
-      new TextEncoder().encode(this.secret),
-      { hash: "SHA-256", name: "HMAC" },
-      false,
-      ["sign"]
-    );
-    const signature = await crypto.subtle.sign(
-      "HMAC",
-      key,
-      new TextEncoder().encode(`${encodedHeader}.${encodedPayload}`)
-    );
-    return `${encodedHeader}.${encodedPayload}.${base64Url(new Uint8Array(signature))}`;
-  }
-};
-var SupabaseAiSkillTokenRegistry = class {
-  constructor(client) {
-    this.client = client;
-  }
-  async register(input) {
-    const { error: error51 } = await this.client.rpc("register_ai_skill_context_token", {
-      allowed_skill_names: input.allowedSkills,
-      target_session_id: input.sessionId,
-      token_id: input.tokenId
-    });
-    if (error51 !== null) {
-      throw new AiServiceError("FORBIDDEN", 403, { cause: error51 });
-    }
-  }
-};
-function readVerifiedSkillTokenId(token) {
-  const payload = token.split(".")[1];
-  if (payload === void 0) throw new AiServiceError("FORBIDDEN", 403);
-  try {
-    const unpadded = payload.replaceAll("-", "+").replaceAll("_", "/");
-    const normalized = unpadded.padEnd(
-      unpadded.length + (4 - unpadded.length % 4) % 4,
-      "="
-    );
-    const parsed = JSON.parse(atob(normalized));
-    if (parsed === null || typeof parsed !== "object" || !("jti" in parsed) || typeof parsed.jti !== "string") {
-      throw new Error("INVALID_JTI");
-    }
-    return parsed.jti;
-  } catch (cause) {
-    throw new AiServiceError("FORBIDDEN", 403, { cause });
-  }
-}
 
 // packages/auth/src/roles.ts
 var ROLE_CODES = [
@@ -16149,7 +16018,7 @@ var TeachingTodaySummaryDataSource = class {
 };
 
 // supabase/functions-src/ai-gateway.ts
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "npm:@supabase/supabase-js@2.110.8";
 var CORS_HEADERS = {
   "Access-Control-Allow-Headers": "authorization, content-type, x-ai-route, x-client-info",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -16162,6 +16031,10 @@ function requiredEnvironment(name) {
     throw new AiServiceError("AI_UNAVAILABLE", 503);
   }
   return value;
+}
+function optionalEnvironment(name, fallback) {
+  const value = Deno.env.get(name)?.trim();
+  return value === void 0 || value.length === 0 ? fallback : value;
 }
 function json2(body, status) {
   return new Response(JSON.stringify(body), { headers: CORS_HEADERS, status });
@@ -16187,41 +16060,6 @@ async function authenticatedUser(client, token) {
   }
   return data.user;
 }
-function parseSkillBody(value) {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    throw new AiServiceError("VALIDATION_ERROR", 422);
-  }
-  const input = value;
-  if (typeof input.skill !== "string" || !AI_READ_SKILLS.some((skill) => skill === input.skill) || input.arguments === null || typeof input.arguments !== "object" || Array.isArray(input.arguments) || Object.keys(input).some((key) => key !== "skill" && key !== "arguments")) {
-    throw new AiServiceError("VALIDATION_ERROR", 422);
-  }
-  return {
-    arguments: input.arguments,
-    skill: input.skill
-  };
-}
-async function handleSkillQuery(request, body) {
-  const token = bearer(request);
-  if (token === null) throw new AiServiceError("UNAUTHENTICATED", 401);
-  const client = createUserClient(token);
-  const user = await authenticatedUser(client, token);
-  const input = parseSkillBody(body);
-  const tokenId = readVerifiedSkillTokenId(token);
-  const { data: contextId, error: error51 } = await client.rpc(
-    "consume_ai_skill_context_token",
-    { requested_skill: input.skill, token_id: tokenId }
-  );
-  if (error51 !== null || typeof contextId !== "string") {
-    throw new AiServiceError("FORBIDDEN", 403, { cause: error51 });
-  }
-  const teaching = new SupabaseTeachingDemoAdapter(client);
-  const context = await resolveSupabaseSkillContext(client, user.id, contextId);
-  const result = await new SkillQueryService(
-    teaching,
-    new TeachingTodaySummaryDataSource(teaching)
-  ).query(input.skill, input.arguments, context);
-  return json2({ data: result, request_id: crypto.randomUUID() }, 200);
-}
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS, status: 204 });
@@ -16230,9 +16068,6 @@ Deno.serve(async (request) => {
   try {
     if (request.method !== "POST") throw new AiServiceError("NOT_FOUND", 404);
     const body = await request.json().catch(() => null);
-    if (route(request) === "/skills/query") {
-      return await handleSkillQuery(request, body);
-    }
     const token = bearer(request);
     if (token === null) throw new AiServiceError("UNAUTHENTICATED", 401);
     const client = createUserClient(token);
@@ -16263,23 +16098,21 @@ Deno.serve(async (request) => {
     );
     const gateway = new AiGatewayService(
       new AiSessionService(new SupabaseAiSessionRepository(client)),
-      new CozeGatewayClient({
-        apiBaseUrl: requiredEnvironment("COZE_API_BASE_URL"),
-        botId: requiredEnvironment("COZE_BOT_ID"),
-        skillEndpoint: requiredEnvironment("AI_SKILL_ENDPOINT"),
-        timeoutMs: Number(Deno.env.get("AI_GATEWAY_TIMEOUT_MS") ?? "8000"),
-        token: requiredEnvironment("COZE_API_TOKEN")
+      new DeepSeekGatewayClient({
+        apiBaseUrl: optionalEnvironment(
+          "DEEPSEEK_API_BASE_URL",
+          "https://api.deepseek.com"
+        ),
+        apiKey: requiredEnvironment("DEEPSEEK_API_KEY"),
+        model: optionalEnvironment("DEEPSEEK_MODEL", "deepseek-chat"),
+        timeoutMs: Number(Deno.env.get("AI_GATEWAY_TIMEOUT_MS") ?? "12000")
       }),
       new SkillQueryService(
         teaching,
         new TeachingTodaySummaryDataSource(teaching)
       ),
       draftService,
-      new SupabaseAiRequestGuard(client),
-      new AiSkillContextTokenIssuer(
-        requiredEnvironment("SUPABASE_JWT_SECRET"),
-        new SupabaseAiSkillTokenRegistry(client)
-      )
+      new SupabaseAiRequestGuard(client)
     );
     const result = await new AiGatewayHttpApplication(
       gateway,

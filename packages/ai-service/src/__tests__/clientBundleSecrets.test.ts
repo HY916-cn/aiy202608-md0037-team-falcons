@@ -19,12 +19,13 @@ function sourceFiles(directory: string): string[] {
 }
 
 describe('客户端密钥边界', () => {
-  it('客户端源码不包含服务端 Coze 或 service-role 环境变量', () => {
+  it('客户端源码不包含 AI 服务商或 service-role 环境变量', () => {
     const roots = [
       join(process.cwd(), 'apps', 'client'),
       join(process.cwd(), 'packages', 'api-client'),
     ];
     const forbidden = [
+      'DEEPSEEK_API_KEY',
       'COZE_API_TOKEN',
       'COZE_BOT_ID',
       'SUPABASE_SERVICE_ROLE_KEY',

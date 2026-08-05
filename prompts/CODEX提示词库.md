@@ -158,7 +158,7 @@ Issue 内容与验收标准：
 - packages/domain
 - packages/validation
 - packages/api-client 的接口定义或 mock
-- docs/03-API与Coze接入.md 或仓库对应 API 文档
+- docs/03-API与AI接入.md 或仓库对应 API 文档
 - 契约测试
 
 不要实现完整 UI、数据库逻辑或真实 Coze 调用。
