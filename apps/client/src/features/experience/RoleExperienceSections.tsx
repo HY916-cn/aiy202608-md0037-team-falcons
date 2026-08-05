@@ -11,6 +11,7 @@ import type {
 import type { CoursewareFileMetadata } from '@dolphincloud/domain';
 import {
   AiAuditResultCard,
+  AiResultCard,
   DolphinMascotCard,
   InteractivePressable,
   type RoleNavigationKey,
@@ -20,7 +21,6 @@ import {
 } from '@dolphincloud/ui';
 import * as DocumentPicker from 'expo-document-picker';
 import {
-  Bot,
   ClipboardList,
   FolderUp,
   History,
@@ -199,7 +199,12 @@ function AiExperienceSection({ roleScope }: { readonly roleScope: AuthRoleScope 
     await aiAdapter.submit(normalized);
     if (!scopeGuard.isCurrent(generation)) return;
     const next = aiAdapter.getSnapshot();
-    if (next.result !== null && next.state !== 'offline' && next.state !== 'error') {
+    if (
+      next.result !== null &&
+      next.structuredResult === null &&
+      next.state !== 'offline' &&
+      next.state !== 'error'
+    ) {
       setMessages((current) => [
         ...current,
         { content: next.result!, id: `assistant-${Date.now()}`, role: 'assistant' },
@@ -213,7 +218,12 @@ function AiExperienceSection({ roleScope }: { readonly roleScope: AuthRoleScope 
     await aiAdapter.retry();
     if (!scopeGuard.isCurrent(generation)) return;
     const next = aiAdapter.getSnapshot();
-    if (next.result !== null && next.state !== 'offline' && next.state !== 'error') {
+    if (
+      next.result !== null &&
+      next.structuredResult === null &&
+      next.state !== 'offline' &&
+      next.state !== 'error'
+    ) {
       setMessages((current) => [
         ...current,
         { content: next.result!, id: `assistant-${Date.now()}`, role: 'assistant' },
@@ -236,104 +246,85 @@ function AiExperienceSection({ roleScope }: { readonly roleScope: AuthRoleScope 
   );
 
   return (
-    <View style={styles.section}>
-      <View style={styles.sectionHeading}>
-        <View style={styles.sectionIcon}>
-          <Bot color={theme.color.brand.secondary} size={20} />
-        </View>
-        <View style={styles.sectionHeadingCopy}>
-          <Text style={styles.sectionTitle}>AI 中心</Text>
-          <Text style={styles.sectionDescription}>
-            查询当前范围内的信息，或让助手协助整理日常事务。
-          </Text>
-        </View>
-      </View>
+    <View style={styles.aiSection}>
       <View style={styles.aiScopeBar}>
-        <Text style={styles.aiScopeLabel}>当前身份：{ROLE_LABELS[roleScope.role]}</Text>
-        <Text style={styles.aiScopeLabel}>权限范围：{roleScope.label}</Text>
+        <Text style={styles.aiScopeLabel}>
+          {ROLE_LABELS[roleScope.role]} · {roleScope.label}
+        </Text>
       </View>
-      <DolphinMascotCard snapshot={snapshot} />
-      <View style={styles.aiGuidance}>
-        <Text style={styles.fieldLabel}>你可以这样问</Text>
-        <View style={styles.actions}>
-          {guidance.suggestions.map((suggestion) => (
-            <InteractivePressable
-              accessibilityRole="button"
-              disabled={!isScopeReady || snapshot.state === 'thinking' || snapshot.state === 'offline'}
-              key={suggestion}
-              onPress={() => void submit(suggestion)}
-              style={({ focused, hovered, pressed }) => [
-                styles.suggestionButton,
-                hovered && styles.interactiveHover,
-                focused && styles.interactiveFocus,
-                pressed && styles.interactivePressed,
-              ]}
-            >
-              <Text style={styles.suggestionLabel}>{suggestion}</Text>
-            </InteractivePressable>
-          ))}
-        </View>
-        <Text style={styles.aiWriteHint}>{guidance.writeHint}</Text>
-      </View>
-      <View style={styles.aiComposer}>
-        <TextInput
-          accessibilityLabel="发送给海豚助手的内容"
-          editable={isScopeReady && snapshot.state !== 'thinking' && snapshot.state !== 'offline'}
-          onChangeText={setPrompt}
-          placeholder="输入你想查询或整理的内容"
-          placeholderTextColor={theme.color.text.disabled}
-          style={[styles.input, styles.aiInput]}
-          value={prompt}
-        />
-        <ActionButton
-          disabled={!isScopeReady || prompt.trim().length === 0 || snapshot.state === 'thinking' || snapshot.state === 'offline'}
-          label={snapshot.state === 'thinking' ? '正在发送…' : '发送'}
-          onPress={() => void submit(prompt)}
-        />
-      </View>
-      <View style={styles.actions}>
-        {snapshot.state === 'thinking' ? (
-          <ActionButton label="取消等待" onPress={() => aiAdapter.cancelRequest()} secondary />
-        ) : null}
-        {snapshot.state === 'error' || snapshot.state === 'offline' ? (
-          <ActionButton label="重试" onPress={() => void retry()} />
-        ) : null}
-        <ActionButton label="新对话" onPress={newConversation} secondary />
-      </View>
-      <View style={styles.conversationPanel}>
-        <Text style={styles.fieldLabel}>当前会话</Text>
+      <View style={styles.aiWorkspace}>
+        <DolphinMascotCard snapshot={snapshot} />
+        {messages.length === 0 ? null : (
+          <View style={styles.conversationPanel}>
+            {messages.map((message) => (
+              <View
+                key={message.id}
+                style={[
+                  styles.messageRow,
+                  message.role === 'user' && styles.messageRowUser,
+                ]}
+              >
+                <Text style={styles.messageRole}>{message.role === 'user' ? '你' : '海豚助手'}</Text>
+                <Text style={styles.messageText}>{message.content}</Text>
+              </View>
+            ))}
+          </View>
+        )}
         {messages.length === 0 ? (
-          <Text style={styles.helper}>还没有对话。选择建议问题或输入查询内容开始。</Text>
-        ) : (
-          messages.map((message) => (
-            <View
-              key={message.id}
-              style={[
-                styles.messageRow,
-                message.role === 'user' && styles.messageRowUser,
-              ]}
-            >
-              <Text style={styles.messageRole}>{message.role === 'user' ? '你' : '海豚助手'}</Text>
-              <Text style={styles.messageText}>{message.content}</Text>
+          <View style={styles.aiGuidance}>
+            <Text style={styles.fieldLabel}>建议问题</Text>
+            <View style={styles.actions}>
+              {guidance.suggestions.map((suggestion) => (
+                <InteractivePressable
+                  accessibilityRole="button"
+                  disabled={!isScopeReady || snapshot.state === 'thinking' || snapshot.state === 'offline'}
+                  key={suggestion}
+                  onPress={() => void submit(suggestion)}
+                  style={({ focused, hovered, pressed }) => [
+                    styles.suggestionButton,
+                    hovered && styles.interactiveHover,
+                    focused && styles.interactiveFocus,
+                    pressed && styles.interactivePressed,
+                  ]}
+                >
+                  <Text style={styles.suggestionLabel}>{suggestion}</Text>
+                </InteractivePressable>
+              ))}
             </View>
-          ))
+          </View>
+        ) : null}
+        {snapshot.structuredResult === null ? null : (
+          <AiResultCard snapshot={snapshot} />
         )}
+        <View style={styles.aiComposer}>
+          <TextInput
+            accessibilityLabel="发送给海豚助手的内容"
+            editable={isScopeReady && snapshot.state !== 'thinking' && snapshot.state !== 'offline'}
+            onChangeText={setPrompt}
+            placeholder="输入问题"
+            placeholderTextColor={theme.color.text.disabled}
+            style={[styles.input, styles.aiInput]}
+            value={prompt}
+          />
+          <ActionButton
+            disabled={!isScopeReady || prompt.trim().length === 0 || snapshot.state === 'thinking' || snapshot.state === 'offline'}
+            label={snapshot.state === 'thinking' ? '发送中…' : '发送'}
+            onPress={() => void submit(prompt)}
+          />
+        </View>
+        <View style={styles.aiToolbar}>
+          {snapshot.state === 'thinking' ? (
+            <ActionButton label="取消" onPress={() => aiAdapter.cancelRequest()} secondary />
+          ) : null}
+          {snapshot.state === 'error' || snapshot.state === 'offline' ? (
+            <ActionButton label="重试" onPress={() => void retry()} />
+          ) : null}
+          {messages.length > 0 || snapshot.result !== null || snapshot.actionPreview !== null ? (
+            <ActionButton label="新对话" onPress={newConversation} secondary />
+          ) : null}
+        </View>
+        <AiAuditResultCard snapshot={snapshot} />
       </View>
-      <View style={styles.recentPanel}>
-        <Text style={styles.fieldLabel}>最近对话</Text>
-        {messages.filter((message) => message.role === 'user').length === 0 ? (
-          <Text style={styles.helper}>暂无最近对话。</Text>
-        ) : (
-          messages
-            .filter((message) => message.role === 'user')
-            .slice(-3)
-            .reverse()
-            .map((message) => (
-              <Text key={`recent-${message.id}`} style={styles.recentPrompt}>• {message.content}</Text>
-            ))
-        )}
-      </View>
-      <AiAuditResultCard snapshot={snapshot} />
       {!isScopeReady || snapshot.actionPreview === null ? null : (
         <WriteActionPreviewCard
           adapter={writeExecutionAdapter}
@@ -953,18 +944,20 @@ function daysUntil(value: string): string {
 
 const styles = StyleSheet.create({
   actionButton: { alignItems: 'center', backgroundColor: theme.color.brand.primary, borderColor: theme.color.brand.primary, borderRadius: theme.radius.control, borderWidth: 1, justifyContent: 'center', minHeight: 44, paddingHorizontal: theme.space.md },
-  actionButtonHover: { backgroundColor: '#1D4ED8', borderColor: '#1D4ED8' },
+  actionButtonHover: { backgroundColor: theme.color.brand.hover, borderColor: theme.color.brand.hover },
   actionButtonSecondary: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default },
-  actionButtonSecondaryHover: { backgroundColor: theme.color.surface.primaryTint, borderColor: theme.color.brand.primary },
-  actionLabel: { color: theme.color.surface.card, fontSize: theme.text.size.sm, fontWeight: '700' },
+  actionButtonSecondaryHover: { backgroundColor: theme.color.surface.subtleHover, borderColor: theme.color.border.control },
+  actionLabel: { color: theme.color.text.onAccent, fontSize: theme.text.size.sm, fontWeight: '700' },
   actionLabelSecondary: { color: theme.color.text.primary },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm },
   aiComposer: { alignItems: 'center', flexDirection: 'row', gap: theme.space.sm },
-  aiGuidance: { borderBottomColor: theme.color.border.default, borderBottomWidth: 1, gap: theme.space.sm, paddingBottom: theme.space.md },
+  aiGuidance: { gap: theme.space.sm },
   aiInput: { flex: 1 },
-  aiScopeBar: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.md },
-  aiScopeLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, fontWeight: '700' },
-  aiWriteHint: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, lineHeight: 18 },
+  aiScopeBar: { alignItems: 'center', flexDirection: 'row', minHeight: 24 },
+  aiScopeLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, fontWeight: '600' },
+  aiSection: { alignSelf: 'center', gap: theme.space.base, maxWidth: 960, width: '100%' },
+  aiToolbar: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm },
+  aiWorkspace: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, gap: theme.space.md, padding: theme.space.md },
   classButton: { alignItems: 'center', borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, justifyContent: 'center', minHeight: 40, paddingHorizontal: theme.space.base },
   classButtonSelected: { backgroundColor: theme.color.surface.primaryTint, borderColor: theme.color.brand.primary },
   classLabel: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '700' },
@@ -976,23 +969,23 @@ const styles = StyleSheet.create({
   featureDescription: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, marginTop: 2 },
   featureDivider: { backgroundColor: theme.color.border.default, height: 1, marginVertical: theme.space.sm },
   featureHeading: { alignItems: 'center', flexDirection: 'row', gap: theme.space.sm },
-  featureTitle: { color: theme.color.text.primary, fontSize: theme.text.size.md, fontWeight: '800' },
+  featureTitle: { color: theme.color.text.primary, fontSize: theme.text.size.md, fontWeight: '600' },
   fileSelection: { backgroundColor: theme.color.surface.primaryTint, borderColor: theme.color.brand.primary, borderRadius: theme.radius.control, borderWidth: 1, gap: 3, padding: theme.space.base },
   fieldLabel: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '700', marginTop: theme.space.xs },
   formField: { flex: 1, gap: theme.space.xs, minWidth: 220 },
   formFieldSmall: { flex: 0.45, gap: theme.space.xs, minWidth: 140 },
   formRow: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm },
   helper: { color: theme.color.text.secondary, fontSize: theme.text.size.sm, lineHeight: 21 },
-  input: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, color: theme.color.text.primary, fontSize: theme.text.size.sm, minHeight: 46, paddingHorizontal: theme.space.md },
+  input: { backgroundColor: theme.color.surface.input, borderColor: theme.color.border.control, borderRadius: theme.radius.control, borderWidth: 1, color: theme.color.text.primary, fontSize: theme.text.size.sm, minHeight: 40, paddingHorizontal: theme.space.base },
   itemBody: { color: theme.color.text.primary, fontSize: theme.text.size.sm, lineHeight: 21 },
   itemMeta: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, lineHeight: 18 },
   itemTitle: { color: theme.color.text.primary, fontWeight: '600' },
-  interactiveFocus: { borderColor: theme.color.brand.primary, boxShadow: '0 0 0 3px rgba(22, 119, 254, 0.18)' },
-  interactiveHover: { backgroundColor: theme.color.surface.primaryTint, borderColor: theme.color.brand.primary },
-  interactivePressed: { opacity: 0.74, transform: [{ scale: 0.985 }] },
+  interactiveFocus: { boxShadow: theme.shadow.focus },
+  interactiveHover: { backgroundColor: theme.color.surface.subtleHover, borderColor: theme.color.border.control },
+  interactivePressed: { opacity: 0.82 },
   listItem: { backgroundColor: theme.color.surface.muted, borderRadius: theme.radius.control, color: theme.color.text.primary, gap: theme.space.sm, padding: theme.space.base },
   listHeading: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm, justifyContent: 'space-between' },
-  messageRole: { color: theme.color.brand.primary, fontSize: theme.text.size.xs, fontWeight: '800' },
+  messageRole: { color: theme.color.brand.primary, fontSize: theme.text.size.xs, fontWeight: '600' },
   messageRow: { alignSelf: 'flex-start', backgroundColor: theme.color.surface.muted, borderRadius: theme.radius.control, gap: theme.space.xs, maxWidth: '88%', padding: theme.space.base },
   messageRowUser: { alignSelf: 'flex-end', backgroundColor: theme.color.surface.primaryTint },
   messageText: { color: theme.color.text.primary, fontSize: theme.text.size.sm, lineHeight: 21 },
@@ -1001,19 +994,17 @@ const styles = StyleSheet.create({
   performanceGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm },
   performanceLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.xs },
   performancePending: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '700' },
-  performanceValue: { color: theme.color.text.primary, fontSize: theme.text.size.xl, fontWeight: '800' },
-  recentPanel: { borderTopColor: theme.color.border.default, borderTopWidth: 1, gap: theme.space.xs, paddingTop: theme.space.sm },
-  recentPrompt: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, lineHeight: 18 },
+  performanceValue: { color: theme.color.text.primary, fontSize: theme.text.size.xl, fontWeight: '600' },
   section: { gap: theme.space.lg },
   sectionDescription: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, lineHeight: 18, marginTop: 3 },
   sectionHeading: { alignItems: 'center', flexDirection: 'row', gap: theme.space.base },
   sectionHeadingCopy: { flex: 1 },
   sectionIcon: { alignItems: 'center', borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, height: 40, justifyContent: 'center', width: 40 },
-  sectionTitle: { color: theme.color.text.primary, fontSize: theme.text.size.lg, fontWeight: '800' },
+  sectionTitle: { color: theme.color.text.primary, fontSize: theme.text.size.lg, fontWeight: '600' },
   success: { color: theme.color.brand.primary, fontSize: theme.text.size.sm, fontWeight: '700' },
   statusRegion: { justifyContent: 'center', minHeight: 48 },
-  statusBadge: { backgroundColor: theme.color.surface.primaryTint, borderRadius: theme.radius.pill, color: theme.color.brand.primary, fontSize: theme.text.size.xs, fontWeight: '800', overflow: 'hidden', paddingHorizontal: theme.space.sm, paddingVertical: 4 },
-  statusBadgeMuted: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.pill, borderWidth: 1, color: theme.color.text.secondary, fontSize: theme.text.size.xs, fontWeight: '800', overflow: 'hidden', paddingHorizontal: theme.space.sm, paddingVertical: 4 },
+  statusBadge: { backgroundColor: theme.color.surface.primaryTint, borderRadius: theme.radius.pill, color: theme.color.brand.primary, fontSize: theme.text.size.xs, fontWeight: '600', overflow: 'hidden', paddingHorizontal: theme.space.sm, paddingVertical: 4 },
+  statusBadgeMuted: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.pill, borderWidth: 1, color: theme.color.text.secondary, fontSize: theme.text.size.xs, fontWeight: '600', overflow: 'hidden', paddingHorizontal: theme.space.sm, paddingVertical: 4 },
   suggestionButton: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, justifyContent: 'center', minHeight: 40, paddingHorizontal: theme.space.base },
   suggestionLabel: { color: theme.color.text.primary, fontSize: theme.text.size.xs, fontWeight: '700' },
 });

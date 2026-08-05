@@ -341,13 +341,13 @@ export function TeacherGradeReportWorkspace({
           {form.status === 'draft' ? (
             <View style={styles.modeRow}>
               <GradeActionButton
-                icon={<FileSpreadsheet color={mode === 'grid' ? '#ffffff' : theme.color.brand.primary} size={16} />}
+                icon={<FileSpreadsheet color={mode === 'grid' ? theme.color.text.onAccent : theme.color.brand.primary} size={16} />}
                 label="填写表格"
                 onPress={() => setMode('grid')}
                 secondary={mode !== 'grid'}
               />
               <GradeActionButton
-                icon={<FileSpreadsheet color={mode === 'csv' ? '#ffffff' : theme.color.brand.primary} size={16} />}
+                icon={<FileSpreadsheet color={mode === 'csv' ? theme.color.text.onAccent : theme.color.brand.primary} size={16} />}
                 label="上传表格"
                 onPress={() => setMode('csv')}
                 secondary={mode !== 'csv'}
@@ -382,7 +382,7 @@ export function TeacherGradeReportWorkspace({
             <View style={styles.actions}>
               <GradeActionButton
                 disabled={isPending}
-                icon={<Save color="#ffffff" size={16} />}
+                icon={<Save color={theme.color.text.onAccent} size={16} />}
                 label="保存草稿"
                 onPress={() => void saveDraft()}
               />
@@ -477,23 +477,23 @@ const styles = StyleSheet.create({
   empty: { color: theme.color.text.disabled, fontSize: 14, paddingVertical: 12 },
   grow: { flex: 1 },
   hint: { color: theme.color.text.secondary, fontSize: 13, lineHeight: 20 },
-  input: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: 9, borderWidth: 1, color: theme.color.text.primary, fontSize: 14, minHeight: 42, paddingHorizontal: 11, paddingVertical: 9 },
+  input: { backgroundColor: theme.color.surface.input, borderColor: theme.color.border.control, borderRadius: theme.radius.control, borderWidth: 1, color: theme.color.text.primary, fontSize: 14, minHeight: 40, paddingHorizontal: theme.space.base, paddingVertical: theme.space.sm },
   label: { color: theme.color.text.secondary, fontSize: 13, fontWeight: '700' },
   libraryHeading: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between' },
   modeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   revisionArea: { borderTopColor: theme.color.border.default, borderTopWidth: 1, gap: 13, paddingTop: 18 },
-  revisionBackdrop: { alignItems: 'center', backgroundColor: 'rgba(15, 23, 42, 0.42)', flex: 1, justifyContent: 'center', padding: 16 },
-  revisionDialog: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: 14, borderWidth: 1, boxShadow: '0 20px 60px rgba(15, 23, 42, 0.24)', maxHeight: '88%', maxWidth: 620, overflow: 'hidden', width: '100%' },
-  revisionForm: { backgroundColor: theme.color.surface.muted, borderRadius: 12, gap: 10, padding: 14 },
+  revisionBackdrop: { alignItems: 'center', backgroundColor: theme.color.overlay.smoke, flex: 1, justifyContent: 'center', padding: theme.space.md },
+  revisionDialog: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, boxShadow: theme.shadow.dialog, maxHeight: '88%', maxWidth: 620, overflow: 'hidden', width: '100%' },
+  revisionForm: { backgroundColor: theme.color.surface.muted, borderRadius: theme.radius.control, gap: theme.space.sm, padding: theme.space.base },
   savedSheet: { alignItems: 'center', borderBottomColor: theme.color.border.default, borderBottomWidth: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingVertical: 12 },
-  savedTitle: { color: theme.color.text.primary, fontSize: 15, fontWeight: '800' },
-  scopeButton: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: 999, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 9 },
+  savedTitle: { color: theme.color.text.primary, fontSize: 15, fontWeight: '600' },
+  scopeButton: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.control, borderRadius: theme.radius.pill, borderWidth: 1, paddingHorizontal: theme.space.base, paddingVertical: theme.space.sm },
   scopeSelected: { backgroundColor: theme.color.brand.primary, borderColor: theme.color.brand.primary },
   scopeText: { color: theme.color.text.primary, fontSize: 13, fontWeight: '700' },
-  scopeTextSelected: { color: '#ffffff' },
+  scopeTextSelected: { color: theme.color.text.onAccent },
   section: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, gap: 20, maxWidth: '100%', padding: 20, position: 'relative' },
   sectionCompact: { gap: 16, padding: 16 },
   selectorBlock: { gap: 9 },
-  sheetLibrary: { backgroundColor: theme.color.surface.muted, borderRadius: 14, gap: 5, padding: 14 },
-  subtitle: { color: theme.color.text.primary, fontSize: 16, fontWeight: '800' },
+  sheetLibrary: { backgroundColor: theme.color.surface.muted, borderRadius: theme.radius.control, gap: theme.space.xs, padding: theme.space.base },
+  subtitle: { color: theme.color.text.primary, fontSize: 16, fontWeight: '600' },
 });

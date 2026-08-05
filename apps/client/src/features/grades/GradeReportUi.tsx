@@ -240,7 +240,7 @@ export function GradeReportGrid({
             {!disabled && form.columns.length > 1 ? (
               <GradeActionButton
                 danger
-                icon={<Trash2 color="#C2413B" size={15} />}
+                icon={<Trash2 color={theme.color.system.critical} size={15} />}
                 label="删除项目"
                 onPress={() => onRemoveColumn(column.key)}
                 secondary
@@ -303,7 +303,7 @@ export function GradeReportPreview({
   return (
     <View style={styles.preview}>
       <View style={styles.previewHeading}>
-        <Check color="#16834A" size={18} />
+        <Check color={theme.color.system.success} size={18} />
         <Text style={styles.subtitle}>整表预览</Text>
       </View>
       <Text style={styles.previewTitle}>{input.title} · {input.subject}</Text>
@@ -373,7 +373,7 @@ export function PublishConfirmation({
             <GradeActionButton disabled={disabled} label="取消" onPress={onCancel} secondary />
             <GradeActionButton
               disabled={disabled}
-              icon={<Send color="#ffffff" size={15} />}
+              icon={<Send color={theme.color.text.onAccent} size={15} />}
               label="确认整表发布"
               onPress={onConfirm}
             />
@@ -411,24 +411,24 @@ export async function saveCsvPreview(
 }
 
 const styles = StyleSheet.create({
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  button: { alignItems: 'center', backgroundColor: theme.color.brand.primary, borderColor: theme.color.brand.primary, borderRadius: 10, borderWidth: 1, flexDirection: 'row', gap: 7, justifyContent: 'center', minHeight: 42, paddingHorizontal: 15, paddingVertical: 10 },
-  buttonDanger: { backgroundColor: theme.color.surface.card, borderColor: '#C2413B' },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm },
+  button: { alignItems: 'center', backgroundColor: theme.color.brand.primary, borderColor: theme.color.brand.primary, borderRadius: theme.radius.control, borderWidth: 1, flexDirection: 'row', gap: theme.space.sm, justifyContent: 'center', minHeight: 40, paddingHorizontal: theme.space.base, paddingVertical: theme.space.sm },
+  buttonDanger: { backgroundColor: theme.color.surface.card, borderColor: theme.color.system.critical },
   buttonSecondary: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default },
-  buttonText: { color: '#ffffff', fontSize: 14, fontWeight: '700' },
-  buttonTextDanger: { color: '#C2413B' },
+  buttonText: { color: theme.color.text.onAccent, fontSize: 14, fontWeight: '600' },
+  buttonTextDanger: { color: theme.color.system.critical },
   buttonTextSecondary: { color: theme.color.text.primary },
-  columnEditor: { backgroundColor: theme.color.surface.muted, borderColor: theme.color.border.default, borderRadius: 12, borderWidth: 1, flex: 1, gap: 8, minWidth: 190, padding: 12 },
+  columnEditor: { backgroundColor: theme.color.surface.muted, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, flex: 1, gap: theme.space.sm, minWidth: 190, padding: theme.space.base },
   columnEditors: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   columnNumber: { color: theme.color.text.secondary, fontSize: 12, fontWeight: '700' },
-  confirmation: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: 14, borderWidth: 1, boxShadow: '0 20px 60px rgba(15, 23, 42, 0.24)', gap: 12, maxWidth: 560, padding: 20, width: '100%' },
-  confirmationBackdrop: { alignItems: 'center', backgroundColor: 'rgba(15, 23, 42, 0.42)', flex: 1, justifyContent: 'center', padding: 16 },
+  confirmation: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, boxShadow: theme.shadow.dialog, gap: theme.space.base, maxWidth: 560, padding: theme.space.lg, width: '100%' },
+  confirmationBackdrop: { alignItems: 'center', backgroundColor: theme.color.overlay.smoke, flex: 1, justifyContent: 'center', padding: theme.space.md },
   description: { color: theme.color.text.secondary, fontSize: 14, lineHeight: 21 },
   disabled: { opacity: 0.5 },
   empty: { color: theme.color.text.disabled, fontSize: 14, paddingVertical: 12 },
-  failure: { backgroundColor: '#fff3f2', borderColor: '#efb2ad' },
-  failureText: { color: '#C2413B', flex: 1, fontSize: 14 },
-  feedback: { alignItems: 'center', borderRadius: 12, borderWidth: 1, boxShadow: '0 10px 30px rgba(15, 23, 42, 0.16)', flexDirection: 'row', gap: 10, justifyContent: 'space-between', left: 16, maxWidth: 420, padding: 12, position: 'absolute', right: 16, top: 16, zIndex: 30 },
+  failure: { backgroundColor: theme.color.system.criticalBackground, borderColor: theme.color.system.critical },
+  failureText: { color: theme.color.system.critical, flex: 1, fontSize: 14 },
+  feedback: { alignItems: 'center', borderRadius: theme.radius.control, borderWidth: 1, boxShadow: theme.shadow.flyout, flexDirection: 'row', gap: theme.space.sm, justifyContent: 'space-between', left: theme.space.md, maxWidth: 420, padding: theme.space.base, position: 'absolute', right: theme.space.md, top: theme.space.md, zIndex: 30 },
   field: { flex: 1, gap: 7, minWidth: 210 },
   focused: { borderColor: theme.color.brand.secondary, borderWidth: 2 },
   grow: { flex: 1 },
@@ -438,22 +438,22 @@ const styles = StyleSheet.create({
   history: { gap: 10 },
   historyRow: { borderBottomColor: theme.color.border.default, borderBottomWidth: 1, gap: 3, paddingVertical: 10 },
   hovered: { borderColor: theme.color.brand.secondary },
-  input: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: 9, borderWidth: 1, color: theme.color.text.primary, fontSize: 14, minHeight: 42, paddingHorizontal: 11, paddingVertical: 9 },
+  input: { backgroundColor: theme.color.surface.input, borderColor: theme.color.border.control, borderRadius: theme.radius.control, borderWidth: 1, color: theme.color.text.primary, fontSize: 14, minHeight: 40, paddingHorizontal: theme.space.base, paddingVertical: theme.space.sm },
   label: { color: theme.color.text.secondary, fontSize: 13, fontWeight: '600' },
   metadataRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  pressed: { opacity: 0.78 },
-  preview: { backgroundColor: '#f2fbfb', borderColor: '#9edcdc', borderRadius: 14, borderWidth: 1, gap: 10, padding: 16 },
+  pressed: { opacity: 0.82 },
+  preview: { backgroundColor: theme.color.surface.muted, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, gap: theme.space.sm, padding: theme.space.md },
   previewHeading: { alignItems: 'center', flexDirection: 'row', gap: 8 },
   previewRow: { borderTopColor: theme.color.border.default, borderTopWidth: 1, gap: 4, paddingTop: 9 },
   previewScores: { color: theme.color.text.primary, fontSize: 13, lineHeight: 20 },
-  previewTitle: { color: theme.color.text.primary, fontSize: 16, fontWeight: '800' },
+  previewTitle: { color: theme.color.text.primary, fontSize: 16, fontWeight: '600' },
   stack: { flexDirection: 'column' },
   studentBlock: { borderTopColor: theme.color.border.default, borderTopWidth: 1, gap: 10, paddingTop: 14 },
   studentName: { color: theme.color.text.primary, fontSize: 14, fontWeight: '700' },
-  subtitle: { color: theme.color.text.primary, fontSize: 16, fontWeight: '800' },
-  success: { backgroundColor: '#effaf4', borderColor: '#a8dec1' },
-  successText: { color: '#16834A', flex: 1, fontSize: 14 },
-  title: { color: theme.color.text.primary, fontSize: 22, fontWeight: '800' },
+  subtitle: { color: theme.color.text.primary, fontSize: 16, fontWeight: '600' },
+  success: { backgroundColor: theme.color.system.successBackground, borderColor: theme.color.system.success },
+  successText: { color: theme.color.system.success, flex: 1, fontSize: 14 },
+  title: { color: theme.color.text.primary, fontSize: 22, fontWeight: '600' },
   valueCell: { flex: 1, gap: 7, minWidth: 180 },
   valueGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   workspace: { gap: 14 },

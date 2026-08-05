@@ -36,11 +36,12 @@ vi.mock('@dolphincloud/ui', () => ({
   theme: {
     color: {
       border: { default: '#ddd' },
-      brand: { primary: '#1677fe' },
-      surface: { card: '#fff', muted: '#eee', primaryTint: '#eef6ff' },
+      brand: { primary: '#0067c0' },
+      surface: { card: '#fff', muted: '#eee', primaryTint: '#eef6ff', subtleHover: '#eee' },
       text: { disabled: '#999', primary: '#111', secondary: '#666' },
     },
     radius: { card: 12, control: 8, pill: 999 },
+    shadow: { focus: 'none' },
     space: { base: 12, lg: 24, md: 16, sm: 8 },
     text: { size: { lg: 20, sm: 14, xl: 24, xs: 12 } },
   },

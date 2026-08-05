@@ -1,30 +1,73 @@
+// WinUI XAML uses #AARRGGBB. Alpha values below are translated to CSS/RN rgba().
 export const theme = {
   color: {
     brand: {
-      primary: '#1677FE',
-      secondary: '#22D2ED',
-      onPrimaryMuted: 'rgba(255,255,255,0.14)',
-      onPrimaryBorder: 'rgba(255,255,255,0.28)',
+      // WinUI 3 light theme resolves AccentFillColorDefaultBrush to
+      // SystemAccentColorDark1. The fixed Web equivalent uses the default
+      // Windows blue accent while the product logo keeps its own palette.
+      primary: '#0067C0',
+      secondary: '#0067C0',
+      hover: 'rgba(0,103,192,0.9)',
+      pressed: 'rgba(0,103,192,0.8)',
+      disabled: 'rgba(0,0,0,0.216)',
+      onPrimaryMuted: 'rgba(255,255,255,0.078)',
+      onPrimaryBorder: 'rgba(255,255,255,0.078)',
     },
     surface: {
-      page: '#F5F7FA',
-      card: '#FFFFFF',
-      muted: '#F0F3F7',
-      primaryTint: '#EDF3FF',
-      secondaryTint: '#F3F6FB',
+      page: '#F3F3F3',
+      card: 'rgba(255,255,255,0.702)',
+      cardSecondary: 'rgba(246,246,246,0.502)',
+      cardTertiary: '#FFFFFF',
+      control: 'rgba(255,255,255,0.702)',
+      controlSecondary: 'rgba(249,249,249,0.502)',
+      controlTertiary: 'rgba(249,249,249,0.302)',
+      input: '#FFFFFF',
+      layer: 'rgba(255,255,255,0.502)',
+      layerAlt: '#FFFFFF',
+      muted: '#F9F9F9',
+      secondary: '#EEEEEE',
+      primaryTint: 'rgba(0,103,192,0.08)',
+      secondaryTint: 'rgba(0,0,0,0.035)',
+      subtleHover: 'rgba(0,0,0,0.035)',
+      subtlePressed: 'rgba(0,0,0,0.024)',
+      disabled: 'rgba(249,249,249,0.302)',
     },
     text: {
-      primary: '#182033',
-      secondary: '#667085',
-      disabled: '#98A2B3',
+      primary: 'rgba(0,0,0,0.894)',
+      secondary: 'rgba(0,0,0,0.620)',
+      tertiary: 'rgba(0,0,0,0.447)',
+      disabled: 'rgba(0,0,0,0.361)',
+      onAccent: '#FFFFFF',
+    },
+    // Lucide strokes need opaque colors. Applying an alpha to each SVG path
+    // makes path intersections visibly darker than the rest of the icon.
+    icon: {
+      primary: '#1B1B1B',
+      secondary: '#616161',
+      disabled: '#A3A3A3',
     },
     border: {
-      default: '#DDE3EA',
+      default: 'rgba(0,0,0,0.060)',
+      control: 'rgba(0,0,0,0.162)',
+      strong: 'rgba(0,0,0,0.447)',
+      divider: 'rgba(0,0,0,0.060)',
+    },
+    system: {
+      success: '#0F7B0F',
+      successBackground: '#DFF6DD',
+      caution: '#9D5D00',
+      cautionBackground: '#FFF4CE',
+      critical: '#C42B1C',
+      criticalBackground: '#FDE7E9',
+      neutralBackground: 'rgba(0,0,0,0.024)',
+    },
+    overlay: {
+      smoke: 'rgba(0,0,0,0.302)',
     },
   },
   radius: {
-    card: 9,
-    control: 7,
+    card: 8,
+    control: 4,
     pill: 999,
   },
   space: {
@@ -36,13 +79,25 @@ export const theme = {
     xl: 32,
   },
   text: {
+    family: 'Segoe UI Variable',
     size: {
       xs: 12,
       sm: 14,
       md: 16,
       lg: 20,
       xl: 24,
-      display: 32,
+      display: 28,
     },
+    weight: {
+      regular: '400',
+      semibold: '600',
+      bold: '700',
+    },
+  },
+  shadow: {
+    card: '0 2px 4px rgba(0,0,0,0.06)',
+    flyout: '0 8px 16px rgba(0,0,0,0.14)',
+    dialog: '0 16px 32px rgba(0,0,0,0.18)',
+    focus: '0 0 0 3px rgba(0,103,192,0.42)',
   },
 } as const;

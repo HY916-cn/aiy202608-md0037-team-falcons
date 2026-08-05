@@ -1,7 +1,8 @@
 import type { TodaySummary } from '@dolphincloud/experience';
 import { AlertCircle, CalendarDays, RefreshCw } from 'lucide-react-native';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
+import { InteractivePressable } from './InteractivePressable';
 import { theme } from './theme';
 
 type TodaySummaryCardProps = {
@@ -34,14 +35,19 @@ export function TodaySummaryCard({
           <AlertCircle color={theme.color.brand.primary} size={20} />
           <Text style={styles.helper}>{errorMessage}</Text>
           {onRetry === undefined ? null : (
-            <Pressable
+            <InteractivePressable
               accessibilityRole="button"
               onPress={onRetry}
-              style={styles.retryButton}
+              style={({ focused, hovered, pressed }) => [
+                styles.retryButton,
+                hovered && styles.retryButtonHovered,
+                focused && styles.retryButtonFocused,
+                pressed && styles.retryButtonPressed,
+              ]}
             >
               <RefreshCw color={theme.color.brand.primary} size={18} />
               <Text style={styles.retryLabel}>重试</Text>
-            </Pressable>
+            </InteractivePressable>
           )}
         </View>
       ) : null}
@@ -90,11 +96,16 @@ const styles = StyleSheet.create({
   label: { color: theme.color.text.secondary, fontSize: theme.text.size.sm },
   retryButton: {
     alignItems: 'center',
+    borderRadius: theme.radius.control,
     flexDirection: 'row',
     gap: theme.space.sm,
     minHeight: 44,
+    paddingHorizontal: theme.space.sm,
   },
+  retryButtonFocused: { boxShadow: theme.shadow.focus },
+  retryButtonHovered: { backgroundColor: theme.color.surface.subtleHover },
+  retryButtonPressed: { backgroundColor: theme.color.surface.subtlePressed },
   retryLabel: { color: theme.color.brand.primary, fontWeight: '600' },
-  title: { color: theme.color.text.primary, fontSize: theme.text.size.lg, fontWeight: '800' },
+  title: { color: theme.color.text.primary, fontSize: theme.text.size.lg, fontWeight: '600' },
   value: { color: theme.color.brand.primary, fontSize: theme.text.size.xl, fontWeight: '700' },
 });
