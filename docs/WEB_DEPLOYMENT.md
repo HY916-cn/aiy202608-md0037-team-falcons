@@ -41,7 +41,26 @@ server {
 - 此端点已被 Docker Compose 配置文件作为内置 `healthcheck` 使用，可以无缝接入 Kubernetes 等编排工具。
 
 ## 回滚策略
-Web 端的每个版本都是一个静态镜像，所有状态通过 API 获取。回滚过程非常轻量：
-1. 修改 `docker-compose.yml` 中 `image` 标签至上一个稳定的版本，例如 `image: dolphincloud-web:v0.1.0`。
-2. 运行 `docker compose up -d` 重新部署即可。
+Web 端的每个版本都是一个静态镜像，所有状态通过 API 获取。回滚过程非常轻量，但前提是你必须在部署新版本时保留旧版本的镜像或将所有发布的镜像推送到容器镜像仓库。
+
+构建特定版本镜像示例：
+```bash
+docker build -t dolphincloud-web:v0.1.0 .
+# 或者使用短 SHA
+docker build -t dolphincloud-web:abcdef1 .
+```
+
+通过指定镜像进行部署：
+```bash
+export DOLPHINCLOUD_WEB_IMAGE=dolphincloud-web:v0.1.0
+docker compose up -d
+```
+
+回滚步骤：
+1. 确认要回滚的旧版本镜像在本地或远端仓库中仍然存在（例如 `dolphincloud-web:v0.0.9`）。
+2. 执行带有旧版本变量的部署命令：
+```bash
+export DOLPHINCLOUD_WEB_IMAGE=dolphincloud-web:v0.0.9
+docker compose up -d
+```
 3. 由于 HTML 配置了 `no-store, no-cache`，用户刷新页面即可立即载入回滚后的稳定版本静态资源。

@@ -155,16 +155,28 @@ jobs:
           path: artifacts/release
           if-no-files-found: error
           retention-days: 14
-      - name: Check docker compose config
-        run: docker compose config
-      - name: Build and start Docker container
+      - name: Docker Negative Test (Missing Config)
         run: |
-          export EXPO_PUBLIC_SUPABASE_URL="http://127.0.0.1:54321"
-          export EXPO_PUBLIC_SUPABASE_ANON_KEY="dummy-anon-key"
-          export EXPO_PUBLIC_AI_GATEWAY_FUNCTION="dummy-gateway"
-          export EXPO_PUBLIC_APP_ENV="production"
+          if docker compose config > /dev/null 2>&1; then
+            echo "Negative test failed: compose config should fail without env vars"
+            exit 1
+          fi
+          echo "Negative test passed: compose config correctly failed"
+      - name: Build and start Docker container
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321"
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: "dummy-anon-key"
+          EXPO_PUBLIC_AI_GATEWAY_FUNCTION: "dummy-gateway"
+          EXPO_PUBLIC_APP_ENV: "production"
+        run: |
+          docker compose config
           docker compose up --build -d
       - name: Wait for container to be healthy
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321"
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: "dummy-anon-key"
+          EXPO_PUBLIC_AI_GATEWAY_FUNCTION: "dummy-gateway"
+          EXPO_PUBLIC_APP_ENV: "production"
         run: |
           for i in {1..30}; do
             STATUS=$(docker inspect --format='{{.State.Health.Status}}' $(docker compose ps -q web))
@@ -178,13 +190,41 @@ jobs:
           echo "Container failed to become healthy"
           docker compose logs web
           exit 1
-      - name: Verify Web Endpoints
+      - name: Verify Web Endpoints and Headers
         run: |
-          curl -f http://127.0.0.1:8080/healthz
-          curl -f http://127.0.0.1:8080/
-          curl -f http://127.0.0.1:8080/login
+          HEALTH=$(curl -fsSL http://127.0.0.1:8080/healthz)
+          if [ "$HEALTH" != "healthy" ]; then
+            echo "Health check failed: $HEALTH"
+            exit 1
+          fi
+
+          curl -fsSL -o /dev/null http://127.0.0.1:8080/
+          curl -fsSL -o /dev/null http://127.0.0.1:8080/login
+          curl -fsSL -o /dev/null http://127.0.0.1:8080/teacher
+
+          ROOT_HEADERS=$(curl -sSL -D - -o /dev/null http://127.0.0.1:8080/)
+          echo "$ROOT_HEADERS" | grep -i "Cache-Control:.*no-store"
+          echo "$ROOT_HEADERS" | grep -i "X-Content-Type-Options:.*nosniff"
+          echo "$ROOT_HEADERS" | grep -i "X-Frame-Options:.*SAMEORIGIN"
+          echo "$ROOT_HEADERS" | grep -i "Referrer-Policy:.*strict-origin-when-cross-origin"
+
+          JS_URL=$(curl -fsSL http://127.0.0.1:8080/ | grep -oE '/_expo/static/[^"]+\.js' | head -1 || true)
+          if [ -n "$JS_URL" ]; then
+            STATIC_HEADERS=$(curl -sSL -D - -o /dev/null "http://127.0.0.1:8080$JS_URL")
+            echo "$STATIC_HEADERS" | grep -i "Cache-Control:.*immutable"
+            echo "$STATIC_HEADERS" | grep -i "X-Content-Type-Options:.*nosniff"
+            echo "$STATIC_HEADERS" | grep -i "X-Frame-Options:.*SAMEORIGIN"
+            echo "$STATIC_HEADERS" | grep -i "Referrer-Policy:.*strict-origin-when-cross-origin"
+          else
+            echo "Warning: No static JS found to verify immutable cache header."
+          fi
       - name: Clean up Docker
         if: always()
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321"
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: "dummy-anon-key"
+          EXPO_PUBLIC_AI_GATEWAY_FUNCTION: "dummy-gateway"
+          EXPO_PUBLIC_APP_ENV: "production"
         run: docker compose down -v
       - name: Export and verify Android
         run: pnpm smoke:android
