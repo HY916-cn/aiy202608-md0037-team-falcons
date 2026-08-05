@@ -18,6 +18,7 @@
 | MIT LICENSE 与真实署名 | 完成 | 2026，Haoyu Huang、Lilun Yan、Qiteng Jiang |
 | Topic `aiy-hackathon-202608` | 完成 | 同时保留产品技术标签 |
 | 无密钥、密码及私有数据 | 完成 | `.env` 被忽略；main 完整历史 Secret scan 通过 |
+| AI 工具应用记录 | 完成 | 开发阶段实际使用 Coze 对话、Agent／Skill／Workflow 思路及 Coze Coding 项目进行场景拆解和方案复核；产品运行时使用 DeepSeek |
 
 ## 提交前还需确认
 

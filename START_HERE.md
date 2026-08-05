@@ -2,7 +2,7 @@
 
 ## 使用方法
 
-1. 确认仓库所有者已经把你的 GitHub 账号添加为私密仓库协作者。
+1. 确认已登录自己的 GitHub 账号，并能访问公开仓库及团队协作 PR。
 2. 将仓库地址和与你职责对应的提示词一起发给 Codex。
 3. 每人使用独立 clone 或独立 Git worktree，不共用未提交目录。
 4. 每次只处理一个 GitHub Issue。
@@ -11,7 +11,7 @@
 ## 所有人通用的仓库地址格式
 
 ```text
-项目地址：https://github.com/HY916-cn/dolphin-cloud
+项目地址：https://github.com/HY916-cn/aiy202608-md0037-team-falcons
 ```
 
 如果仓库地址发生变化，只替换这一行即可。
@@ -21,11 +21,11 @@
 ## 提示词一｜开发者 A 开始项目
 
 ```text
-项目地址：https://github.com/HY916-cn/dolphin-cloud
+项目地址：https://github.com/HY916-cn/aiy202608-md0037-team-falcons
 
 我是海豚云开发者 A，GitHub 账号是 cskunkuncskk，负责 Expo 客户端、六端导航、共享 UI、课件、作业和成绩。
 
-请使用当前已登录的 GitHub 身份获取这个私密仓库。在开始修改前：
+请使用当前已登录的 GitHub 身份获取这个公开仓库。在开始修改前：
 1. 完整阅读 README.md、START_HERE.md、AGENTS.md、docs/00 至 docs/09，以及当前 GitHub Issue。
 2. 检查仓库默认分支、git status、最近提交和 GitHub Issues。
 3. 领取或确认第一个 Ready 任务 F-001：Monorepo、pnpm、Expo 与共享配置。如果 F-001 已完成，则选择分配给 A 的下一个无阻塞 Issue。
@@ -33,10 +33,10 @@
 
 开发要求：
 - 严格按 Issue 范围工作，不实现 Issue 外功能。
-- 开发过程中禁止调用 Coze、Coze CLI 或外部代码生成服务；Coze 只允许作为后续运行时服务接入。
+- 开发过程中可以使用 Coze 对话以及 Agent、Skill、Workflow 能力辅助需求拆解、场景验证和内容整理；所有代码改动必须回到 Git/GitHub，并通过仓库测试与审查。
 - 不覆盖其他成员修改，不做全仓库无关重构。
 - 使用 TypeScript strict、pnpm workspace 和 feature-first 结构。
-- 普通功能不得依赖 Coze 可用性。
+- 产品运行时 AI 使用 DeepSeek，普通功能不得依赖 DeepSeek 可用性。
 - 页面名称、按钮文案、状态、颜色和图标必须复用 docs/07；代码、API、数据库和资源命名必须复用 docs/08。
 - 按 docs/09 实时协作：第一个有效 checkpoint 推送后立即创建 Draft PR，之后每完成一个可验证步骤或最长 90 分钟提交并推送一次。
 - 完成前运行相关 lint、typecheck、测试和目标角色路径。
@@ -49,19 +49,19 @@
 ## 提示词二｜开发者 B 开始项目
 
 ```text
-项目地址：https://github.com/HY916-cn/dolphin-cloud
+项目地址：https://github.com/HY916-cn/aiy202608-md0037-team-falcons
 
 我是海豚云开发者 B，GitHub 账号是 Simen111216，负责 Supabase、权限、学生分、班级分、海豚币、罚款、指定撤销和 AI 网关。
 
-请使用当前已登录的 GitHub 身份获取这个私密仓库。在开始修改前：
+请使用当前已登录的 GitHub 身份获取这个公开仓库。在开始修改前：
 1. 完整阅读 README.md、START_HERE.md、AGENTS.md、docs/00 至 docs/09，以及当前 GitHub Issue。
 2. 检查仓库默认分支、git status、最近提交和 GitHub Issues。
 3. 领取或确认第一个 Ready 任务 F-002：核心身份表、角色范围与 RLS 基线。如果 F-002 已完成，则选择分配给 B 的下一个无阻塞 Issue。
 4. 从最新 origin/main 创建符合规范的 feat/<issue>-<short-name> 分支。
 
 硬性要求：
-- 开发过程中禁止调用 Coze、Coze CLI 或外部代码生成服务。
-- 若任务涉及 AI，只实现海豚云自己的运行时网关、适配器或 Skill API；Coze 不得直连数据库或执行未经确认的写操作。
+- 可以使用 Coze 辅助拆解需求或验证 Agent／Skill／Workflow 方案，但不得向 Coze 提交密钥、真实学生数据或生产数据库内容。
+- 若任务涉及产品 AI，只实现海豚云自己的运行时网关、DeepSeek 适配器和白名单意图接口；DeepSeek 不得直连数据库或执行未经确认的写操作。
 - 不信任客户端提供的 actor、role、class_id 或 student_id。
 - 学生分、班级分、海豚币和成绩完全独立。
 - 币账写入必须原子且余额不得为负；关键写操作必须幂等和可审计。
@@ -78,22 +78,22 @@
 ## 提示词三｜负责人 C 开始 Review、测试与构建工作
 
 ```text
-项目地址：https://github.com/HY916-cn/dolphin-cloud
+项目地址：https://github.com/HY916-cn/aiy202608-md0037-team-falcons
 
-我是海豚云质量与构建负责人 C，负责 Review A/B 的代码、执行测试、修复集成与构建缺陷，并完成 Web、APK、iOS 本地测试版和 Windows EXE 构建。
+我是海豚云质量与构建负责人 C，负责 Review A/B 的代码、执行测试、修复集成与构建缺陷，并完成 Web 构建、部署和路演验收。
 
-请使用当前已登录的 GitHub 身份获取这个私密仓库。首先：
+请使用当前已登录的 GitHub 身份获取这个公开仓库。首先：
 1. 完整阅读 README.md、START_HERE.md、AGENTS.md、docs/00 至 docs/09 和 prompts/CODEX提示词库.md。
 2. 检查 main、打开的 Issues、Pull Requests、CI 和当前里程碑。
 3. 如果已有 A/B 的 PR，按质量负责人 Review 提示词先做只读审查和实际验证。
 4. 如果尚无 PR，领取 F-003：CI、PR 门禁、测试命令和秘密扫描；等待工程骨架后实现。
 
-审查优先级：越权或密钥、余额与数据损坏、幂等和并发撤销、核心流程、Coze 故障降级、跨端回归。
+审查优先级：越权或密钥、余额与数据损坏、幂等和并发撤销、核心流程、DeepSeek 故障降级、Web 回归。
 
 同时检查新代码是否擅自改变固定名称、图标、颜色、状态或数据库命名。
 
 工作规则：
-- 开发、Review、测试和构建过程禁止调用 Coze 或 Coze CLI；运行时 Coze 只能作为被测外部服务。
+- Coze 可用于开发辅助和方案复核，但正式 Review、测试、构建与发布结论必须来自仓库代码、GitHub PR 和可复现命令；产品运行时模型服务为 DeepSeek。
 - A/B 的业务 PR 由我主审；我提交的修复或构建 PR 必须由 A 或 B Review，禁止自审自合并。
 - 一般业务缺陷退回原作者；测试、CI、构建、跨模块或紧急阻塞问题由我建立独立 fix Issue 和分支。
 - 构建只能来自已验收 tag 和干净工作区，不能把未验证产物标为成功。
@@ -107,7 +107,7 @@
 ## 提示词四｜通用单 Issue 开发
 
 ```text
-项目地址：https://github.com/HY916-cn/dolphin-cloud
+项目地址：https://github.com/HY916-cn/aiy202608-md0037-team-falcons
 我的角色：【开发者 A / 开发者 B / 负责人 C】
 任务：GitHub Issue #<编号>《<标题>》
 
@@ -118,7 +118,7 @@
 验收标准：<粘贴 Issue 验收标准>
 必须验证：<lint/typecheck/unit/RLS/角色路径/构建>
 
-开发过程中禁止调用 Coze、Coze CLI 或外部代码生成服务；Coze 仅是应用运行时依赖。保留他人修改，不做无关重构，不提交密钥或真实学生数据。
+开发过程中可使用 Coze 辅助需求拆解与方案验证；产品运行时使用 DeepSeek。保留他人修改，不做无关重构，不向任何 AI 工具或仓库提交密钥、生产数据或真实学生信息。
 
 先给出计划，再实现和验证。我授权你只在当前 Issue 功能分支按 docs/09 创建 checkpoint commit、持续 push，并维护 Draft PR。每次推送返回 commit SHA；禁止 push main、force push、merge、tag、发布或部署。
 ```

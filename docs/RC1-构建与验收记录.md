@@ -1,6 +1,6 @@
 # RC1 构建与验收记录
 
-> 当前状态：交付工具与文档骨架。本表中的冻结、四端构建、安装、主演示、彩排和录屏证据尚未完成，因此 #20、#24、#25 必须保持开放；只有全部验收项在精确 RC SHA 上留证后才能关闭。
+> 当前状态：Web 交付工具与验收记录。本表中的冻结、生产构建、主演示、彩排和录屏证据只有在精确 RC SHA 上留证后才能标记完成。
 
 ## 1. 冻结信息
 
@@ -23,7 +23,7 @@ pnpm install --frozen-lockfile
 pnpm release:preflight -- --database
 ```
 
-数据库暂时不可用时可以先省略 `--database` 验证客户端，但不得将结果标为 RC 通过。预检包含依赖对齐、格式、Lint、类型、单元测试、Web 静态导出和 Android Hermes 导出。
+数据库暂时不可用时可以先省略 `--database` 验证客户端，但不得将结果标为 RC 通过。预检包含依赖对齐、格式、Lint、类型、单元测试和 Web 静态导出。
 
 ## 3. 构建物
 
@@ -37,27 +37,9 @@ pnpm release:web
 
 输出到 `artifacts/release/dolphincloud-web-v0.1.0-<sha>.zip` 和 `artifacts/release/checksums-v0.1.0.txt`。脚本拒绝脏工作区，自动运行 Web 冒烟、生成 ZIP 和 SHA-256。
 
-### Android APK
+### Docker/Nginx
 
-```bash
-pnpm dlx eas-cli@21.5.0 login
-pnpm build:android:apk
-```
-
-下载生成的 APK 后重命名为 `dolphincloud-android-v0.1.0-<sha>.apk`，在真实 Android 设备验证安装、冷启动、登录、家庭端、文件打开和 AI 降级，再将 SHA-256 追加到 `checksums-v0.1.0.txt`。
-
-### iOS 本地模拟器
-
-```bash
-pnpm dlx eas-cli@21.5.0 login
-pnpm build:ios:simulator
-```
-
-本项目只承诺模拟器或已配置设备本地测试，不将产物描述为可公开安装 IPA。记录 Xcode、iOS 版本、设备和登录/家庭端/文件/角色切换结果。
-
-### Windows EXE
-
-Electron 封装由 #22 独立 PR 交付。必须确认 `contextIsolation=true`、`nodeIntegration=false`、导航白名单和同一生产后端后再打包。最终文件命名为 `dolphincloud-windows-v0.1.0-<sha>.exe` 并记录 SHA-256。
+使用生产 Compose 构建并启动 Web 服务，验证健康检查、深层路由刷新、安全响应头、静态缓存以及桌面／平板／390px 手机布局。正式演示只承诺 Web，不把仓库保留的原生或桌面工程列为交付物。
 
 ## 4. 主演示路径
 
@@ -76,8 +58,8 @@ Electron 封装由 #22 独立 PR 交付。必须确认 `contextIsolation=true`�
 - [ ] `main` 的 Secret scan、Quality、Database and RLS、Expo export smoke 全绿。
 - [ ] 治理数据库从空库执行成功，pgTAP 实际执行数不为零。
 - [ ] 六角色均使用合成数据完成主演示路径。
-- [ ] Web、APK、iOS 本地版和 EXE 均记录版本、完整 SHA 与证据。
+- [ ] Web ZIP 与 Docker/Nginx 构建均记录版本、完整 SHA 与证据。
 - [ ] 所有可分发构建物记录 SHA-256。
 - [ ] DeepSeek 正常与禁用降级路径均通过。
 - [ ] P0 / P1 清零；未阻塞演示的 P2 已登记 Issue。
-- [ ] 五分钟脚本至少完整彩排两次，并保存一次备用录屏。
+- [ ] 十分钟路演至少完整彩排两次，实机段为 3—4 分钟，并保存一次备用录屏。

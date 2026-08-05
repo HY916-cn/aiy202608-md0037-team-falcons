@@ -66,7 +66,7 @@ export function DolphinMascotCard({ snapshot }: { readonly snapshot: AiExperienc
           <View style={[styles.connectionTag, isOffline && styles.connectionTagOffline]}>
             <View style={[styles.connectionDot, isOffline && styles.connectionDotOffline]} />
             <Text style={styles.connectionLabel}>
-              {isOffline ? 'Coze 服务未连接' : '海豚云 AI 网关'}
+              {isOffline ? 'AI 服务未连接' : '海豚云 AI 网关'}
             </Text>
           </View>
         </View>
