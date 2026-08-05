@@ -10,7 +10,9 @@ services:
         - EXPO_PUBLIC_AI_GATEWAY_FUNCTION=${EXPO_PUBLIC_AI_GATEWAY_FUNCTION:?EXPO_PUBLIC_AI_GATEWAY_FUNCTION is required}
         - EXPO_PUBLIC_APP_ENV=${EXPO_PUBLIC_APP_ENV:-production}
     ports:
-      - "127.0.0.1:8080:80"
+      - "0.0.0.0:8800:80"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1/healthz"]
       interval: 30s
