@@ -1,0 +1,34 @@
+# AIY 黑客松 2026 深圳站提交自查
+
+依据组委会《[把你的作品发布到 GitHub - 选手版 Builder Guide v2.0](https://img.webloom.cn/img/2e0bbe0dcc131063549e4c573f82e8b0.pdf)》整理。本文件只记录公开仓库交付状态，不记录密码、Token 或真实学生数据。
+
+## 六项硬性要求
+
+| 要求 | 当前状态 | 说明 |
+| --- | --- | --- |
+| 仓库位于队员账号且为 Public | 完成 | 托管于 `HY916-cn`；公开前已确认 main 的 Secret scan 通过 |
+| 仓库名符合统一格式 | 完成 | `aiy202608-md0037-team-falcons` |
+| README 按模板填全 | 完成 | 包含简介、赛道、团队分工、功能、演示、技术、运行方式、计划和版权 |
+| MIT LICENSE 与真实署名 | 完成 | 2026，Haoyu Huang、Lilun Yan、Qiteng Jiang |
+| Topic `aiy-hackathon-202608` | 完成 | 同时保留产品技术标签 |
+| 无密钥、密码及私有数据 | 完成 | `.env` 被忽略；main 完整历史 Secret scan 通过 |
+
+## 提交前还需确认
+
+- [ ] 三位成员均已接受 Collaborator 邀请。
+- [ ] 三位署名成员均使用各自 GitHub 账号完成至少一次真实贡献提交。
+- [ ] 公网 HTTPS Web 地址可直接访问，并补充到 README 的“演示”部分和仓库 Website。
+- [ ] 最终截图与公开版本一致，不包含真实账号、密码、学生隐私或内部地址。
+- [ ] 把最终仓库地址登记给组委会，并由三位成员共同留存。
+
+## 提交信息
+
+| 字段 | 内容 |
+| --- | --- |
+| 项目名称 | 海豚云 · DolphinCloud |
+| 一句话简介 | 面向校园日常协作的 AI 平台，让教学、成长评价、激励与自治在同一个可信空间中完成 |
+| 命题企业 / 赛道 | Coze · 校园生活 AI 助手 |
+| 团队 | Team Falcons |
+| 团队编号 | MD0037 |
+| 仓库托管人 | Haoyu Huang / `HY916-cn` |
+| 成员 | Haoyu Huang、Lilun Yan、Qiteng Jiang |
