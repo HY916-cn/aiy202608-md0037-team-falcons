@@ -48,6 +48,8 @@ import {
 import { RoleDashboardOverview } from './RoleDashboardOverview';
 import {
   countStudentsForClass,
+  filterTeachingSnapshotForClass,
+  resolvePreferredTeachingClassId,
   resolveTeachingSectionPresentation,
 } from './roleTeachingPresentation';
 
@@ -391,7 +393,7 @@ function TeachingDemoSection({
   const SectionIcon =
     presentation.mode === 'class_performance' ? Star : FolderUp;
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (preferredClassId: string | null = null) => {
     setIsLoading(true);
     setError(null);
     setSnapshot(EMPTY_SNAPSHOT);
@@ -405,13 +407,15 @@ function TeachingDemoSection({
     } else {
       const next = result.data;
       setSnapshot(next);
-      setSelectedClassId(next.classes[0]?.id ?? null);
+      setSelectedClassId(
+        resolvePreferredTeachingClassId(next.classes, preferredClassId),
+      );
     }
     setIsLoading(false);
   }, [roleScope, teachingAdapter]);
 
   useEffect(() => {
-    void Promise.resolve().then(load);
+    void Promise.resolve().then(() => load());
   }, [load]);
 
   const runAction = useCallback(
@@ -425,7 +429,7 @@ function TeachingDemoSection({
       try {
         await action();
         setFeedback(successMessage);
-        await load();
+        await load(selectedClassId);
       } catch (cause) {
         setError('操作失败，请检查输入后重试。');
         throw cause;
@@ -433,8 +437,31 @@ function TeachingDemoSection({
         setIsPending(false);
       }
     },
-    [isPending, load],
+    [isPending, load, selectedClassId],
   );
+
+  const selectedSnapshot = useMemo(
+    () => filterTeachingSnapshotForClass(snapshot, selectedClassId),
+    [selectedClassId, snapshot],
+  );
+  const visibleAssignments =
+    role === 'family' ? snapshot.assignments : selectedSnapshot.assignments;
+
+  const selectClass = (classId: string) => {
+    if (classId === selectedClassId) return;
+    setSelectedClassId(classId);
+    setSelectedFile(null);
+    setCoursewareTitle('');
+    setCoursewareSubject('数学');
+    setAssignmentTitle('');
+    setAssignmentSubject('数学');
+    setAssignmentContent('');
+    setAssignmentDueDays('1');
+    setEditingAssignmentId(null);
+    setFeedback(null);
+    setError(null);
+    setPendingWrite(null);
+  };
 
   const writeExecutionAdapter = useMemo<WriteActionExecutionAdapter>(
     () => ({
@@ -521,7 +548,7 @@ function TeachingDemoSection({
       {error === null ? null : (
         <View style={styles.feedbackBox}>
           <Text style={styles.error}>{error}</Text>
-          <ActionButton label="重试" onPress={() => void load()} />
+          <ActionButton label="重试" onPress={() => void load(selectedClassId)} />
         </View>
       )}
       {feedback === null ? null : <Text style={styles.success}>{feedback}</Text>}
@@ -547,10 +574,7 @@ function TeachingDemoSection({
                   accessibilityRole="button"
                   accessibilityState={{ selected: selectedClassId === item.id }}
                   key={item.id}
-                  onPress={() => {
-                    setSelectedClassId(item.id);
-                    setEditingAssignmentId(null);
-                  }}
+                  onPress={() => selectClass(item.id)}
                   style={({ focused, hovered, pressed }) => [
                     styles.classButton,
                     selectedClassId === item.id && styles.classButtonSelected,
@@ -611,14 +635,14 @@ function TeachingDemoSection({
                     )
                   }
                 />
-                <ActionButton label="刷新列表" onPress={() => void load()} />
+                <ActionButton label="刷新列表" onPress={() => void load(selectedClassId)} />
               </View>
               <View style={styles.featureDivider} />
               <Text style={styles.fieldLabel}>已发送课件</Text>
-              {snapshot.courseware.filter((item) => item.classId === selectedClassId).length === 0 ? (
+              {selectedSnapshot.courseware.length === 0 ? (
                 <Text style={styles.helper}>当前班级还没有课件。</Text>
               ) : (
-                snapshot.courseware.filter((item) => item.classId === selectedClassId).map((item) => (
+                selectedSnapshot.courseware.map((item) => (
                   <View key={item.id} style={styles.listItem}>
                     <View style={styles.listHeading}>
                       <Text style={styles.itemTitle}>{item.title}</Text>
@@ -688,14 +712,14 @@ function TeachingDemoSection({
                 {editingAssignmentId === null ? null : (
                   <ActionButton label="取消编辑" onPress={() => { setEditingAssignmentId(null); setAssignmentTitle(''); setAssignmentContent(''); setAssignmentDueDays('1'); }} />
                 )}
-                <ActionButton label="刷新列表" onPress={() => void load()} />
+                <ActionButton label="刷新列表" onPress={() => void load(selectedClassId)} />
               </View>
               <View style={styles.featureDivider} />
               <Text style={styles.fieldLabel}>作业列表</Text>
-              {snapshot.assignments.filter((item) => item.classId === selectedClassId).length === 0 ? (
+              {selectedSnapshot.assignments.length === 0 ? (
                 <Text style={styles.helper}>当前班级还没有作业。</Text>
               ) : (
-                snapshot.assignments.filter((item) => item.classId === selectedClassId).map((item) => (
+                selectedSnapshot.assignments.map((item) => (
                   <View key={item.id} style={styles.listItem}>
                     <View style={styles.listHeading}>
                       <Text style={styles.itemTitle}>{item.title}</Text>
@@ -723,10 +747,9 @@ function TeachingDemoSection({
             <View style={styles.performanceCard}>
               <UsersRound color={theme.color.brand.primary} size={19} />
               <Text style={styles.performanceValue}>
-                {snapshot.classes.reduce(
-                  (count, item) => count + countStudentsForClass(snapshot, item.id),
-                  0,
-                )}
+                {selectedClassId === null
+                  ? 0
+                  : countStudentsForClass(snapshot, selectedClassId)}
               </Text>
               <Text style={styles.performanceLabel}>学生档案</Text>
             </View>
@@ -747,7 +770,7 @@ function TeachingDemoSection({
             </View>
           </View>
           <Text style={styles.fieldLabel}>当前班级学生</Text>
-          {snapshot.students.map((student) => (
+          {selectedSnapshot.students.map((student) => (
             <View key={student.id} style={styles.listItem}>
               <Text style={styles.itemTitle}>{student.name}</Text>
             </View>
@@ -759,12 +782,12 @@ function TeachingDemoSection({
         <>
           <View style={styles.listHeading}>
             <Text style={styles.fieldLabel}>课件</Text>
-            <ActionButton label="刷新列表" onPress={() => void load()} />
+            <ActionButton label="刷新列表" onPress={() => void load(selectedClassId)} />
           </View>
-          {snapshot.courseware.length === 0 ? (
+          {selectedSnapshot.courseware.length === 0 ? (
             <Text style={styles.helper}>暂无已发送课件。</Text>
           ) : (
-            snapshot.courseware.map((item) => (
+            selectedSnapshot.courseware.map((item) => (
               <View key={item.id} style={styles.listItem}>
                 <View style={styles.listHeading}>
                   <Text style={styles.itemTitle}>{item.title}</Text>
@@ -783,12 +806,12 @@ function TeachingDemoSection({
         <>
           <View style={styles.listHeading}>
             <Text style={styles.fieldLabel}>已发布作业</Text>
-            <ActionButton label="刷新列表" onPress={() => void load()} />
+            <ActionButton label="刷新列表" onPress={() => void load(selectedClassId)} />
           </View>
-          {snapshot.assignments.length === 0 ? (
+          {visibleAssignments.length === 0 ? (
             <Text style={styles.helper}>暂无已发布作业。</Text>
           ) : (
-            snapshot.assignments.map((item) => (
+            visibleAssignments.map((item) => (
               <View key={item.id} style={styles.listItem}>
                 <View style={styles.listHeading}>
                   <Text style={styles.itemTitle}>{item.title}</Text>
