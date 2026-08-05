@@ -20,6 +20,8 @@ describe('role navigation', () => {
 
   it('仅接受当前角色支持的 URL section', () => {
     expect(resolveRoleNavigationKey('teacher', 'courseware')).toBe('courseware');
+    expect(resolveRoleNavigationKey('teacher', 'coins')).toBe('coins');
+    expect(resolveRoleNavigationKey('class_terminal', 'coins')).toBe('home');
     expect(resolveRoleNavigationKey('family', 'growth')).toBe('growth');
     expect(resolveRoleNavigationKey('family', 'courseware')).toBe('home');
     expect(resolveRoleNavigationKey('admin', 'ai')).toBe('home');

@@ -51,6 +51,15 @@ describe('MockGovernanceService', () => {
     await expect(service.grantDolphin(scopes.classTerminal, { amount: 10, reason: '越权', studentId: GOVERNANCE_DEMO_IDS.STUDENT_ONE })).rejects.toMatchObject({ code: 'FORBIDDEN' });
   });
 
+  it('教师可读取授权学生海豚币但不能直接调整账户', async () => {
+    const service = new MockGovernanceService();
+    const snapshot = await service.load(scopes.teacher);
+
+    expect(snapshot.accounts).toHaveLength(snapshot.students.length);
+    expect(snapshot.accounts.every((item) => snapshot.students.some((student) => student.id === item.studentId))).toBe(true);
+    await expect(service.grantDolphin(scopes.teacher, { amount: 10, reason: '越权发放', studentId: GOVERNANCE_DEMO_IDS.STUDENT_ONE })).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  });
+
   it('教师创建罚款、银行结算和指定撤销后家庭余额与状态一致', async () => {
     const service = new MockGovernanceService();
     const rule = (await service.load(scopes.teacher)).fineRules[0]!;

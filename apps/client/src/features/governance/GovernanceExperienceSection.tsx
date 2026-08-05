@@ -322,16 +322,18 @@ function WalletPanel({ requestWrite, roleScope, snapshot }: { readonly requestWr
   const selectedStudent = snapshot.students.find((item) => item.id === studentId);
   const selectedOrder = snapshot.fineOrders.find((item) => item.id === orderId);
 
-  if (roleScope.role === 'family') {
+  if (roleScope.role === 'family' || roleScope.role === 'teacher') {
     const account = snapshot.accounts[0];
+    const isFamily = roleScope.role === 'family';
     return (
       <>
-        <Panel description="仅显示当前家庭 scope 绑定学生的余额与流水。" icon={CircleDollarSign} title="海豚币账户">
-          <View style={styles.heroMetric}><Text style={styles.heroValue}>{account?.balance ?? 0}</Text><Text style={styles.metricLabel}>当前余额（海豚币）</Text></View>
+        <Panel description={isFamily ? '仅显示当前家庭 scope 绑定学生的余额与流水。' : '教师可查看当前授权班级学生的余额与流水，但不能直接调整账户。'} icon={CircleDollarSign} title="海豚币账户">
+          {isFamily ? <View style={styles.heroMetric}><Text style={styles.heroValue}>{account?.balance ?? 0}</Text><Text style={styles.metricLabel}>当前余额（海豚币）</Text></View> : snapshot.accounts.map((item) => <View key={item.id} style={styles.record}><Text style={styles.recordTitle}>{studentName(snapshot, item.studentId)}</Text><Text style={styles.recordMeta}>余额 {item.balance} 海豚币</Text></View>)}
+          {snapshot.accounts.length === 0 ? <Text style={styles.empty}>当前范围暂无海豚币账户。</Text> : null}
           {snapshot.transactions.map((item) => <View key={item.id} style={styles.record}><Text style={styles.recordTitle}>{item.delta > 0 ? '+' : ''}{item.delta} · {transactionKind(item.kind)}</Text><Text style={styles.recordMeta}>{item.reason} · 余额 {item.balanceAfter}</Text></View>)}
         </Panel>
-        <Panel description="家庭端只读取绑定学生的罚款状态，不能结算、取消或撤销。" icon={ReceiptText} title="罚款状态">
-          {snapshot.fineOrders.length === 0 ? <Text style={styles.empty}>当前学生暂无罚款单。</Text> : snapshot.fineOrders.map((order) => <View key={order.id} style={styles.record}><Text style={styles.recordTitle}>{order.amount} 币 · {order.reason}</Text><Text style={styles.status}>{fineStatus(order.status)}</Text></View>)}
+        <Panel description={isFamily ? '家庭端只读取绑定学生的罚款状态，不能结算、取消或撤销。' : '教师可查看已创建罚款单的处理状态；结算、取消和撤销由银行端执行。'} icon={ReceiptText} title="罚款状态">
+          {snapshot.fineOrders.length === 0 ? <Text style={styles.empty}>{isFamily ? '当前学生' : '当前范围'}暂无罚款单。</Text> : snapshot.fineOrders.map((order) => <View key={order.id} style={styles.record}><Text style={styles.recordTitle}>{isFamily ? '' : `${studentName(snapshot, order.studentId)} · `}{order.amount} 币 · {order.reason}</Text><Text style={styles.status}>{fineStatus(order.status)}</Text></View>)}
         </Panel>
       </>
     );
@@ -455,7 +457,7 @@ export function GovernanceExperienceSection({ activeNavigation, roleScope }: { r
       {requestedWrite === null ? null : <WriteActionPreviewCard adapter={executionAdapter} key={requestedWrite.preview.id} onCancel={() => setRequestedWrite(null)} onModify={() => setRequestedWrite(null)} preview={requestedWrite.preview} />}
       {(mode === 'student_score' || mode === 'family_growth') ? <StudentScorePanel requestWrite={requestWrite} roleScope={roleScope} snapshot={snapshot} /> : null}
       {mode === 'class_score' ? <ClassScorePanel requestWrite={requestWrite} roleScope={roleScope} snapshot={snapshot} /> : null}
-      {(mode === 'wallet' || mode === 'family_wallet') ? <WalletPanel requestWrite={requestWrite} roleScope={roleScope} snapshot={snapshot} /> : null}
+      {(mode === 'wallet' || mode === 'family_wallet' || mode === 'teacher_wallet') ? <WalletPanel requestWrite={requestWrite} roleScope={roleScope} snapshot={snapshot} /> : null}
     </View>
   );
 }

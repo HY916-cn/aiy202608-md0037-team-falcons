@@ -236,7 +236,7 @@ export class SupabaseGovernanceService implements GovernanceService {
       ['teacher', 'class_terminal', 'council'].includes(scope.role) ? this.selectByIds('class_score_categories', 'school_id', schoolIds, 'id, school_id, slug, display_name, description, is_active') : [],
       ['teacher', 'class_terminal', 'council'].includes(scope.role) ? this.selectByIds('class_score_entries', 'class_id', classIds, 'id, operation_id, class_id, category_id, delta, reason, applied_at, is_reversed') : [],
       ['teacher', 'class_terminal', 'council'].includes(scope.role) ? this.selectAll('class_score_appeals', 'id, entry_id, reason, status, resolution_note, created_at') : [],
-      ['bank_operator', 'family'].includes(scope.role) ? this.selectByIds('dolphin_accounts', 'student_id', studentIds, 'id, student_id, balance, version') : [],
+      ['bank_operator', 'teacher', 'family'].includes(scope.role) ? this.selectByIds('dolphin_accounts', 'student_id', studentIds, 'id, student_id, balance, version') : [],
       ['bank_operator', 'teacher', 'family'].includes(scope.role) ? this.selectByIds('fine_rules', 'school_id', schoolIds, 'id, school_id, slug, display_name, default_amount, description, is_active') : [],
       ['bank_operator', 'teacher', 'family'].includes(scope.role) ? this.selectAll('fine_orders', 'id, create_operation_id, student_id, rule_id, amount, reason, status, created_at') : [],
     ]);
@@ -248,7 +248,7 @@ export class SupabaseGovernanceService implements GovernanceService {
       ? await this.selectByIds('class_score_totals', 'class_id', classIds, 'class_id, school_id, total_score')
       : [];
     const accountIds = accounts.map((item) => stringValue(item.id));
-    const transactionRows = ['bank_operator', 'family'].includes(scope.role)
+    const transactionRows = ['bank_operator', 'teacher', 'family'].includes(scope.role)
       ? await this.selectByIds('dolphin_transactions', 'account_id', accountIds, 'id, operation_id, account_id, kind, delta, balance_after, reason, is_reversed, created_at')
       : [];
     const totals = new Map(totalRows.map((row) => [stringValue(row.class_id), numberValue(row.total_score)]));

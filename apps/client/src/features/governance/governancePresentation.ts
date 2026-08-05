@@ -6,6 +6,7 @@ export type GovernanceExperienceMode =
   | 'family_growth'
   | 'family_wallet'
   | 'student_score'
+  | 'teacher_wallet'
   | 'wallet';
 
 export function resolveGovernanceExperienceMode(
@@ -17,6 +18,7 @@ export function resolveGovernanceExperienceMode(
   }
   if (role === 'family' && navigation === 'growth') return 'family_growth';
   if (role === 'family' && navigation === 'coins') return 'family_wallet';
+  if (role === 'teacher' && navigation === 'coins') return 'teacher_wallet';
   if (role === 'bank_operator' && ['accounts', 'fines', 'transactions'].includes(navigation)) {
     return 'wallet';
   }

@@ -90,7 +90,7 @@ export class MockGovernanceService implements GovernanceService {
       .sort((left, right) => right.score - left.score)
       .map((item, index, all) => ({ ...item, rank: index > 0 && all[index - 1]?.score === item.score ? all[index - 1]!.rank : index + 1 }))
       .filter((item) => visibleClassIds.includes(item.id));
-    const accounts = ['bank_operator', 'family'].includes(scope.role)
+    const accounts = ['bank_operator', 'teacher', 'family'].includes(scope.role)
       ? this.accounts.filter((item) => scope.role === 'bank_operator' || visibleStudentIds.includes(item.studentId))
       : [];
     const accountIds = accounts.map((item) => item.id);

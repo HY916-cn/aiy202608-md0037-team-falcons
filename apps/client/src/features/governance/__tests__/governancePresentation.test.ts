@@ -13,6 +13,7 @@ describe('governance presentation', () => {
 
   it('六端治理页面映射保持角色边界', () => {
     expect(resolveGovernanceExperienceMode('teacher', 'class')).toBe('student_score');
+    expect(resolveGovernanceExperienceMode('teacher', 'coins')).toBe('teacher_wallet');
     expect(resolveGovernanceExperienceMode('family', 'growth')).toBe('family_growth');
     expect(resolveGovernanceExperienceMode('family', 'coins')).toBe('family_wallet');
     expect(resolveGovernanceExperienceMode('bank_operator', 'fines')).toBe('wallet');
