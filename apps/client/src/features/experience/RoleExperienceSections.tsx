@@ -598,7 +598,7 @@ function TeachingDemoSection({
                   label="预览并发送"
                   onPress={() =>
                     requestWrite(
-                      'courseware.send',
+                      '发送课件',
                       [snapshot.classes.find((item) => item.id === selectedClassId)?.name ?? '当前班级'],
                       ['上传私有课件并发送到所选班级'],
                       [`文件：${selectedFile?.metadata.originalFilename ?? ''}`, `标题：${coursewareTitle}`, `科目：${coursewareSubject}`],
@@ -666,7 +666,7 @@ function TeachingDemoSection({
                     const dueAt = new Date(Date.now() + Number(assignmentDueDays) * 86400000).toISOString();
                     const editingId = editingAssignmentId;
                     requestWrite(
-                      editingId === null ? 'assignment.create_draft' : 'assignment.update_draft',
+                      editingId === null ? '创建作业草稿' : '更新作业草稿',
                       [snapshot.classes.find((item) => item.id === selectedClassId)?.name ?? '当前班级'],
                       [editingId === null ? '创建仅教师可见的作业草稿' : '更新指定作业草稿'],
                       [`标题：${assignmentTitle}`, `科目：${assignmentSubject}`, `截止：${dueAt}`],
@@ -706,7 +706,7 @@ function TeachingDemoSection({
                     {item.status === 'draft' ? (
                       <View style={styles.actions}>
                         <ActionButton label="编辑草稿" onPress={() => { setEditingAssignmentId(item.id); setAssignmentTitle(item.title); setAssignmentSubject(item.subject); setAssignmentContent(item.content); setAssignmentDueDays(daysUntil(item.dueAt)); }} />
-                        <ActionButton label="预览并发布" onPress={() => requestWrite('assignment.publish', [item.title], ['班级端和绑定家庭端将可见'], [`截止：${item.dueAt}`], () => teachingAdapter.publishAssignment(item.id), '作业已发布。', true)} />
+                        <ActionButton label="预览并发布" onPress={() => requestWrite('发布作业', [item.title], ['班级端和绑定家庭端将可见'], [`截止：${item.dueAt}`], () => teachingAdapter.publishAssignment(item.id), '作业已发布。', true)} />
                       </View>
                     ) : null}
                   </View>
