@@ -373,8 +373,13 @@ function TeachingDemoSection({
   const [snapshot, setSnapshot] = useState<TeachingDemoSnapshot>(EMPTY_SNAPSHOT);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<TeachingFilePayload | null>(null);
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
+  const [coursewareTitle, setCoursewareTitle] = useState('');
+  const [coursewareSubject, setCoursewareSubject] = useState('数学');
+  const [assignmentTitle, setAssignmentTitle] = useState('');
+  const [assignmentSubject, setAssignmentSubject] = useState('数学');
+  const [assignmentContent, setAssignmentContent] = useState('');
+  const [assignmentDueDays, setAssignmentDueDays] = useState('1');
+  const [editingAssignmentId, setEditingAssignmentId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -537,80 +542,178 @@ function TeachingDemoSection({
           <View style={styles.classSelectorRow}>
             <Text style={styles.fieldLabel}>当前班级</Text>
             <View style={styles.actions}>
-            {snapshot.classes.map((item) => (
-              <InteractivePressable
-                key={item.id}
-                onPress={() => setSelectedClassId(item.id)}
-                style={({ focused, hovered, pressed }) => [
-                  styles.classButton,
-                  selectedClassId === item.id && styles.classButtonSelected,
-                  hovered && styles.interactiveHover,
-                  focused && styles.interactiveFocus,
-                  pressed && styles.interactivePressed,
-                ]}
-              >
-                <Text style={styles.classLabel}>{item.name}</Text>
-              </InteractivePressable>
-            ))}
+              {snapshot.classes.map((item) => (
+                <InteractivePressable
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: selectedClassId === item.id }}
+                  key={item.id}
+                  onPress={() => {
+                    setSelectedClassId(item.id);
+                    setEditingAssignmentId(null);
+                  }}
+                  style={({ focused, hovered, pressed }) => [
+                    styles.classButton,
+                    selectedClassId === item.id && styles.classButtonSelected,
+                    hovered && styles.interactiveHover,
+                    focused && styles.interactiveFocus,
+                    pressed && styles.interactivePressed,
+                  ]}
+                >
+                  <Text style={styles.classLabel}>{item.name}</Text>
+                </InteractivePressable>
+              ))}
             </View>
           </View>
-          <View style={styles.featureDivider} />
-          <View style={styles.featureHeading}>
-            <FolderUp color={theme.color.brand.primary} size={18} />
-            <View><Text style={styles.featureTitle}>课件</Text><Text style={styles.featureDescription}>教师与班级之间的教学文件传输</Text></View>
-          </View>
-          <Text style={styles.fieldLabel}>课件标题</Text>
-          <TextInput onChangeText={setTitle} style={styles.input} value={title} />
-          <View style={styles.actions}>
-            <ActionButton label="选择课件文件" onPress={() => void pickFile()} />
-            <ActionButton
-              disabled={selectedClassId === null || selectedFile === null || title.trim().length === 0 || isPending}
-              label="发送到班级"
-              onPress={() =>
-              requestWrite(
-                'courseware.send',
-                [snapshot.classes.find((item) => item.id === selectedClassId)?.name ?? '当前班级'],
-                ['上传私有课件并发送到所选班级'],
-                [`文件：${selectedFile?.metadata.originalFilename ?? ''}`, `标题：${title}`],
-                () => teachingAdapter.sendCourseware({ classId: selectedClassId!, file: selectedFile!, subject: '数学', title }),
-                '课件已发送。',
-              )
-            }
-            />
-          </View>
-          <View style={styles.featureDivider} />
-          <View style={styles.featureHeading}>
-            <ClipboardList color={theme.color.brand.primary} size={18} />
-            <View><Text style={styles.featureTitle}>作业</Text><Text style={styles.featureDescription}>先保存草稿，确认后再发布到家庭端</Text></View>
-          </View>
-          <Text style={styles.fieldLabel}>作业内容</Text>
-          <TextInput multiline onChangeText={setContent} style={[styles.input, styles.multiline]} value={content} />
-          <ActionButton
-            disabled={selectedClassId === null || title.trim().length === 0 || content.trim().length === 0 || isPending}
-            label="创建作业草稿"
-            onPress={() => {
-              const dueAt = new Date(Date.now() + 86400000).toISOString();
-              requestWrite(
-                'assignment.create_draft',
-                [snapshot.classes.find((item) => item.id === selectedClassId)?.name ?? '当前班级'],
-                ['创建仅教师可见的作业草稿'],
-                [`标题：${title}`, `截止：${dueAt}`],
-                () => teachingAdapter.createAssignmentDraft({ classId: selectedClassId!, content, dueAt, subject: '数学', title }),
-                '作业草稿已创建。',
-              );
-            }}
-          />
-          {snapshot.assignments.map((item) => (
-            <View key={item.id} style={styles.listItem}>
-              <Text style={styles.itemTitle}>{item.title} · {item.status}</Text>
-              {item.status === 'draft' ? (
-                <View style={styles.actions}>
-                  <ActionButton label="编辑草稿" onPress={() => requestWrite('assignment.update_draft', [item.title], ['修改作业草稿内容'], [`截止：${item.dueAt}`], () => teachingAdapter.updateAssignmentDraft(item.id, { content: `${item.content}（已编辑）`, dueAt: item.dueAt, title: `${item.title}（已编辑）` }), '作业草稿已编辑。')} />
-                  <ActionButton label="发布作业" onPress={() => requestWrite('assignment.publish', [item.title], ['班级端和绑定家庭端将可见'], [`截止：${item.dueAt}`], () => teachingAdapter.publishAssignment(item.id), '作业已发布。', true)} />
+
+          {presentation.mode === 'courseware' ? (
+            <>
+              <View style={styles.featureDivider} />
+              <View style={styles.featureHeading}>
+                <FolderUp color={theme.color.brand.primary} size={18} />
+                <View>
+                  <Text style={styles.featureTitle}>发送课件</Text>
+                  <Text style={styles.featureDescription}>上传到私有存储，并只发送给当前班级</Text>
                 </View>
-              ) : null}
-            </View>
-          ))}
+              </View>
+              <View style={styles.formRow}>
+                <View style={styles.formField}>
+                  <Text style={styles.fieldLabel}>课件标题</Text>
+                  <TextInput onChangeText={setCoursewareTitle} placeholder="例如：函数复习资料" placeholderTextColor={theme.color.text.disabled} style={styles.input} value={coursewareTitle} />
+                </View>
+                <View style={styles.formField}>
+                  <Text style={styles.fieldLabel}>科目</Text>
+                  <TextInput onChangeText={setCoursewareSubject} placeholder="例如：数学" placeholderTextColor={theme.color.text.disabled} style={styles.input} value={coursewareSubject} />
+                </View>
+              </View>
+              {selectedFile === null ? null : (
+                <View style={styles.fileSelection}>
+                  <Text style={styles.itemTitle}>{selectedFile.metadata.originalFilename}</Text>
+                  <Text style={styles.itemMeta}>{formatFileSize(selectedFile.metadata.sizeBytes)} · {selectedFile.metadata.mimeType}</Text>
+                </View>
+              )}
+              <View style={styles.actions}>
+                <ActionButton label={selectedFile === null ? '选择课件文件' : '重新选择文件'} onPress={() => void pickFile()} />
+                <ActionButton
+                  disabled={selectedClassId === null || selectedFile === null || coursewareTitle.trim().length === 0 || coursewareSubject.trim().length === 0 || isPending}
+                  label="预览并发送"
+                  onPress={() =>
+                    requestWrite(
+                      '发送课件',
+                      [snapshot.classes.find((item) => item.id === selectedClassId)?.name ?? '当前班级'],
+                      ['上传私有课件并发送到所选班级'],
+                      [`文件：${selectedFile?.metadata.originalFilename ?? ''}`, `标题：${coursewareTitle}`, `科目：${coursewareSubject}`],
+                      async () => {
+                        await teachingAdapter.sendCourseware({ classId: selectedClassId!, file: selectedFile!, subject: coursewareSubject.trim(), title: coursewareTitle.trim() });
+                        setCoursewareTitle('');
+                        setSelectedFile(null);
+                      },
+                      '课件已发送。',
+                    )
+                  }
+                />
+                <ActionButton label="刷新列表" onPress={() => void load()} />
+              </View>
+              <View style={styles.featureDivider} />
+              <Text style={styles.fieldLabel}>已发送课件</Text>
+              {snapshot.courseware.filter((item) => item.classId === selectedClassId).length === 0 ? (
+                <Text style={styles.helper}>当前班级还没有课件。</Text>
+              ) : (
+                snapshot.courseware.filter((item) => item.classId === selectedClassId).map((item) => (
+                  <View key={item.id} style={styles.listItem}>
+                    <View style={styles.listHeading}>
+                      <Text style={styles.itemTitle}>{item.title}</Text>
+                      <Text style={styles.statusBadge}>已发送</Text>
+                    </View>
+                    <Text style={styles.itemMeta}>{item.subject} · {item.originalFilename} · {formatFileSize(item.sizeBytes)}</Text>
+                    <Text style={styles.itemMeta}>发送于 {formatDateTime(item.createdAt)}</Text>
+                  </View>
+                ))
+              )}
+            </>
+          ) : null}
+
+          {presentation.mode === 'assignment' ? (
+            <>
+              <View style={styles.featureDivider} />
+              <View style={styles.featureHeading}>
+                <ClipboardList color={theme.color.brand.primary} size={18} />
+                <View>
+                  <Text style={styles.featureTitle}>{editingAssignmentId === null ? '发布作业' : '编辑作业草稿'}</Text>
+                  <Text style={styles.featureDescription}>先保存草稿，确认后再发布到班级端与家庭端</Text>
+                </View>
+              </View>
+              <View style={styles.formRow}>
+                <View style={styles.formField}>
+                  <Text style={styles.fieldLabel}>作业标题</Text>
+                  <TextInput onChangeText={setAssignmentTitle} placeholder="例如：函数单元练习" placeholderTextColor={theme.color.text.disabled} style={styles.input} value={assignmentTitle} />
+                </View>
+                <View style={styles.formField}>
+                  <Text style={styles.fieldLabel}>科目</Text>
+                  <TextInput onChangeText={setAssignmentSubject} placeholder="例如：数学" placeholderTextColor={theme.color.text.disabled} style={styles.input} value={assignmentSubject} />
+                </View>
+                <View style={styles.formFieldSmall}>
+                  <Text style={styles.fieldLabel}>几天后截止</Text>
+                  <TextInput inputMode="numeric" onChangeText={setAssignmentDueDays} style={styles.input} value={assignmentDueDays} />
+                </View>
+              </View>
+              <Text style={styles.fieldLabel}>作业内容</Text>
+              <TextInput multiline onChangeText={setAssignmentContent} placeholder="填写任务要求、提交方式与注意事项" placeholderTextColor={theme.color.text.disabled} style={[styles.input, styles.multiline]} value={assignmentContent} />
+              <View style={styles.actions}>
+                <ActionButton
+                  disabled={selectedClassId === null || assignmentTitle.trim().length === 0 || assignmentSubject.trim().length === 0 || assignmentContent.trim().length === 0 || !validDueDays(assignmentDueDays) || isPending}
+                  label={editingAssignmentId === null ? '预览并保存草稿' : '预览并保存修改'}
+                  onPress={() => {
+                    const dueAt = new Date(Date.now() + Number(assignmentDueDays) * 86400000).toISOString();
+                    const editingId = editingAssignmentId;
+                    requestWrite(
+                      editingId === null ? '创建作业草稿' : '更新作业草稿',
+                      [snapshot.classes.find((item) => item.id === selectedClassId)?.name ?? '当前班级'],
+                      [editingId === null ? '创建仅教师可见的作业草稿' : '更新指定作业草稿'],
+                      [`标题：${assignmentTitle}`, `科目：${assignmentSubject}`, `截止：${dueAt}`],
+                      async () => {
+                        if (editingId === null) {
+                          await teachingAdapter.createAssignmentDraft({ classId: selectedClassId!, content: assignmentContent.trim(), dueAt, subject: assignmentSubject.trim(), title: assignmentTitle.trim() });
+                        } else {
+                          await teachingAdapter.updateAssignmentDraft(editingId, { content: assignmentContent.trim(), dueAt, title: assignmentTitle.trim() });
+                        }
+                        setAssignmentTitle('');
+                        setAssignmentContent('');
+                        setAssignmentDueDays('1');
+                        setEditingAssignmentId(null);
+                      },
+                      editingId === null ? '作业草稿已创建。' : '作业草稿已更新。',
+                    );
+                  }}
+                />
+                {editingAssignmentId === null ? null : (
+                  <ActionButton label="取消编辑" onPress={() => { setEditingAssignmentId(null); setAssignmentTitle(''); setAssignmentContent(''); setAssignmentDueDays('1'); }} />
+                )}
+                <ActionButton label="刷新列表" onPress={() => void load()} />
+              </View>
+              <View style={styles.featureDivider} />
+              <Text style={styles.fieldLabel}>作业列表</Text>
+              {snapshot.assignments.filter((item) => item.classId === selectedClassId).length === 0 ? (
+                <Text style={styles.helper}>当前班级还没有作业。</Text>
+              ) : (
+                snapshot.assignments.filter((item) => item.classId === selectedClassId).map((item) => (
+                  <View key={item.id} style={styles.listItem}>
+                    <View style={styles.listHeading}>
+                      <Text style={styles.itemTitle}>{item.title}</Text>
+                      <Text style={item.status === 'published' ? styles.statusBadge : styles.statusBadgeMuted}>{item.status === 'published' ? '已发布' : '草稿'}</Text>
+                    </View>
+                    <Text style={styles.itemMeta}>{item.subject} · 截止 {formatDateTime(item.dueAt)}</Text>
+                    <Text style={styles.itemBody}>{item.content}</Text>
+                    {item.status === 'draft' ? (
+                      <View style={styles.actions}>
+                        <ActionButton label="编辑草稿" onPress={() => { setEditingAssignmentId(item.id); setAssignmentTitle(item.title); setAssignmentSubject(item.subject); setAssignmentContent(item.content); setAssignmentDueDays(daysUntil(item.dueAt)); }} />
+                        <ActionButton label="预览并发布" onPress={() => requestWrite('发布作业', [item.title], ['班级端和绑定家庭端将可见'], [`截止：${item.dueAt}`], () => teachingAdapter.publishAssignment(item.id), '作业已发布。', true)} />
+                      </View>
+                    ) : null}
+                  </View>
+                ))
+              )}
+            </>
+          ) : null}
         </>
       ) : null}
 
@@ -654,12 +757,22 @@ function TeachingDemoSection({
 
       {role === 'class_terminal' && presentation.mode === 'courseware' ? (
         <>
-          <Text style={styles.fieldLabel}>课件</Text>
+          <View style={styles.listHeading}>
+            <Text style={styles.fieldLabel}>课件</Text>
+            <ActionButton label="刷新列表" onPress={() => void load()} />
+          </View>
           {snapshot.courseware.length === 0 ? (
             <Text style={styles.helper}>暂无已发送课件。</Text>
           ) : (
             snapshot.courseware.map((item) => (
-              <Text key={item.id} style={styles.listItem}>{item.title}</Text>
+              <View key={item.id} style={styles.listItem}>
+                <View style={styles.listHeading}>
+                  <Text style={styles.itemTitle}>{item.title}</Text>
+                  <Text style={styles.statusBadge}>已接收</Text>
+                </View>
+                <Text style={styles.itemMeta}>{item.subject} · {item.originalFilename} · {formatFileSize(item.sizeBytes)}</Text>
+                <Text style={styles.itemMeta}>发送于 {formatDateTime(item.createdAt)}</Text>
+              </View>
             ))
           )}
         </>
@@ -668,14 +781,22 @@ function TeachingDemoSection({
       {(role === 'class_terminal' || role === 'family') &&
       presentation.mode === 'assignment' ? (
         <>
-          <Text style={styles.fieldLabel}>已发布作业</Text>
+          <View style={styles.listHeading}>
+            <Text style={styles.fieldLabel}>已发布作业</Text>
+            <ActionButton label="刷新列表" onPress={() => void load()} />
+          </View>
           {snapshot.assignments.length === 0 ? (
             <Text style={styles.helper}>暂无已发布作业。</Text>
           ) : (
             snapshot.assignments.map((item) => (
-              <Text key={item.id} style={styles.listItem}>
-                {item.title} · 截止 {new Date(item.dueAt).toLocaleString()}
-              </Text>
+              <View key={item.id} style={styles.listItem}>
+                <View style={styles.listHeading}>
+                  <Text style={styles.itemTitle}>{item.title}</Text>
+                  <Text style={styles.statusBadge}>已发布</Text>
+                </View>
+                <Text style={styles.itemMeta}>{item.subject} · 截止 {formatDateTime(item.dueAt)}</Text>
+                <Text style={styles.itemBody}>{item.content}</Text>
+              </View>
             ))
           )}
         </>
@@ -765,6 +886,33 @@ export function RoleExperienceSections({
   );
 }
 
+function formatDateTime(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? '时间待确认'
+    : new Intl.DateTimeFormat('zh-CN', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }).format(date);
+}
+
+function formatFileSize(sizeBytes: number): string {
+  if (sizeBytes < 1024) return `${sizeBytes} B`;
+  if (sizeBytes < 1024 * 1024) return `${(sizeBytes / 1024).toFixed(1)} KB`;
+  return `${(sizeBytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function validDueDays(value: string): boolean {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 365;
+}
+
+function daysUntil(value: string): string {
+  const milliseconds = new Date(value).getTime() - Date.now();
+  if (!Number.isFinite(milliseconds)) return '1';
+  return String(Math.max(1, Math.ceil(milliseconds / 86400000)));
+}
+
 const styles = StyleSheet.create({
   actionButton: { alignItems: 'center', backgroundColor: theme.color.brand.primary, borderRadius: theme.radius.control, justifyContent: 'center', minHeight: 44, paddingHorizontal: theme.space.md },
   actionLabel: { color: theme.color.surface.card, fontSize: theme.text.size.sm, fontWeight: '700' },
@@ -787,14 +935,21 @@ const styles = StyleSheet.create({
   featureDivider: { backgroundColor: theme.color.border.default, height: 1, marginVertical: theme.space.sm },
   featureHeading: { alignItems: 'center', flexDirection: 'row', gap: theme.space.sm },
   featureTitle: { color: theme.color.text.primary, fontSize: theme.text.size.md, fontWeight: '800' },
+  fileSelection: { backgroundColor: theme.color.surface.primaryTint, borderColor: theme.color.brand.primary, borderRadius: theme.radius.control, borderWidth: 1, gap: 3, padding: theme.space.base },
   fieldLabel: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '700', marginTop: theme.space.xs },
+  formField: { flex: 1, gap: theme.space.xs, minWidth: 220 },
+  formFieldSmall: { flex: 0.45, gap: theme.space.xs, minWidth: 140 },
+  formRow: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm },
   helper: { color: theme.color.text.secondary, fontSize: theme.text.size.sm, lineHeight: 21 },
   input: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, color: theme.color.text.primary, fontSize: theme.text.size.sm, minHeight: 46, paddingHorizontal: theme.space.md },
+  itemBody: { color: theme.color.text.primary, fontSize: theme.text.size.sm, lineHeight: 21 },
+  itemMeta: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, lineHeight: 18 },
   itemTitle: { color: theme.color.text.primary, fontWeight: '600' },
   interactiveFocus: { borderColor: theme.color.brand.primary, boxShadow: '0 0 0 3px rgba(22, 119, 254, 0.18)' },
   interactiveHover: { backgroundColor: theme.color.surface.primaryTint, borderColor: theme.color.brand.primary },
   interactivePressed: { opacity: 0.74, transform: [{ scale: 0.985 }] },
   listItem: { backgroundColor: theme.color.surface.muted, borderRadius: theme.radius.control, color: theme.color.text.primary, gap: theme.space.sm, padding: theme.space.base },
+  listHeading: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm, justifyContent: 'space-between' },
   messageRole: { color: theme.color.brand.primary, fontSize: theme.text.size.xs, fontWeight: '800' },
   messageRow: { alignSelf: 'flex-start', backgroundColor: theme.color.surface.muted, borderRadius: theme.radius.control, gap: theme.space.xs, maxWidth: '88%', padding: theme.space.base },
   messageRowUser: { alignSelf: 'flex-end', backgroundColor: theme.color.surface.primaryTint },
@@ -814,6 +969,8 @@ const styles = StyleSheet.create({
   sectionIcon: { alignItems: 'center', backgroundColor: theme.color.surface.secondaryTint, borderRadius: theme.radius.control, height: 40, justifyContent: 'center', width: 40 },
   sectionTitle: { color: theme.color.text.primary, fontSize: theme.text.size.lg, fontWeight: '800' },
   success: { color: theme.color.brand.primary, fontSize: theme.text.size.sm, fontWeight: '700' },
+  statusBadge: { backgroundColor: theme.color.surface.primaryTint, borderRadius: theme.radius.pill, color: theme.color.brand.primary, fontSize: theme.text.size.xs, fontWeight: '800', overflow: 'hidden', paddingHorizontal: theme.space.sm, paddingVertical: 4 },
+  statusBadgeMuted: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.pill, borderWidth: 1, color: theme.color.text.secondary, fontSize: theme.text.size.xs, fontWeight: '800', overflow: 'hidden', paddingHorizontal: theme.space.sm, paddingVertical: 4 },
   suggestionButton: { borderColor: theme.color.border.default, borderRadius: theme.radius.pill, borderWidth: 1, justifyContent: 'center', minHeight: 38, paddingHorizontal: theme.space.base },
   suggestionLabel: { color: theme.color.text.primary, fontSize: theme.text.size.xs, fontWeight: '700' },
 });

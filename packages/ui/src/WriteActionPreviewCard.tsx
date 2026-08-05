@@ -57,10 +57,10 @@ function WriteActionPreviewCardContent({
           <ShieldCheck color={theme.color.brand.primary} size={21} />
         </View>
         <View style={styles.headingCopy}>
-          <Text style={styles.eyebrow}>海豚助手 · 写操作草稿</Text>
+          <Text style={styles.eyebrow}>海豚云 · 写操作确认</Text>
           <Text style={styles.title}>执行前确认</Text>
           <Text style={styles.headingDescription}>
-            Coze 只提出草稿；真正执行仍由海豚云服务重新鉴权并记录审计。
+            确认后由海豚云服务重新鉴权并记录审计；取消或返回修改不会写入数据。
           </Text>
         </View>
       </View>
