@@ -28,6 +28,10 @@ export function AuthenticatedRoleHomeScreen({
       (key === 'home' ? path : `${path}?section=${key}`) as Href,
     );
   };
+  const switchRole = async (nextRole: RoleCode) => {
+    await session.switchRole(nextRole);
+    router.replace(ROLE_HOME_PATHS[nextRole] as Href);
+  };
 
   if (
     session.user === null ||
@@ -45,7 +49,7 @@ export function AuthenticatedRoleHomeScreen({
       currentRole={session.currentRole}
       onLogout={session.logout}
       onNavigate={navigate}
-      onSwitchRole={session.switchRole}
+      onSwitchRole={switchRole}
       onSwitchRoleScope={session.switchRoleScope}
       role={role}
       roleScope={session.roleScope}
