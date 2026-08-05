@@ -33,9 +33,9 @@ type NavigateAction = {
 };
 
 const ROLE_SERVICE_COPY = {
-  admin: ['管理工作区', '账号、权限与审计服务接入后将在这里展示实时数据。'],
-  bank_operator: ['校园银行工作区', '账户、罚款单与海豚币流水服务接入后将在这里展示实时数据。'],
-  council: ['自治会工作区', '班级分、检查记录与更正申请服务接入后将在这里展示实时数据。'],
+  admin: ['管理工作区', '账号、权限与审计继续沿用现有管理服务边界。'],
+  bank_operator: ['校园银行工作区', '进入账户、罚款单或流水页面处理当前学校范围的真实数据。'],
+  council: ['自治会工作区', '进入班级分或更正申请页面记录变动并处理申请。'],
 } as const;
 
 function ActionButton({
@@ -158,7 +158,7 @@ function TeachingWorkspace({
             ))
           )}
           <Text style={styles.boundaryNote}>
-            学生分、班级分和海豚币只在对应治理服务接入后展示，本页不使用伪造数据。
+            治理数据在对应任务页面按当前权限范围读取；演示数据会明确标识。
           </Text>
         </View>
       </View>
@@ -213,7 +213,7 @@ function ServiceWorkspace({
           ))}
         </View>
         <Text style={styles.boundaryNote}>
-          当前仅展示已接入服务的真实结果；未接入的写操作不提供模拟按钮。
+          治理页面使用当前 AuthRoleScope；正式模式调用 Supabase RPC，演示模式会明确标识合成数据。
         </Text>
       </View>
     </View>

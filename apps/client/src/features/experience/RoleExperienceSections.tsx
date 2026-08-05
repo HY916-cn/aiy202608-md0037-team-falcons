@@ -33,6 +33,10 @@ import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { useExperience } from './ExperienceProvider';
 import { GradeReportSection } from '../grades';
+import {
+  GovernanceExperienceSection,
+  resolveGovernanceExperienceMode,
+} from '../governance';
 import { RoleDashboardOverview } from './RoleDashboardOverview';
 import {
   countStudentsForClass,
@@ -530,7 +534,24 @@ export function RoleExperienceSections({
     (role === 'teacher' && activeNavigation === 'class') ||
     (role === 'family' && activeNavigation === 'growth')
   ) {
-    return <GradeReportSection role={role} roleScope={roleScope} />;
+    return (
+      <>
+        <GradeReportSection role={role} roleScope={roleScope} />
+        <GovernanceExperienceSection
+          activeNavigation={activeNavigation}
+          roleScope={roleScope}
+        />
+      </>
+    );
+  }
+
+  if (resolveGovernanceExperienceMode(role, activeNavigation) !== null) {
+    return (
+      <GovernanceExperienceSection
+        activeNavigation={activeNavigation}
+        roleScope={roleScope}
+      />
+    );
   }
 
   if (

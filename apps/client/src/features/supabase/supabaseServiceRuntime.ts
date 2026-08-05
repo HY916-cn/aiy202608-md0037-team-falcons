@@ -1,8 +1,11 @@
 import {
   MockGradeReportSheetService,
+  MockGovernanceService,
   SupabaseGradeReportSheetService,
+  SupabaseGovernanceService,
   SupabaseTeachingDemoAdapter,
   type GradeReportSheetService,
+  type GovernanceService,
 } from '@dolphincloud/api-client';
 import {
   MockAuthSessionAdapter,
@@ -22,6 +25,7 @@ export type SupabaseServiceRuntime = {
   readonly authAdapter: AuthSessionAdapter;
   readonly client: SupabaseClient | null;
   readonly gradeReportService: GradeReportSheetService;
+  readonly governanceService: GovernanceService;
   readonly mode: 'demo' | 'supabase';
   readonly summaryDataSource: TodaySummaryDataSource;
   readonly teachingAdapter: TeachingDemoAdapter;
@@ -67,6 +71,7 @@ export function createSupabaseServiceRuntime(
       authAdapter,
       client: null,
       gradeReportService: new MockGradeReportSheetService(),
+      governanceService: new MockGovernanceService(),
       mode: 'demo',
       summaryDataSource: new TeachingTodaySummaryDataSource(
         teachingAdapter,
@@ -83,6 +88,7 @@ export function createSupabaseServiceRuntime(
     authAdapter: new SupabaseAuthSessionAdapter({ client }),
     client,
     gradeReportService: new SupabaseGradeReportSheetService(client),
+    governanceService: new SupabaseGovernanceService(client),
     mode: 'supabase',
     summaryDataSource: new TeachingTodaySummaryDataSource(teachingAdapter),
     teachingAdapter,
