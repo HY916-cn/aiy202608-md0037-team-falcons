@@ -334,7 +334,7 @@ export function CsvImportPanel({
     <View style={styles.workspace}>
       <Text style={styles.subtitle}>上传表格</Text>
       <Text style={styles.hint}>
-        本次演示真实支持 CSV。首列必须为 student_id；成绩列可写为“笔试[100]”，对应评语列写为“笔试评语”。
+        CSV 首列必须为 student_id；成绩列可写为“笔试[100]”，对应评语列写为“笔试评语”。
       </Text>
       <GradeActionButton
         disabled={disabled}

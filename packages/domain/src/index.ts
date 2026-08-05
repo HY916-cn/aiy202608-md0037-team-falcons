@@ -77,12 +77,9 @@ export const ROLE_CODES_FOR_AUTHZ = [
 ] as const;
 export type AuthorizedRoleCode = (typeof ROLE_CODES_FOR_AUTHZ)[number];
 
-export const MIN_BALANCE = 0;
 export const MAX_REASON_LENGTH = 200;
 export const IDEMPOTENCY_KEY_MIN_LENGTH = 16;
 export const IDEMPOTENCY_KEY_MAX_LENGTH = 128;
-export const SCORE_DELTA_MIN = -1000;
-export const SCORE_DELTA_MAX = 1000;
 export const COIN_AMOUNT_MIN = 1;
 export const COIN_AMOUNT_MAX = 1_000_000;
 export const FINE_AMOUNT_MIN = 1;
@@ -135,6 +132,7 @@ export function isIntegerValue(value: unknown): value is number {
 }
 
 export * from './errors';
+export * from './constants';
 export * from './operation';
 export * from './audit';
 export * from './idempotency';

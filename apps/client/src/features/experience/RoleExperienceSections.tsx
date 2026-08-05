@@ -1,4 +1,4 @@
-import type { AuthRoleScope, RoleCode } from '@dolphincloud/auth';
+import { ROLE_LABELS, type AuthRoleScope, type RoleCode } from '@dolphincloud/auth';
 import { resolveLoadableState } from '@dolphincloud/experience';
 import type {
   AiExperienceSnapshot,
@@ -11,6 +11,7 @@ import type {
 import type { CoursewareFileMetadata } from '@dolphincloud/domain';
 import {
   AiResultCard,
+  AiAuditResultCard,
   DolphinMascotCard,
   InteractivePressable,
   type RoleNavigationKey,
@@ -32,6 +33,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { useExperience } from './ExperienceProvider';
+import {
+  AiConversationScopeGuard,
+  createEmptyAiConversationViewState,
+  getAiConversationScopeKey,
+  type AiConversationMessage,
+} from './aiConversationScope';
+import { AI_ROLE_GUIDANCE } from './aiRoleGuidance';
 import { GradeReportSection } from '../grades';
 import {
   GovernanceExperienceSection,
@@ -123,15 +131,103 @@ function TodaySummarySection({ roleScope }: { readonly roleScope: AuthRoleScope 
 function AiExperienceSection({ roleScope }: { readonly roleScope: AuthRoleScope }) {
   const { aiAdapter } = useExperience();
   const [snapshot, setSnapshot] = useState<AiExperienceSnapshot>(() => aiAdapter.getSnapshot());
-  const [prompt, setPrompt] = useState('整理今天的教学信息');
+  const [prompt, setPrompt] = useState(
+    () => createEmptyAiConversationViewState().prompt,
+  );
+  const [messages, setMessages] = useState<readonly AiConversationMessage[]>(
+    () => createEmptyAiConversationViewState().messages,
+  );
+  const [isScopeReady, setIsScopeReady] = useState(false);
+  const scopeGuard = useMemo(() => new AiConversationScopeGuard(), []);
+  const guidance = AI_ROLE_GUIDANCE[roleScope.role];
+  const assignmentId = roleScope.assignmentId;
+  const scopeId = roleScope.id;
+  const scopeLabel = roleScope.label;
+  const scopeRole = roleScope.role;
+  const scopeType = roleScope.type;
 
   useEffect(() => aiAdapter.subscribe(setSnapshot), [aiAdapter]);
   useEffect(() => {
-    void aiAdapter.selectActiveRole(roleScope);
-  }, [aiAdapter, roleScope]);
+    const generation = scopeGuard.beginScopeChange();
+    aiAdapter.newConversation();
+    void aiAdapter
+      .selectActiveRole({
+        assignmentId,
+        id: scopeId,
+        label: scopeLabel,
+        role: scopeRole,
+        type: scopeType,
+      })
+      .then((isReady) => {
+        if (scopeGuard.isCurrent(generation)) setIsScopeReady(isReady);
+      })
+      .catch(() => {
+        if (scopeGuard.isCurrent(generation)) setIsScopeReady(false);
+      });
+    return () => {
+      scopeGuard.invalidate();
+    };
+  }, [
+    aiAdapter,
+    assignmentId,
+    scopeGuard,
+    scopeId,
+    scopeLabel,
+    scopeRole,
+    scopeType,
+  ]);
+
+  const submit = async (nextPrompt: string) => {
+    const normalized = nextPrompt.trim();
+    if (
+      normalized.length === 0 ||
+      !isScopeReady ||
+      snapshot.state === 'thinking'
+    ) {
+      return;
+    }
+    const generation = scopeGuard.beginScopeChange();
+    setMessages((current) => [
+      ...current,
+      { content: normalized, id: `user-${Date.now()}`, role: 'user' },
+    ]);
+    setPrompt('');
+    await aiAdapter.submit(normalized);
+    if (!scopeGuard.isCurrent(generation)) return;
+    const next = aiAdapter.getSnapshot();
+    if (next.result !== null && next.state !== 'offline' && next.state !== 'error') {
+      setMessages((current) => [
+        ...current,
+        { content: next.result!, id: `assistant-${Date.now()}`, role: 'assistant' },
+      ]);
+    }
+  };
+
+  const retry = async () => {
+    if (!isScopeReady) return;
+    const generation = scopeGuard.beginScopeChange();
+    await aiAdapter.retry();
+    if (!scopeGuard.isCurrent(generation)) return;
+    const next = aiAdapter.getSnapshot();
+    if (next.result !== null && next.state !== 'offline' && next.state !== 'error') {
+      setMessages((current) => [
+        ...current,
+        { content: next.result!, id: `assistant-${Date.now()}`, role: 'assistant' },
+      ]);
+    }
+  };
+
+  const newConversation = () => {
+    scopeGuard.beginScopeChange();
+    aiAdapter.newConversation();
+    setMessages([]);
+    setPrompt('');
+  };
 
   const writeExecutionAdapter = useMemo<WriteActionExecutionAdapter>(
-    () => ({ execute: async () => aiAdapter.confirmAction(true) }),
+    () => ({
+      execute: async (previewId) => aiAdapter.confirmAction(previewId, true),
+    }),
     [aiAdapter],
   );
 
@@ -144,32 +240,119 @@ function AiExperienceSection({ roleScope }: { readonly roleScope: AuthRoleScope 
         <View style={styles.sectionHeadingCopy}>
           <Text style={styles.sectionTitle}>AI 中心</Text>
           <Text style={styles.sectionDescription}>
-            海豚助手可以整理信息；涉及写操作时仍需你确认。
+            在当前角色和数据范围内查询信息；涉及写操作时必须再次确认。
           </Text>
         </View>
       </View>
+      <View style={styles.aiScopeBar}>
+        <Text style={styles.aiScopeLabel}>当前身份：{ROLE_LABELS[roleScope.role]}</Text>
+        <Text style={styles.aiScopeLabel}>权限范围：{roleScope.label}</Text>
+      </View>
       <DolphinMascotCard snapshot={snapshot} />
+      <View style={styles.aiGuidance}>
+        <Text style={styles.fieldLabel}>建议问题</Text>
+        <View style={styles.actions}>
+          {guidance.suggestions.map((suggestion) => (
+            <InteractivePressable
+              accessibilityRole="button"
+              disabled={!isScopeReady || snapshot.state === 'thinking' || snapshot.state === 'offline'}
+              key={suggestion}
+              onPress={() => void submit(suggestion)}
+              style={({ focused, hovered, pressed }) => [
+                styles.suggestionButton,
+                hovered && styles.interactiveHover,
+                focused && styles.interactiveFocus,
+                pressed && styles.interactivePressed,
+              ]}
+            >
+              <Text style={styles.suggestionLabel}>{suggestion}</Text>
+            </InteractivePressable>
+          ))}
+        </View>
+        <Text style={styles.aiWriteHint}>{guidance.writeHint}</Text>
+      </View>
       <View style={styles.aiComposer}>
         <TextInput
           accessibilityLabel="发送给海豚助手的内容"
+          editable={isScopeReady && snapshot.state !== 'thinking' && snapshot.state !== 'offline'}
           onChangeText={setPrompt}
           placeholder="输入你想查询或整理的内容"
           placeholderTextColor={theme.color.text.disabled}
           style={[styles.input, styles.aiInput]}
           value={prompt}
         />
-        <ActionButton label="生成预览" onPress={() => void aiAdapter.submit(prompt)} />
+        <ActionButton
+          disabled={!isScopeReady || prompt.trim().length === 0 || snapshot.state === 'thinking' || snapshot.state === 'offline'}
+          label={snapshot.state === 'thinking' ? '正在发送…' : '发送'}
+          onPress={() => void submit(prompt)}
+        />
       </View>
       <View style={styles.actions}>
-        <ActionButton label="开始聆听" onPress={() => aiAdapter.startListening()} />
-        <ActionButton label="重置" onPress={() => aiAdapter.reset()} />
+        {snapshot.state === 'thinking' ? (
+          <ActionButton label="取消等待" onPress={() => aiAdapter.cancelRequest()} />
+        ) : null}
+        {snapshot.state === 'error' || snapshot.state === 'offline' ? (
+          <ActionButton label="重试" onPress={() => void retry()} />
+        ) : null}
+        <ActionButton label="新对话" onPress={newConversation} />
+      </View>
+      <View style={styles.conversationPanel}>
+        <Text style={styles.fieldLabel}>当前会话</Text>
+        {messages.length === 0 ? (
+          <Text style={styles.helper}>还没有对话。选择建议问题或输入查询内容开始。</Text>
+        ) : (
+          messages.map((message) => (
+            <View
+              key={message.id}
+              style={[
+                styles.messageRow,
+                message.role === 'user' && styles.messageRowUser,
+              ]}
+            >
+              <Text style={styles.messageRole}>{message.role === 'user' ? '你' : '海豚助手'}</Text>
+              <Text style={styles.messageText}>{message.content}</Text>
+            </View>
+          ))
+        )}
+      </View>
+      <View style={styles.recentPanel}>
+        <Text style={styles.fieldLabel}>最近对话</Text>
+        {messages.filter((message) => message.role === 'user').length === 0 ? (
+          <Text style={styles.helper}>暂无最近对话。</Text>
+        ) : (
+          messages
+            .filter((message) => message.role === 'user')
+            .slice(-3)
+            .reverse()
+            .map((message) => (
+              <Text key={`recent-${message.id}`} style={styles.recentPrompt}>• {message.content}</Text>
+            ))
+        )}
       </View>
       <AiResultCard snapshot={snapshot} />
-      {snapshot.actionPreview === null ? null : (
+      <AiAuditResultCard snapshot={snapshot} />
+      {!isScopeReady || snapshot.actionPreview === null ? null : (
         <WriteActionPreviewCard
           adapter={writeExecutionAdapter}
-          onCancel={() => void aiAdapter.cancelAction()}
-          onModify={() => void aiAdapter.returnToModify()}
+          onCancel={() => {
+            void aiAdapter
+              .cancelAction(snapshot.actionPreview!.draftId)
+              .catch(() => undefined);
+          }}
+          onModify={() => {
+            const lastPrompt = [...messages]
+              .reverse()
+              .find((message) => message.role === 'user');
+            const generation = scopeGuard.beginScopeChange();
+            void aiAdapter
+              .returnToModify(snapshot.actionPreview!.draftId)
+              .then(() => {
+                if (scopeGuard.isCurrent(generation)) {
+                  setPrompt(lastPrompt?.content ?? '');
+                }
+              })
+              .catch(() => undefined);
+          }}
           preview={snapshot.actionPreview}
         />
       )}
@@ -190,8 +373,8 @@ function TeachingDemoSection({
   const [snapshot, setSnapshot] = useState<TeachingDemoSnapshot>(EMPTY_SNAPSHOT);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<TeachingFilePayload | null>(null);
-  const [title, setTitle] = useState('合成演示教学内容');
-  const [content, setContent] = useState('完成合成练习内容。');
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -316,7 +499,7 @@ function TeachingDemoSection({
   };
 
   if (isLoading) {
-    return <Text style={styles.helper}>正在加载教学演示数据……</Text>;
+    return <Text style={styles.helper}>正在加载教学数据……</Text>;
   }
 
   return (
@@ -381,7 +564,7 @@ function TeachingDemoSection({
           <View style={styles.actions}>
             <ActionButton label="选择课件文件" onPress={() => void pickFile()} />
             <ActionButton
-              disabled={selectedClassId === null || selectedFile === null || isPending}
+              disabled={selectedClassId === null || selectedFile === null || title.trim().length === 0 || isPending}
               label="发送到班级"
               onPress={() =>
               requestWrite(
@@ -403,7 +586,7 @@ function TeachingDemoSection({
           <Text style={styles.fieldLabel}>作业内容</Text>
           <TextInput multiline onChangeText={setContent} style={[styles.input, styles.multiline]} value={content} />
           <ActionButton
-            disabled={selectedClassId === null || isPending}
+            disabled={selectedClassId === null || title.trim().length === 0 || content.trim().length === 0 || isPending}
             label="创建作业草稿"
             onPress={() => {
               const dueAt = new Date(Date.now() + 86400000).toISOString();
@@ -527,7 +710,12 @@ export function RoleExperienceSections({
   }
 
   if (activeNavigation === 'ai') {
-    return <AiExperienceSection roleScope={roleScope} />;
+    return (
+      <AiExperienceSection
+        key={getAiConversationScopeKey(roleScope)}
+        roleScope={roleScope}
+      />
+    );
   }
 
   if (
@@ -582,12 +770,17 @@ const styles = StyleSheet.create({
   actionLabel: { color: theme.color.surface.card, fontSize: theme.text.size.sm, fontWeight: '700' },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm },
   aiComposer: { alignItems: 'center', flexDirection: 'row', gap: theme.space.sm },
+  aiGuidance: { backgroundColor: theme.color.surface.page, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, gap: theme.space.sm, padding: theme.space.md },
   aiInput: { flex: 1 },
+  aiScopeBar: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.md },
+  aiScopeLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, fontWeight: '700' },
+  aiWriteHint: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, lineHeight: 18 },
   classButton: { alignItems: 'center', borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, justifyContent: 'center', minHeight: 40, paddingHorizontal: theme.space.base },
   classButtonSelected: { backgroundColor: theme.color.surface.primaryTint, borderColor: theme.color.brand.primary },
   classLabel: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '700' },
   classSelectorRow: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.base },
   disabled: { opacity: 0.5 },
+  conversationPanel: { gap: theme.space.sm },
   error: { color: theme.color.text.primary, fontWeight: '600' },
   feedbackBox: { gap: theme.space.sm },
   featureDescription: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, marginTop: 2 },
@@ -598,16 +791,22 @@ const styles = StyleSheet.create({
   helper: { color: theme.color.text.secondary, fontSize: theme.text.size.sm, lineHeight: 21 },
   input: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, color: theme.color.text.primary, fontSize: theme.text.size.sm, minHeight: 46, paddingHorizontal: theme.space.md },
   itemTitle: { color: theme.color.text.primary, fontWeight: '600' },
-  interactiveFocus: { borderColor: theme.color.brand.primary, shadowColor: theme.color.brand.primary, shadowOpacity: 0.2, shadowRadius: 4 },
+  interactiveFocus: { borderColor: theme.color.brand.primary, boxShadow: '0 0 0 3px rgba(22, 119, 254, 0.18)' },
   interactiveHover: { backgroundColor: theme.color.surface.primaryTint, borderColor: theme.color.brand.primary },
   interactivePressed: { opacity: 0.74, transform: [{ scale: 0.985 }] },
   listItem: { backgroundColor: theme.color.surface.muted, borderRadius: theme.radius.control, color: theme.color.text.primary, gap: theme.space.sm, padding: theme.space.base },
+  messageRole: { color: theme.color.brand.primary, fontSize: theme.text.size.xs, fontWeight: '800' },
+  messageRow: { alignSelf: 'flex-start', backgroundColor: theme.color.surface.muted, borderRadius: theme.radius.control, gap: theme.space.xs, maxWidth: '88%', padding: theme.space.base },
+  messageRowUser: { alignSelf: 'flex-end', backgroundColor: theme.color.surface.primaryTint },
+  messageText: { color: theme.color.text.primary, fontSize: theme.text.size.sm, lineHeight: 21 },
   multiline: { minHeight: 88, paddingVertical: theme.space.md, textAlignVertical: 'top' },
   performanceCard: { backgroundColor: theme.color.surface.muted, borderColor: theme.color.border.default, borderRadius: theme.radius.control, borderWidth: 1, flex: 1, gap: theme.space.xs, minWidth: 180, padding: theme.space.md },
   performanceGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm },
   performanceLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.xs },
   performancePending: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '700' },
   performanceValue: { color: theme.color.text.primary, fontSize: theme.text.size.xl, fontWeight: '800' },
+  recentPanel: { borderTopColor: theme.color.border.default, borderTopWidth: 1, gap: theme.space.xs, paddingTop: theme.space.sm },
+  recentPrompt: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, lineHeight: 18 },
   section: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, gap: theme.space.md, padding: theme.space.lg },
   sectionDescription: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, lineHeight: 18, marginTop: 3 },
   sectionHeading: { alignItems: 'center', flexDirection: 'row', gap: theme.space.base },
@@ -615,4 +814,6 @@ const styles = StyleSheet.create({
   sectionIcon: { alignItems: 'center', backgroundColor: theme.color.surface.secondaryTint, borderRadius: theme.radius.control, height: 40, justifyContent: 'center', width: 40 },
   sectionTitle: { color: theme.color.text.primary, fontSize: theme.text.size.lg, fontWeight: '800' },
   success: { color: theme.color.brand.primary, fontSize: theme.text.size.sm, fontWeight: '700' },
+  suggestionButton: { borderColor: theme.color.border.default, borderRadius: theme.radius.pill, borderWidth: 1, justifyContent: 'center', minHeight: 38, paddingHorizontal: theme.space.base },
+  suggestionLabel: { color: theme.color.text.primary, fontSize: theme.text.size.xs, fontWeight: '700' },
 });
