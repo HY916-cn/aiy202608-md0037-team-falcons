@@ -590,15 +590,36 @@ export function RoleHomeScreen({
                 isCompactMobile && styles.pageHeadingCompact,
               ]}
             >
-              <View style={styles.headingCopy}>
-                <Text style={styles.eyebrow}>{pageHeader.eyebrow}</Text>
-                <Text style={styles.pageTitle}>{pageHeader.title}</Text>
-                <Text style={styles.pageDescription}>{pageHeader.description}</Text>
-              </View>
-              <View style={[styles.dateBadge, isCompactMobile && styles.dateBadgeCompact]}>
-                <Text style={styles.datePrimary}>{today.date}</Text>
-                <Text style={styles.dateSecondary}>{today.weekday}</Text>
-              </View>
+              {isCompactMobile ? (
+                <View style={styles.compactHeading}>
+                  <View style={styles.compactMetaRow}>
+                    <Text numberOfLines={1} style={[styles.eyebrow, styles.compactEyebrow]}>
+                      {pageHeader.eyebrow}
+                    </Text>
+                    <Text style={styles.compactDate}>
+                      {today.date} · {today.weekday}
+                    </Text>
+                  </View>
+                  <Text style={[styles.pageTitle, styles.pageTitleCompact]}>
+                    {pageHeader.title}
+                  </Text>
+                  <Text style={[styles.pageDescription, styles.pageDescriptionCompact]}>
+                    {pageHeader.description}
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <View style={styles.headingCopy}>
+                    <Text style={styles.eyebrow}>{pageHeader.eyebrow}</Text>
+                    <Text style={styles.pageTitle}>{pageHeader.title}</Text>
+                    <Text style={styles.pageDescription}>{pageHeader.description}</Text>
+                  </View>
+                  <View style={styles.dateBadge}>
+                    <Text style={styles.datePrimary}>{today.date}</Text>
+                    <Text style={styles.dateSecondary}>{today.weekday}</Text>
+                  </View>
+                </>
+              )}
             </View>
             {children}
           </View>
@@ -672,19 +693,24 @@ const styles = StyleSheet.create({
   logoutLabel: { color: theme.color.text.secondary, fontSize: theme.text.size.sm, fontWeight: '600' },
   scrollArea: { flex: 1, minHeight: 0 },
   page: { alignItems: 'center', paddingBottom: 48, paddingHorizontal: theme.space.lg, paddingTop: theme.space.lg },
-  pageCompact: { paddingBottom: theme.space.xl, paddingHorizontal: theme.space.base, paddingTop: theme.space.md },
+  pageCompact: { paddingBottom: theme.space.lg, paddingHorizontal: theme.space.base, paddingTop: theme.space.base },
   content: { gap: theme.space.lg, maxWidth: 1180, width: '100%' },
-  contentCompact: { gap: theme.space.md },
+  contentCompact: { gap: theme.space.base },
   pageHeading: { alignItems: 'flex-end', flexDirection: 'row', gap: theme.space.md, justifyContent: 'space-between' },
-  pageHeadingCompact: { alignItems: 'flex-start', flexDirection: 'column', gap: theme.space.sm },
+  pageHeadingCompact: { alignItems: 'stretch', flexDirection: 'column', gap: 0 },
   headingCopy: { flex: 1 },
   eyebrow: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, fontWeight: '700', marginBottom: 6 },
   pageTitle: { color: theme.color.text.primary, fontSize: theme.text.size.display, fontWeight: '600', letterSpacing: -0.4, lineHeight: 36 },
+  pageTitleCompact: { fontSize: theme.text.size.xl, letterSpacing: -0.2, lineHeight: 30 },
   pageDescription: { color: theme.color.text.secondary, fontSize: theme.text.size.sm, lineHeight: 22, marginTop: 6 },
+  pageDescriptionCompact: { fontSize: 13, lineHeight: 19, marginTop: 2 },
   dateBadge: { alignItems: 'flex-end' },
-  dateBadgeCompact: { alignItems: 'flex-start' },
   datePrimary: { color: theme.color.text.primary, fontSize: theme.text.size.sm, fontWeight: '700' },
   dateSecondary: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, marginTop: 2 },
+  compactHeading: { width: '100%' },
+  compactMetaRow: { alignItems: 'center', flexDirection: 'row', gap: theme.space.sm, justifyContent: 'space-between', marginBottom: theme.space.xs },
+  compactEyebrow: { flex: 1, marginBottom: 0, minWidth: 0 },
+  compactDate: { color: theme.color.text.secondary, flexShrink: 0, fontSize: theme.text.size.xs, fontWeight: '600' },
   mobileNavigation: { backgroundColor: theme.color.surface.layerAlt, borderTopColor: theme.color.border.default, borderTopWidth: 1, flexDirection: 'row', paddingBottom: theme.space.sm, paddingHorizontal: theme.space.xs, paddingTop: theme.space.sm, position: 'relative', zIndex: 30 },
   mobileNavItem: { alignItems: 'center', flex: 1, gap: theme.space.xs, justifyContent: 'center', minHeight: 48 },
   mobileNavSlot: { flex: 1 },
