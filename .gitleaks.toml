@@ -20,8 +20,10 @@ description = "Historical generic-api-key false positives in governance idempote
 targetRules = ["generic-api-key"]
 condition = "AND"
 commits = [
+  '''c2876ccec550431fa46c77a73eb1a7418231f20f''',
   '''d59335ac967ee15d264725b35567a31733724ceb''',
   '''42515530a2236eb8c7c4b7366d9d205df1b6ee85''',
+  '''7075acdb7269c4c7e4c0d6736d4c3a5aa817ad5b''',
 ]
 paths = ['''^supabase/tests/005_governance_operations_idempotency\.test\.sql$''']
 
@@ -29,5 +31,10 @@ paths = ['''^supabase/tests/005_governance_operations_idempotency\.test\.sql$'''
 description = "Historical generic-api-key false positive in governance wallet reversal fixture"
 targetRules = ["generic-api-key"]
 condition = "AND"
-commits = ['''c2876ccec550431fa46c77a73eb1a7418231f20f''']
+commits = [
+  '''c2876ccec550431fa46c77a73eb1a7418231f20f''',
+  '''d59335ac967ee15d264725b35567a31733724ceb''',
+  '''3f6ade5e5a52df4f14d37aad7e81685536235c3c''',
+  '''2ef28612bd7c90dd9806fa5ab2de1ab3ff6d31fc''',
+]
 paths = ['''^supabase/tests/007_governance_wallet_fine_reversal\.test\.sql$''']
