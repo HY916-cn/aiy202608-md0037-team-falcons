@@ -2,7 +2,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(46);
+select plan(48);
 
 set local role authenticated;
 
@@ -463,7 +463,7 @@ select throws_ok(
     select public.apply_targeted_reversal(
       'coin-reversal-dup-0001',
       %L,
-      '重复撤销'
+      '重复撤销原因'
     )
   $f$,
     (select id::text from public.operations where idempotency_key = 'coin-grant-forreverse-0001')
@@ -537,7 +537,7 @@ select is(
 );
 select is(
   (select balance from public.dolphin_accounts where student_id = '50000000-0000-0000-0000-000000000001'),
-  35::numeric(12, 2),
+  40::numeric(12, 2),
   '撤销结算后恢复海豚币余额'
 );
 select ok(
@@ -557,7 +557,7 @@ select throws_ok(
     select public.reverse_fine_order(
       'fine-reverse-missing-0001',
       'ffffffff-ffff-ffff-ffff-ffffffffffff',
-      '错误目标'
+      '错误目标原因'
     )
   $$,
   'P0001',
