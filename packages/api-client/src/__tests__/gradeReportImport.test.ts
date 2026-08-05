@@ -80,4 +80,14 @@ describe('grade report imports', () => {
       ),
     ).toThrowError(expect.objectContaining({ code: 'VALIDATION_ERROR' }));
   });
+
+  it('CSV 中三位小数在规范化边界被拒绝', () => {
+    expect(() =>
+      normalizeGradeReportCsv(
+        context,
+        definition,
+        'student_id,笔试,笔试评语,实践\n50000000-0000-0000-0000-000000000001,90.999,,18',
+      ),
+    ).toThrowError(expect.objectContaining({ code: 'VALIDATION_ERROR' }));
+  });
 });

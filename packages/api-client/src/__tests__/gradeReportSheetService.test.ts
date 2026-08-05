@@ -5,11 +5,32 @@ import { SupabaseGradeReportSheetService } from '../gradeReportSheetService';
 
 const sheet = {
   classId: '20000000-0000-0000-0000-000000000001',
-  columns: [],
+  columns: [
+    {
+      columnKey: 'written',
+      id: '86000000-0000-0000-0000-000000000001',
+      maxScore: 100,
+      name: '笔试',
+      position: 0,
+    },
+  ],
   createdAt: '2026-08-05T00:00:00Z',
   id: '85000000-0000-0000-0000-000000000001',
   publishedAt: null,
-  rows: [],
+  rows: [
+    {
+      id: '87000000-0000-0000-0000-000000000001',
+      studentId: '50000000-0000-0000-0000-000000000001',
+      values: [
+        {
+          columnId: '86000000-0000-0000-0000-000000000001',
+          comment: '',
+          id: '88000000-0000-0000-0000-000000000001',
+          score: 92,
+        },
+      ],
+    },
+  ],
   source: 'grid',
   status: 'draft',
   subject: '数学',
@@ -90,5 +111,114 @@ describe('SupabaseGradeReportSheetService', () => {
     expect(rpc).toHaveBeenCalledWith('publish_grade_report_sheet', {
       target_sheet_id: sheet.id,
     });
+  });
+
+  it('教师按当前班级列出草稿和已发布成绩单', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: [sheet], error: null });
+    const service = new SupabaseGradeReportSheetService(
+      { rpc } as unknown as SupabaseClient,
+    );
+
+    await expect(service.listClassSheets(sheet.classId)).resolves.toHaveLength(1);
+    expect(rpc).toHaveBeenCalledWith('list_grade_report_sheets_for_class', {
+      target_class_id: sheet.classId,
+    });
+  });
+
+  it('教师重新打开指定成绩单', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: sheet, error: null });
+    const service = new SupabaseGradeReportSheetService(
+      { rpc } as unknown as SupabaseClient,
+    );
+
+    await expect(service.getSheet(sheet.id)).resolves.toMatchObject({
+      id: sheet.id,
+    });
+    expect(rpc).toHaveBeenCalledWith('get_grade_report_sheet', {
+      target_sheet_id: sheet.id,
+    });
+  });
+
+  it('畸形成绩单 RPC 响应返回 INTERNAL_ERROR', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: { ...sheet, rows: [{ ...sheet.rows[0], values: [] }] },
+      error: null,
+    });
+    const service = new SupabaseGradeReportSheetService(
+      { rpc } as unknown as SupabaseClient,
+    );
+
+    await expect(service.getSheet(sheet.id)).rejects.toMatchObject({
+      code: 'INTERNAL_ERROR',
+    });
+  });
+
+  it('非法状态和 numeric 字符串响应不能被强制转换', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: [{ ...sheet, status: 'withdrawn', rows: [{ ...sheet.rows[0], values: [{ ...sheet.rows[0]!.values[0], score: '92' }] }] }],
+      error: null,
+    });
+    const service = new SupabaseGradeReportSheetService(
+      { rpc } as unknown as SupabaseClient,
+    );
+
+    await expect(service.listClassSheets(sheet.classId)).rejects.toMatchObject({
+      code: 'INTERNAL_ERROR',
+    });
+  });
+
+  it('所有读取和发布 ID 在请求前验证', async () => {
+    const rpc = vi.fn();
+    const from = vi.fn();
+    const service = new SupabaseGradeReportSheetService(
+      { from, rpc } as unknown as SupabaseClient,
+    );
+
+    await expect(service.getSheet('not-a-uuid')).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+    });
+    await expect(service.listClassSheets('not-a-uuid')).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+    });
+    await expect(service.listStudentSheets('not-a-uuid')).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+    });
+    await expect(service.publishSheet('not-a-uuid')).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+    });
+    await expect(service.listValueRevisions('not-a-uuid')).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+    });
+    expect(rpc).not.toHaveBeenCalled();
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it('畸形修订历史响应返回 INTERNAL_ERROR', async () => {
+    const order = vi.fn().mockResolvedValue({
+      data: [
+        {
+          actor_id: sheet.teacherId,
+          created_at: sheet.createdAt,
+          id: '89000000-0000-0000-0000-000000000001',
+          new_comment: '',
+          new_score: 90.999,
+          old_comment: '',
+          old_score: 90,
+          reason: '合成复核',
+          value_id: sheet.rows[0]!.values[0]!.id,
+        },
+      ],
+      error: null,
+    });
+    const eq = vi.fn().mockReturnValue({ order });
+    const select = vi.fn().mockReturnValue({ eq });
+    const from = vi.fn().mockReturnValue({ select });
+    const service = new SupabaseGradeReportSheetService(
+      { from } as unknown as SupabaseClient,
+    );
+
+    await expect(
+      service.listValueRevisions(sheet.rows[0]!.values[0]!.id),
+    ).rejects.toMatchObject({ code: 'INTERNAL_ERROR' });
   });
 });

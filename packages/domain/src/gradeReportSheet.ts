@@ -1,8 +1,10 @@
-import type { ContentStatus } from './contentStatus';
-
 export const GRADE_REPORT_IMPORT_SOURCES = ['grid', 'csv', 'xlsx'] as const;
 export type GradeReportImportSource =
   (typeof GRADE_REPORT_IMPORT_SOURCES)[number];
+
+export const GRADE_REPORT_SHEET_STATUSES = ['draft', 'published'] as const;
+export type GradeReportSheetStatus =
+  (typeof GRADE_REPORT_SHEET_STATUSES)[number];
 
 export type GradeReportColumn = {
   readonly columnKey: string;
@@ -33,7 +35,7 @@ export type GradeReportSheet = {
   readonly publishedAt: string | null;
   readonly rows: readonly GradeReportStudentRow[];
   readonly source: GradeReportImportSource;
-  readonly status: ContentStatus;
+  readonly status: GradeReportSheetStatus;
   readonly subject: string;
   readonly teacherId: string;
   readonly title: string;

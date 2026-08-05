@@ -62,4 +62,22 @@ describe('grade report sheet schemas', () => {
     };
     expect(() => saveGradeReportSheetDraftSchema.parse(draft)).toThrow();
   });
+
+  it('拒绝超过两位小数的成绩值', () => {
+    const draft = createDraft();
+    draft.rows[0]!.values[0]!.score = 90.999;
+    expect(() => saveGradeReportSheetDraftSchema.parse(draft)).toThrow();
+  });
+
+  it('拒绝超过两位小数或范围的满分', () => {
+    const excessivePrecision = createDraft();
+    excessivePrecision.columns[0]!.maxScore = 99.999;
+    expect(() =>
+      saveGradeReportSheetDraftSchema.parse(excessivePrecision),
+    ).toThrow();
+
+    const excessiveRange = createDraft();
+    excessiveRange.columns[0]!.maxScore = 100000;
+    expect(() => saveGradeReportSheetDraftSchema.parse(excessiveRange)).toThrow();
+  });
 });

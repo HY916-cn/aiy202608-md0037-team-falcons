@@ -116,11 +116,13 @@
 | 方法与路径 | 说明 |
 | --- | --- |
 | `PUT /grade-report-sheets/{id?}` | 原子保存填写表格或 CSV/XLSX 规范化 DTO 草稿 |
+| `GET /classes/{id}/grade-report-sheets` | 当前授权教师列出本人在当前班级创建的草稿和已发布成绩单 |
+| `GET /grade-report-sheets/{id}` | 当前授权教师重新打开本人创建的指定成绩单 |
 | `POST /grade-report-sheets/{id}/publish` | 一次发布整张成绩单 |
 | `PATCH /grade-report-values/{id}` | 修订已发布的单个值并写不可变历史 |
 | `GET /students/{id}/grade-report-sheets` | 家庭端只返回绑定学生本人的已发布成绩单和值 |
 
-数据库实现对应 `save_grade_report_sheet_draft`、`publish_grade_report_sheet`、`revise_grade_report_value` 和 `list_published_grade_report_sheets_for_student` RPC。RPC 不接收 `actor_id` 或角色，身份只来自当前 Supabase JWT。上传解析层必须先把 CSV 或 XLSX 二维单元格规范化为同一个整表 DTO；任一列名、学生、数值或满分校验失败时，RPC 不写入任何数据。
+数据库实现对应 `save_grade_report_sheet_draft`、`list_grade_report_sheets_for_class`、`get_grade_report_sheet`、`publish_grade_report_sheet`、`revise_grade_report_value` 和 `list_published_grade_report_sheets_for_student` RPC。RPC 不接收 `actor_id` 或角色，身份只来自当前 Supabase JWT；教师读取、编辑、发布或修订时还必须保有当前班级的有效教师授权，历史 `teacher_id` 不能替代当前授权。上传解析层必须先把 CSV 或 XLSX 二维单元格规范化为同一个整表 DTO；分数与可选满分统一限制为 `0..99999.99` 且最多两位小数。任一 JSON 类型、列名、学生、位置、数值、精度或满分校验失败时，RPC 稳定返回 `VALIDATION_ERROR`，且不写入任何数据。
 
 ### 3.6 海豚币与罚款
 

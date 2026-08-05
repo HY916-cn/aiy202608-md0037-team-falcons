@@ -4,6 +4,10 @@ import type {
   GradeReportValueRevision,
 } from '@dolphincloud/domain';
 import {
+  databaseIdSchema,
+  gradeReportSheetListResponseSchema,
+  gradeReportSheetResponseSchema,
+  gradeReportValueRevisionRowsSchema,
   reviseGradeReportValueSchema,
   saveGradeReportSheetDraftSchema,
 } from '@dolphincloud/validation';
@@ -39,6 +43,8 @@ export type ReviseGradeReportValueInput = {
 };
 
 export interface GradeReportSheetService {
+  getSheet(sheetId: string): Promise<GradeReportSheet>;
+  listClassSheets(classId: string): Promise<readonly GradeReportSheet[]>;
   listStudentSheets(studentId: string): Promise<readonly GradeReportSheet[]>;
   listValueRevisions(
     valueId: string,
@@ -63,11 +69,28 @@ type GradeReportRevisionRow = {
   readonly value_id: string;
 };
 
-function assertSheet(value: unknown): GradeReportSheet {
-  if (typeof value !== 'object' || value === null || !('id' in value)) {
-    throw new ApiClientError('INTERNAL_ERROR');
+function parseDatabaseId(value: string): string {
+  const parsed = databaseIdSchema.safeParse(value);
+  if (!parsed.success) {
+    throw new ApiClientError('VALIDATION_ERROR', { cause: parsed.error });
   }
-  return value as GradeReportSheet;
+  return parsed.data;
+}
+
+function parseSheet(value: unknown): GradeReportSheet {
+  const parsed = gradeReportSheetResponseSchema.safeParse(value);
+  if (!parsed.success) {
+    throw new ApiClientError('INTERNAL_ERROR', { cause: parsed.error });
+  }
+  return parsed.data;
+}
+
+function parseSheetList(value: unknown): readonly GradeReportSheet[] {
+  const parsed = gradeReportSheetListResponseSchema.safeParse(value);
+  if (!parsed.success) {
+    throw new ApiClientError('INTERNAL_ERROR', { cause: parsed.error });
+  }
+  return parsed.data;
 }
 
 function mapRevision(row: GradeReportRevisionRow): GradeReportValueRevision {
@@ -113,43 +136,75 @@ export class SupabaseGradeReportSheetService
 {
   constructor(private readonly client: SupabaseClient) {}
 
+  async getSheet(sheetId: string): Promise<GradeReportSheet> {
+    const parsedSheetId = parseDatabaseId(sheetId);
+    const { data, error } = await this.client.rpc('get_grade_report_sheet', {
+      target_sheet_id: parsedSheetId,
+    });
+    if (error !== null || data === null) {
+      throw new ApiClientError('FORBIDDEN', { cause: error });
+    }
+    return parseSheet(data);
+  }
+
+  async listClassSheets(
+    classId: string,
+  ): Promise<readonly GradeReportSheet[]> {
+    const parsedClassId = parseDatabaseId(classId);
+    const { data, error } = await this.client.rpc(
+      'list_grade_report_sheets_for_class',
+      { target_class_id: parsedClassId },
+    );
+    if (error !== null || data === null) {
+      throw new ApiClientError('FORBIDDEN', { cause: error });
+    }
+    return parseSheetList(data);
+  }
+
   async listStudentSheets(
     studentId: string,
   ): Promise<readonly GradeReportSheet[]> {
+    const parsedStudentId = parseDatabaseId(studentId);
     const { data, error } = await this.client.rpc(
       'list_published_grade_report_sheets_for_student',
-      { target_student_id: studentId },
+      { target_student_id: parsedStudentId },
     );
-    if (error !== null || !Array.isArray(data)) {
+    if (error !== null || data === null) {
       throw new ApiClientError('FORBIDDEN', { cause: error });
     }
-    return data.map(assertSheet);
+    return parseSheetList(data);
   }
 
   async listValueRevisions(
     valueId: string,
   ): Promise<readonly GradeReportValueRevision[]> {
+    const parsedValueId = parseDatabaseId(valueId);
     const { data, error } = await this.client
       .from('grade_report_value_revisions')
       .select(
         'id, value_id, old_score, new_score, old_comment, new_comment, reason, actor_id, created_at',
       )
-      .eq('value_id', valueId)
+      .eq('value_id', parsedValueId)
       .order('created_at', { ascending: false });
     if (error !== null || data === null) {
       throw new ApiClientError('FORBIDDEN', { cause: error });
     }
-    return (data as GradeReportRevisionRow[]).map(mapRevision);
+    const parsedRows = gradeReportValueRevisionRowsSchema.safeParse(data);
+    if (!parsedRows.success) {
+      throw new ApiClientError('INTERNAL_ERROR', { cause: parsedRows.error });
+    }
+    return (parsedRows.data as GradeReportRevisionRow[]).map(mapRevision);
   }
 
   async publishSheet(sheetId: string): Promise<GradeReportSheet> {
+    const parsedSheetId = parseDatabaseId(sheetId);
     const { data, error } = await this.client.rpc('publish_grade_report_sheet', {
-      target_sheet_id: sheetId,
+      target_sheet_id: parsedSheetId,
     });
     if (error !== null || data === null) {
       throw new ApiClientError('FORBIDDEN', { cause: error });
     }
-    return assertSheet(data);
+    return parseSheet(data);
   }
 
   async reviseValue(
@@ -169,7 +224,7 @@ export class SupabaseGradeReportSheetService
     if (error !== null || data === null) {
       throw new ApiClientError('FORBIDDEN', { cause: error });
     }
-    return assertSheet(data);
+    return parseSheet(data);
   }
 
   async saveDraft(
@@ -186,6 +241,6 @@ export class SupabaseGradeReportSheetService
     if (error !== null || data === null) {
       throw new ApiClientError('FORBIDDEN', { cause: error });
     }
-    return assertSheet(data);
+    return parseSheet(data);
   }
 }

@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(50);
+select plan(69);
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000001', true);
@@ -60,6 +60,21 @@ select ok(
   (select published_at is not null from public.grade_report_sheets where id = '85000000-0000-0000-0000-000000000002'),
   '整张成绩单记录发布时间'
 );
+select is(
+  jsonb_array_length(public.list_grade_report_sheets_for_class('20000000-0000-0000-0000-000000000001')),
+  2,
+  '当前教师可以按班级列出草稿和已发布成绩单'
+);
+select is(
+  public.get_grade_report_sheet('85000000-0000-0000-0000-000000000001') ->> 'status',
+  'draft',
+  '当前教师可以重新打开指定草稿成绩单'
+);
+select is(
+  public.get_grade_report_sheet('85000000-0000-0000-0000-000000000002') ->> 'status',
+  'published',
+  '当前教师可以重新打开指定已发布成绩单'
+);
 
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000021', true);
 select is((select count(*) from public.grade_report_sheets), 1::bigint, '家庭端只看到已发布成绩单');
@@ -86,6 +101,18 @@ select is(
   '50000000-0000-0000-0000-000000000001',
   '家庭读取 RPC 返回当前绑定学生'
 );
+select throws_ok(
+  $$ select public.list_grade_report_sheets_for_class('20000000-0000-0000-0000-000000000001') $$,
+  'P0001',
+  'FORBIDDEN',
+  '家庭端不能调用教师班级成绩单列表'
+);
+select throws_ok(
+  $$ select public.get_grade_report_sheet('85000000-0000-0000-0000-000000000002') $$,
+  'P0001',
+  'NOT_FOUND',
+  '家庭端不能调用教师成绩单详情'
+);
 
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000023', true);
 select is((select count(*) from public.grade_report_sheets), 1::bigint, '多学生家庭看到已绑定学生的已发布成绩单');
@@ -107,14 +134,50 @@ select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000011
 select is((select count(*) from public.grade_report_sheets), 0::bigint, '班级端不读取成绩单');
 select is((select count(*) from public.grade_report_rows), 0::bigint, '班级端不读取个人成绩行');
 select is((select count(*) from public.grade_report_values), 0::bigint, '班级端个人成绩值读取结果为零');
+select throws_ok(
+  $$ select public.list_grade_report_sheets_for_class('20000000-0000-0000-0000-000000000001') $$,
+  'P0001',
+  'FORBIDDEN',
+  '班级端不能调用教师班级成绩单列表'
+);
+select throws_ok(
+  $$ select public.get_grade_report_sheet('85000000-0000-0000-0000-000000000002') $$,
+  'P0001',
+  'NOT_FOUND',
+  '班级端不能调用教师成绩单详情'
+);
 
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000031', true);
 select is((select count(*) from public.grade_report_sheets), 0::bigint, '银行端不读取成绩单');
 select is((select count(*) from public.grade_report_values), 0::bigint, '银行端不读取个人成绩值');
+select throws_ok(
+  $$ select public.list_grade_report_sheets_for_class('20000000-0000-0000-0000-000000000001') $$,
+  'P0001',
+  'FORBIDDEN',
+  '银行端不能调用教师班级成绩单列表'
+);
+select throws_ok(
+  $$ select public.get_grade_report_sheet('85000000-0000-0000-0000-000000000002') $$,
+  'P0001',
+  'NOT_FOUND',
+  '银行端不能调用教师成绩单详情'
+);
 
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000041', true);
 select is((select count(*) from public.grade_report_sheets), 0::bigint, '自治会端不读取成绩单');
 select is((select count(*) from public.grade_report_values), 0::bigint, '自治会端不读取个人成绩值');
+select throws_ok(
+  $$ select public.list_grade_report_sheets_for_class('20000000-0000-0000-0000-000000000001') $$,
+  'P0001',
+  'FORBIDDEN',
+  '自治会端不能调用教师班级成绩单列表'
+);
+select throws_ok(
+  $$ select public.get_grade_report_sheet('85000000-0000-0000-0000-000000000002') $$,
+  'P0001',
+  'NOT_FOUND',
+  '自治会端不能调用教师成绩单详情'
+);
 
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000051', true);
 select is((select count(*) from public.grade_report_sheets), 2::bigint, '管理端只审计两张成绩单元数据');
@@ -123,6 +186,18 @@ select is((select count(*) from public.grade_report_rows), 0::bigint, '管理端
 select is((select count(*) from public.grade_report_values), 0::bigint, '管理端默认不读取个人成绩值');
 
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000002', true);
+select throws_ok(
+  $$ select public.list_grade_report_sheets_for_class('20000000-0000-0000-0000-000000000001') $$,
+  'P0001',
+  'FORBIDDEN',
+  '其他教师不能调用未任教班级成绩单列表'
+);
+select throws_ok(
+  $$ select public.get_grade_report_sheet('85000000-0000-0000-0000-000000000002') $$,
+  'P0001',
+  'NOT_FOUND',
+  '其他教师不能读取非本人成绩单详情'
+);
 select throws_ok(
   $$ select public.publish_grade_report_sheet('85000000-0000-0000-0000-000000000001') $$,
   'P0001',
@@ -191,6 +266,53 @@ select is(
   (select count(*) from public.grade_report_sheets where id = '85000000-0000-0000-0000-000000000001'),
   0::bigint,
   '家庭端始终看不到未发布的单项目草稿'
+);
+
+select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000001', true);
+select set_config(
+  'app.grade_report_revoked_value_id',
+  (
+    select report_value.id::text
+    from public.grade_report_values as report_value
+    join public.grade_report_rows as report_row on report_row.id = report_value.row_id
+    join public.grade_report_columns as report_column on report_column.id = report_value.column_id
+    where report_row.sheet_id = '85000000-0000-0000-0000-000000000002'
+      and report_row.student_id = '50000000-0000-0000-0000-000000000001'
+      and report_column.column_key = 'written'
+  ),
+  true
+);
+reset role;
+delete from public.teacher_class_assignments
+where teacher_id = '30000000-0000-0000-0000-000000000001'
+  and class_id = '20000000-0000-0000-0000-000000000001';
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000001', true);
+select is((select count(*) from public.grade_report_sheets), 0::bigint, '撤销任教关系后教师不能 select 历史成绩单');
+select is((select count(*) from public.grade_report_rows), 0::bigint, '撤销任教关系后教师不能 select 历史学生行');
+select is((select count(*) from public.grade_report_value_revisions), 0::bigint, '撤销任教关系后教师不能 select 历史修订');
+select throws_ok(
+  $$ select public.list_grade_report_sheets_for_class('20000000-0000-0000-0000-000000000001') $$,
+  'P0001',
+  'FORBIDDEN',
+  '撤销任教关系后教师不能列出班级成绩单'
+);
+select throws_ok(
+  $$ select public.get_grade_report_sheet('85000000-0000-0000-0000-000000000002') $$,
+  'P0001',
+  'FORBIDDEN',
+  '撤销任教关系后教师不能重新打开历史成绩单'
+);
+select throws_ok(
+  format(
+    'select public.revise_grade_report_value(%L::uuid, 96, %L, %L)',
+    current_setting('app.grade_report_revoked_value_id'),
+    '越权修订',
+    '任教关系已撤销'
+  ),
+  'P0001',
+  'NOT_FOUND',
+  '撤销任教关系后教师不能修订已发布成绩'
 );
 
 select * from finish();
