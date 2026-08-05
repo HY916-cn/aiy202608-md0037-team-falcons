@@ -111,6 +111,17 @@
 | `PATCH /grades/{id}` | 修正成绩并写修订记录 |
 | `GET /students/{id}/grades` | 查询授权学生成绩 |
 
+新增成绩单契约使用以下逻辑接口；旧 `assessments` 单成绩字段接口在迁移期间保持兼容：
+
+| 方法与路径 | 说明 |
+| --- | --- |
+| `PUT /grade-report-sheets/{id?}` | 原子保存填写表格或 CSV/XLSX 规范化 DTO 草稿 |
+| `POST /grade-report-sheets/{id}/publish` | 一次发布整张成绩单 |
+| `PATCH /grade-report-values/{id}` | 修订已发布的单个值并写不可变历史 |
+| `GET /students/{id}/grade-report-sheets` | 家庭端只返回绑定学生本人的已发布成绩单和值 |
+
+数据库实现对应 `save_grade_report_sheet_draft`、`publish_grade_report_sheet`、`revise_grade_report_value` 和 `list_published_grade_report_sheets_for_student` RPC。RPC 不接收 `actor_id` 或角色，身份只来自当前 Supabase JWT。上传解析层必须先把 CSV 或 XLSX 二维单元格规范化为同一个整表 DTO；任一列名、学生、数值或满分校验失败时，RPC 不写入任何数据。
+
 ### 3.6 海豚币与罚款
 
 | 方法与路径 | 说明 |
