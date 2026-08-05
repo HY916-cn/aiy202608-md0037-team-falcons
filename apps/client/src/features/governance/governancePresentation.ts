@@ -3,11 +3,15 @@ import type { RoleNavigationKey } from '@dolphincloud/ui';
 
 export type GovernanceExperienceMode =
   | 'class_score'
+  | 'class_inspections'
+  | 'class_appeals'
   | 'family_growth'
   | 'family_wallet'
   | 'student_score'
   | 'teacher_wallet'
-  | 'wallet';
+  | 'wallet_accounts'
+  | 'wallet_fines'
+  | 'wallet_transactions';
 
 export function resolveGovernanceExperienceMode(
   role: RoleCode,
@@ -19,12 +23,12 @@ export function resolveGovernanceExperienceMode(
   if (role === 'family' && navigation === 'growth') return 'family_growth';
   if (role === 'family' && navigation === 'coins') return 'family_wallet';
   if (role === 'teacher' && navigation === 'coins') return 'teacher_wallet';
-  if (role === 'bank_operator' && ['accounts', 'fines', 'transactions'].includes(navigation)) {
-    return 'wallet';
-  }
-  if (role === 'council' && ['class_score', 'inspections', 'appeals'].includes(navigation)) {
-    return 'class_score';
-  }
+  if (role === 'bank_operator' && navigation === 'accounts') return 'wallet_accounts';
+  if (role === 'bank_operator' && navigation === 'fines') return 'wallet_fines';
+  if (role === 'bank_operator' && navigation === 'transactions') return 'wallet_transactions';
+  if (role === 'council' && navigation === 'class_score') return 'class_score';
+  if (role === 'council' && navigation === 'inspections') return 'class_inspections';
+  if (role === 'council' && navigation === 'appeals') return 'class_appeals';
   return null;
 }
 

@@ -16,8 +16,12 @@ describe('governance presentation', () => {
     expect(resolveGovernanceExperienceMode('teacher', 'coins')).toBe('teacher_wallet');
     expect(resolveGovernanceExperienceMode('family', 'growth')).toBe('family_growth');
     expect(resolveGovernanceExperienceMode('family', 'coins')).toBe('family_wallet');
-    expect(resolveGovernanceExperienceMode('bank_operator', 'fines')).toBe('wallet');
-    expect(resolveGovernanceExperienceMode('council', 'appeals')).toBe('class_score');
+    expect(resolveGovernanceExperienceMode('bank_operator', 'accounts')).toBe('wallet_accounts');
+    expect(resolveGovernanceExperienceMode('bank_operator', 'fines')).toBe('wallet_fines');
+    expect(resolveGovernanceExperienceMode('bank_operator', 'transactions')).toBe('wallet_transactions');
+    expect(resolveGovernanceExperienceMode('council', 'class_score')).toBe('class_score');
+    expect(resolveGovernanceExperienceMode('council', 'inspections')).toBe('class_inspections');
+    expect(resolveGovernanceExperienceMode('council', 'appeals')).toBe('class_appeals');
     expect(resolveGovernanceExperienceMode('admin', 'audit')).toBeNull();
   });
 

@@ -463,6 +463,17 @@ export function RoleHomeScreen({
 
   return (
     <View style={styles.shell}>
+      {isAccountOpen || isNotificationsOpen ? (
+        <InteractivePressable
+          accessibilityLabel="关闭弹出菜单"
+          accessibilityRole="button"
+          onPress={() => {
+            setIsAccountOpen(false);
+            setIsNotificationsOpen(false);
+          }}
+          style={styles.menuDismissLayer}
+        />
+      ) : null}
       {isWide ? (
         <View style={styles.sidebar}>
           <BrandLockup />
@@ -589,4 +600,5 @@ const styles = StyleSheet.create({
   mobileOverflowItemLabel: { color: theme.color.text.primary, flex: 1, fontSize: theme.text.size.sm, fontWeight: '700' },
   mobileOverflowMenu: { backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, bottom: 70, elevation: 10, gap: theme.space.xs, padding: theme.space.xs, position: 'absolute', right: theme.space.sm, width: 190 },
   mobileOverflowRow: { minHeight: 52 },
+  menuDismissLayer: { bottom: 0, left: 0, position: 'absolute', right: 0, top: 72, zIndex: 19 },
 });

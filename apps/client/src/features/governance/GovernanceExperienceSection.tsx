@@ -1,4 +1,4 @@
-import type { AuthRoleScope } from '@dolphincloud/auth';
+import { ROLE_LABELS, type AuthRoleScope } from '@dolphincloud/auth';
 import type {
   GovernanceSnapshot,
 } from '@dolphincloud/api-client';
@@ -107,7 +107,7 @@ function Selector({
   readonly value: string;
 }) {
   return (
-    <View style={styles.fieldGroup}>
+    <View style={styles.selectorGroup}>
       <Text style={styles.fieldLabel}>{label}</Text>
       <View style={styles.choiceRow}>
         {options.map((option) => (
@@ -608,7 +608,7 @@ function StudentScorePanel({
   );
 }
 
-function ClassScorePanel({ requestWrite, roleScope, snapshot }: { readonly requestWrite: RequestWrite; readonly roleScope: AuthRoleScope; readonly snapshot: GovernanceSnapshot }) {
+function ClassScorePanel({ mode, requestWrite, roleScope, snapshot }: { readonly mode: 'class_appeals' | 'class_inspections' | 'class_score'; readonly requestWrite: RequestWrite; readonly roleScope: AuthRoleScope; readonly snapshot: GovernanceSnapshot }) {
   const service = useSupabaseServices().governanceService;
   const [classId, setClassId] = useState(snapshot.classes[0]?.id ?? '');
   const [categoryId, setCategoryId] = useState(snapshot.classCategories[0]?.id ?? '');
@@ -619,14 +619,17 @@ function ClassScorePanel({ requestWrite, roleScope, snapshot }: { readonly reque
 
   return (
     <>
-      <Panel description="自治会按指定班级记录班级分，所有变动通过受控 RPC 留痕。" icon={ShieldCheck} title="班级分管理">
+      {mode === 'class_score' ? <Panel description="自治会按指定班级记录班级分，所有变动通过受控 RPC 留痕。" icon={ShieldCheck} title="班级分管理">
         <Selector label="班级" onChange={setClassId} options={snapshot.classes.map((item) => ({ id: item.id, label: item.name }))} value={classId} />
         <Selector label="检查项目" onChange={setCategoryId} options={snapshot.classCategories.filter((item) => item.isActive).map((item) => ({ id: item.id, label: item.displayName }))} value={categoryId} />
         <View style={styles.formRow}><Field label="本次分值" onChange={setDelta} value={delta} /><Field label="变动原因" onChange={setReason} value={reason} /></View>
         <Button disabled={classId === '' || categoryId === '' || !validInteger(delta)} label="预览并记录班级分" onPress={() => requestWrite({ execute: () => service.applyClassScore(roleScope, { categoryId, classId, delta: Number(delta), reason }), impact: ['新增班级分变动并重算排行'], isDangerous: Number(delta) < 0, operationType: '班级分调整', parameters: [`分值：${delta}`, `原因：${reason}`], targets: [snapshot.classes.find((item) => item.id === classId)?.name ?? '所选班级'] }, '班级分已记录')} />
         <View style={styles.metricRow}>{snapshot.classScores.map((item) => <View key={item.id} style={styles.metric}><Text style={styles.metricValue}>#{item.rank} · {item.score}</Text><Text style={styles.metricLabel}>{item.name}</Text></View>)}</View>
-      </Panel>
-      <Panel description="接受将通过服务端生成反向记录；拒绝仅关闭申请。两种处理都保留审计。" icon={ClipboardCheck} title="更正申请处理">
+      </Panel> : null}
+      {mode === 'class_inspections' ? <Panel description="查看当前学校已经提交的检查与班级分变动，记录不可直接删除。" icon={History} title="检查记录">
+        {snapshot.classEntries.length === 0 ? <Text style={styles.empty}>当前暂无检查记录。</Text> : snapshot.classEntries.map((entry) => <View key={entry.id} style={styles.record}><View style={styles.recordHeading}><Text style={styles.recordTitle}>{snapshot.classes.find((item) => item.id === entry.classId)?.name ?? '当前班级'}</Text><Text style={[styles.score, entry.delta < 0 && styles.negativeScore]}>{entry.delta > 0 ? '+' : ''}{entry.delta}</Text></View><Text style={styles.recordMeta}>{entry.reason} · {new Date(entry.appliedAt).toLocaleString()}</Text></View>)}
+      </Panel> : null}
+      {mode === 'class_appeals' ? <Panel description="接受将通过服务端生成反向记录；拒绝仅关闭申请。两种处理都保留审计。" icon={ClipboardCheck} title="更正申请处理">
         <Selector label="待处理申请" onChange={setAppealId} options={snapshot.appeals.filter((item) => item.status === 'pending').map((item) => ({ id: item.id, label: item.reason }))} value={appealId} />
         <Field label="处理说明" multiline onChange={setResolution} value={resolution} />
         <View style={styles.choiceRow}>
@@ -634,23 +637,27 @@ function ClassScorePanel({ requestWrite, roleScope, snapshot }: { readonly reque
           <Button disabled={appealId === '' || resolution.trim() === ''} label="预览拒绝申请" secondary onPress={() => requestWrite({ execute: () => service.resolveAppeal(roleScope, appealId, false, resolution), impact: ['关闭申请；班级分保持不变'], isDangerous: false, operationType: '拒绝更正申请', parameters: [`处理说明：${resolution}`], targets: [appealId] }, '更正申请已拒绝')} />
         </View>
         {snapshot.appeals.map((item) => <View key={item.id} style={styles.record}><Text style={styles.recordTitle}>{item.reason}</Text><Text style={styles.status}>{appealStatus(item.status)}</Text>{item.resolutionNote === null ? null : <Text style={styles.recordMeta}>{item.resolutionNote}</Text>}</View>)}
-      </Panel>
+      </Panel> : null}
     </>
   );
 }
 
-function WalletPanel({ requestWrite, roleScope, snapshot }: { readonly requestWrite: RequestWrite; readonly roleScope: AuthRoleScope; readonly snapshot: GovernanceSnapshot }) {
+function WalletPanel({ mode, requestWrite, roleScope, snapshot }: { readonly mode: 'family_wallet' | 'teacher_wallet' | 'wallet_accounts' | 'wallet_fines' | 'wallet_transactions'; readonly requestWrite: RequestWrite; readonly roleScope: AuthRoleScope; readonly snapshot: GovernanceSnapshot }) {
   const service = useSupabaseServices().governanceService;
+  const { width } = useWindowDimensions();
+  const compact = width < 820;
   const [studentId, setStudentId] = useState(snapshot.students[0]?.id ?? '');
   const [amount, setAmount] = useState('10');
   const [reason, setReason] = useState('校园银行账户调整');
   const [ruleName, setRuleName] = useState('物品损坏');
   const [ruleSlug, setRuleSlug] = useState('item_damage');
+  const [selectedRuleId, setSelectedRuleId] = useState(snapshot.fineRules.find((item) => item.isActive)?.id ?? '');
   const [ruleAmount, setRuleAmount] = useState('10');
   const [orderId, setOrderId] = useState(snapshot.fineOrders[0]?.id ?? '');
   const [orderNote, setOrderNote] = useState('经核对后执行指定记录处理');
   const selectedStudent = snapshot.students.find((item) => item.id === studentId);
   const selectedOrder = snapshot.fineOrders.find((item) => item.id === orderId);
+  const selectedRule = snapshot.fineRules.find((item) => item.id === selectedRuleId);
 
   if (roleScope.role === 'family' || roleScope.role === 'teacher') {
     const account = snapshot.accounts[0];
@@ -664,18 +671,42 @@ function WalletPanel({ requestWrite, roleScope, snapshot }: { readonly requestWr
       </Panel>
       {roleScope.role === 'teacher' ? (
         <Panel description="教师可选择班级内学生并关联罚款规则创建罚款单，结算或撤销由校园银行端执行。" icon={ReceiptText} title="罚款单">
-          <Selector label="选择学生" onChange={setStudentId} options={snapshot.students.map((item) => ({ id: item.id, label: item.name }))} value={studentId} />
-          <Selector label="适用规则" onChange={(id) => {
-            setRuleSlug(id);
-            const rule = snapshot.fineRules.find((item) => item.id === id);
-            if (rule !== undefined) {
-              setAmount(String(rule.defaultAmount));
-              setReason(rule.description);
-            }
-          }} options={snapshot.fineRules.filter((item) => item.isActive).map((item) => ({ id: item.id, label: `${item.displayName}（默认 ${item.defaultAmount}）` }))} value={ruleSlug} />
-          <View style={styles.formRow}><Field label="本次罚款金额" onChange={setAmount} value={amount} /><Field label="补充说明" onChange={setReason} value={reason} /></View>
-          <Button disabled={studentId === '' || ruleSlug === '' || !validPositiveInteger(amount)} label="预览并开具罚单" onPress={() => requestWrite({ execute: () => service.createFine(roleScope, { amount: Number(amount), reason, ruleId: ruleSlug, studentId }), impact: ['开具待处理罚款单，不直接扣除余额'], isDangerous: true, operationType: '创建罚款单', parameters: [`金额：${amount}`, `说明：${reason}`], targets: [selectedStudent?.name ?? '所选学生'] }, '罚款单已开具')} />
-          {snapshot.fineOrders.length === 0 ? <Text style={styles.empty}>当前范围暂无罚款单记录。</Text> : snapshot.fineOrders.map((order) => <View key={order.id} style={styles.record}><Text style={styles.recordTitle}>{studentName(snapshot, order.studentId)} · {order.amount} 币 · {order.reason}</Text><Text style={styles.status}>{fineStatus(order.status)}</Text></View>)}
+          <View style={[styles.walletWorkbench, compact && styles.walletWorkbenchCompact]}>
+            <View style={styles.walletForm}>
+              <View style={styles.scoreStep}>
+                <View style={styles.stepHeading}><Text style={styles.stepNumber}>1</Text><View style={styles.headingCopy}><Text style={styles.subTitle}>选择学生</Text><Text style={styles.stepDescription}>一次只处理一名学生，避免误选。</Text></View></View>
+                <Selector label="班级学生" onChange={setStudentId} options={snapshot.students.map((item) => ({ id: item.id, label: item.name }))} value={studentId} />
+              </View>
+              <View style={styles.scoreStep}>
+                <View style={styles.stepHeading}><Text style={styles.stepNumber}>2</Text><View style={styles.headingCopy}><Text style={styles.subTitle}>选择罚款规则</Text><Text style={styles.stepDescription}>自动带入默认金额，本次仍可调整。</Text></View></View>
+                <Selector label="可用规则" onChange={(id) => {
+                  setSelectedRuleId(id);
+                  const rule = snapshot.fineRules.find((item) => item.id === id);
+                  if (rule !== undefined) {
+                    setAmount(String(rule.defaultAmount));
+                    setReason(rule.description);
+                  }
+                }} options={snapshot.fineRules.filter((item) => item.isActive).map((item) => ({ id: item.id, label: `${item.displayName} · 默认 ${item.defaultAmount}` }))} value={selectedRuleId} />
+              </View>
+              <View style={styles.scoreStep}>
+                <View style={styles.stepHeading}><Text style={styles.stepNumber}>3</Text><View style={styles.headingCopy}><Text style={styles.subTitle}>填写本次单据</Text><Text style={styles.stepDescription}>确认金额和具体原因后再预览。</Text></View></View>
+                <View style={styles.formRow}><Field label="本次金额" onChange={setAmount} value={amount} /><Field label="具体原因" onChange={setReason} value={reason} /></View>
+              </View>
+            </View>
+            <View style={[styles.walletSummary, compact && styles.walletSummaryCompact]}>
+              <Text style={styles.summaryEyebrow}>罚款单预览</Text>
+              <Text style={styles.summaryTitle}>{selectedStudent?.name ?? '尚未选择学生'}</Text>
+              <View style={styles.summaryRow}><Text style={styles.summaryLabel}>适用规则</Text><Text style={styles.summaryValue}>{selectedRule?.displayName ?? '尚未选择'}</Text></View>
+              <View style={styles.summaryRow}><Text style={styles.summaryLabel}>本次金额</Text><Text style={styles.summaryDelta}>{validPositiveInteger(amount) ? amount : '—'}</Text></View>
+              <View style={styles.summaryReason}><Text style={styles.summaryLabel}>原因</Text><Text style={styles.summaryReasonText}>{reason.trim() || '尚未填写'}</Text></View>
+              <Text style={styles.summaryHint}>创建后状态为“待处理”，不会立即扣除海豚币。</Text>
+              <Button disabled={studentId === '' || selectedRuleId === '' || !validPositiveInteger(amount) || reason.trim().length < 2} label="预览并开具罚单" onPress={() => requestWrite({ execute: () => service.createFine(roleScope, { amount: Number(amount), reason: reason.trim(), ruleId: selectedRuleId, studentId }), impact: ['开具待处理罚款单，不直接扣除余额'], isDangerous: true, operationType: '创建罚款单', parameters: [`规则：${selectedRule?.displayName ?? '-'}`, `金额：${amount}`, `说明：${reason.trim()}`], targets: [selectedStudent?.name ?? '所选学生'] }, '罚款单已开具')} />
+            </View>
+          </View>
+          <View style={styles.subsection}>
+            <Text style={styles.subTitle}>最近罚款单</Text>
+            {snapshot.fineOrders.length === 0 ? <Text style={styles.empty}>当前范围暂无罚款单记录。</Text> : snapshot.fineOrders.slice(0, 8).map((order) => <View key={order.id} style={styles.record}><View style={styles.recordHeading}><Text style={styles.recordTitle}>{studentName(snapshot, order.studentId)} · {order.amount} 币</Text><Text style={styles.status}>{fineStatus(order.status)}</Text></View><Text style={styles.recordMeta}>{order.reason}</Text></View>)}
+          </View>
         </Panel>
       ) : (
         <Panel description="家庭端只读取绑定学生的罚款状态，不能结算、取消或撤销。" icon={ReceiptText} title="罚款状态">
@@ -688,7 +719,7 @@ function WalletPanel({ requestWrite, roleScope, snapshot }: { readonly requestWr
 
   return (
     <>
-      <Panel description="账户建立与余额变化均由服务端事务完成，不在页面本地伪造。" icon={BadgeDollarSign} title="账户与海豚币操作">
+      {mode === 'wallet_accounts' ? <Panel description="账户建立与余额变化均由服务端事务完成，不在页面本地伪造。" icon={BadgeDollarSign} title="账户与海豚币操作">
         <Selector label="学生账户" onChange={setStudentId} options={snapshot.students.map((item) => ({ id: item.id, label: `${item.name}（余额 ${snapshot.accounts.find((account) => account.studentId === item.id)?.balance ?? 0}）` }))} value={studentId} />
         <View style={styles.formRow}><Field label="金额 / 调整数" onChange={setAmount} value={amount} /><Field label="操作原因" onChange={setReason} value={reason} /></View>
         <View style={styles.choiceRow}>
@@ -696,12 +727,12 @@ function WalletPanel({ requestWrite, roleScope, snapshot }: { readonly requestWr
           <Button disabled={!validPositiveInteger(amount) || studentId === ''} label="预览扣除" secondary onPress={() => requestWrite({ execute: () => service.deductDolphin(roleScope, { amount: Number(amount), reason, studentId }), impact: ['扣除所选学生余额并写入流水'], isDangerous: true, operationType: '扣除海豚币', parameters: [`金额：${amount}`, `原因：${reason}`], targets: [selectedStudent?.name ?? '所选学生'] }, '海豚币已扣除')} />
           <Button disabled={!validInteger(amount) || studentId === ''} label="预览调整" secondary onPress={() => requestWrite({ execute: () => service.adjustDolphin(roleScope, { delta: Number(amount), reason, studentId }), impact: ['按正负调整余额并写入流水'], isDangerous: Number(amount) < 0, operationType: '调整海豚币', parameters: [`调整数：${amount}`, `原因：${reason}`], targets: [selectedStudent?.name ?? '所选学生'] }, '账户余额已调整')} />
         </View>
-      </Panel>
-      <Panel description="罚款规则由校园银行维护；教师创建罚款单时读取同一规则。" icon={Settings2} title="罚款规则">
+      </Panel> : null}
+      {mode === 'wallet_fines' ? <Panel description="罚款规则由校园银行维护；教师创建罚款单时读取同一规则。" icon={Settings2} title="罚款规则">
         <View style={styles.formRow}><Field label="规则名称" onChange={setRuleName} value={ruleName} /><Field label="英文标识" onChange={setRuleSlug} value={ruleSlug} /><Field label="默认金额" onChange={setRuleAmount} value={ruleAmount} /></View>
         <Button disabled={ruleName.trim() === '' || !validPositiveInteger(ruleAmount)} label="预览并保存规则" onPress={() => requestWrite({ execute: () => service.manageFineRule(roleScope, { defaultAmount: Number(ruleAmount), description: `${ruleName}规则`, displayName: ruleName, isActive: true, slug: ruleSlug }), impact: ['更新教师端可选择的罚款规则'], isDangerous: false, operationType: '维护罚款规则', parameters: [`默认金额：${ruleAmount}`], targets: [ruleName] }, '罚款规则已保存')} />
-      </Panel>
-      <Panel description="选择指定罚款单完成结算、取消或撤销；撤销必须填写原因。" icon={ReceiptText} title="罚款单处理">
+      </Panel> : null}
+      {mode === 'wallet_fines' ? <Panel description="选择指定罚款单完成结算、取消或撤销；撤销必须填写原因。" icon={ReceiptText} title="罚款单处理">
         <Selector label="指定罚款单" onChange={setOrderId} options={snapshot.fineOrders.map((item) => ({ id: item.id, label: `${studentName(snapshot, item.studentId)} · ${item.amount} 币 · ${fineStatus(item.status)}` }))} value={orderId} />
         <Field label="取消 / 撤销原因" multiline onChange={setOrderNote} value={orderNote} />
         <View style={styles.choiceRow}>
@@ -710,10 +741,10 @@ function WalletPanel({ requestWrite, roleScope, snapshot }: { readonly requestWr
           <Button dangerous disabled={selectedOrder?.status !== 'settled' || orderNote.trim().length < 5} label="预览指定撤销" onPress={() => requestWrite({ execute: () => service.reverseFine(roleScope, orderId, orderNote), impact: ['向原账户返还该罚款金额并生成反向流水'], isDangerous: true, operationType: '指定撤销罚款', parameters: [`撤销原因：${orderNote}`], targets: [orderId] }, '罚款结算已撤销')} />
         </View>
         {snapshot.fineOrders.map((order) => <View key={order.id} style={styles.record}><Text style={styles.recordTitle}>{studentName(snapshot, order.studentId)} · {order.amount} 币</Text><Text style={styles.status}>{fineStatus(order.status)}</Text><Text style={styles.recordMeta}>{order.reason}</Text></View>)}
-      </Panel>
-      <Panel description="按当前 school scope 读取真实账户流水。" icon={History} title="账户流水">
+      </Panel> : null}
+      {mode === 'wallet_transactions' ? <Panel description="按当前学校权限范围读取真实账户流水。" icon={History} title="账户流水">
         {snapshot.transactions.length === 0 ? <Text style={styles.empty}>暂无账户流水。</Text> : snapshot.transactions.map((item) => <View key={item.id} style={styles.record}><Text style={styles.recordTitle}>{item.delta > 0 ? '+' : ''}{item.delta} · {transactionKind(item.kind)}</Text><Text style={styles.recordMeta}>{item.reason} · 余额 {item.balanceAfter}</Text></View>)}
-      </Panel>
+      </Panel> : null}
     </>
   );
 }
@@ -796,15 +827,17 @@ export function GovernanceExperienceSection({ activeNavigation, roleScope }: { r
   return (
     <View style={[styles.workspace, layout.compact && styles.workspaceCompact]}>
       <View style={styles.scopeBanner}>
-        <View style={styles.headingCopy}><Text style={styles.scopeTitle}>治理工作区 · {roleScope.label}</Text><Text style={styles.scopeMeta}>权限：{roleScope.role} / {roleScope.type}</Text></View>
+        <View style={styles.headingCopy}><Text style={styles.scopeTitle}>治理工作区 · {roleScope.label}</Text><Text style={styles.scopeMeta}>权限：{ROLE_LABELS[roleScope.role]} · {{ class: '班级范围', household: '家庭范围', school: '全校范围' }[roleScope.type]}</Text></View>
         <Text style={styles.liveBadge}>已按当前权限加载</Text>
       </View>
-      {error === null ? null : <View style={styles.feedback}><Text accessibilityRole="alert" style={styles.error}>{error}</Text><Button label="重试加载" secondary onPress={() => void load()} /></View>}
-      {success === null ? null : <Text style={styles.success}>{success}</Text>}
+      <View style={styles.statusRegion}>
+        {error === null ? null : <View style={styles.feedback}><Text accessibilityRole="alert" style={styles.error}>{error}</Text><Button label="重试加载" secondary onPress={() => void load()} /></View>}
+        {success === null ? null : <Text style={styles.success}>{success}</Text>}
+      </View>
       {requestedWrite === null ? null : <WriteActionPreviewCard adapter={executionAdapter} key={requestedWrite.preview.id} onCancel={() => setRequestedWrite(null)} onModify={() => setRequestedWrite(null)} preview={requestedWrite.preview} />}
       {(mode === 'student_score' || mode === 'family_growth') ? <StudentScorePanel requestWrite={requestWrite} roleScope={roleScope} snapshot={snapshot} /> : null}
-      {mode === 'class_score' ? <ClassScorePanel requestWrite={requestWrite} roleScope={roleScope} snapshot={snapshot} /> : null}
-      {(mode === 'wallet' || mode === 'family_wallet' || mode === 'teacher_wallet') ? <WalletPanel requestWrite={requestWrite} roleScope={roleScope} snapshot={snapshot} /> : null}
+      {(mode === 'class_score' || mode === 'class_inspections' || mode === 'class_appeals') ? <ClassScorePanel mode={mode} requestWrite={requestWrite} roleScope={roleScope} snapshot={snapshot} /> : null}
+      {(mode === 'wallet_accounts' || mode === 'wallet_fines' || mode === 'wallet_transactions' || mode === 'family_wallet' || mode === 'teacher_wallet') ? <WalletPanel mode={mode} requestWrite={requestWrite} roleScope={roleScope} snapshot={snapshot} /> : null}
     </View>
   );
 }
@@ -907,6 +940,7 @@ const styles = StyleSheet.create({
   scoreView: { gap: theme.space.base, minWidth: 0 },
   scoreWorkbench: { alignItems: 'flex-start', flexDirection: 'row', gap: theme.space.lg, minWidth: 0 },
   scoreWorkbenchCompact: { flexDirection: 'column' },
+  selectorGroup: { gap: theme.space.sm, minWidth: 0, paddingBottom: theme.space.xs, width: '100%' },
   sectionHeadingCompact: { alignItems: 'flex-start', flexDirection: 'row', gap: theme.space.sm },
   scopeBanner: { alignItems: 'center', backgroundColor: theme.color.surface.card, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.base, padding: theme.space.base },
   scopeMeta: { color: theme.color.text.secondary, fontSize: theme.text.size.xs, marginTop: 3 },
@@ -928,6 +962,7 @@ const styles = StyleSheet.create({
   subsection: { borderTopColor: theme.color.border.default, borderTopWidth: 1, gap: theme.space.sm, paddingTop: theme.space.base },
   subTitle: { color: theme.color.text.primary, fontSize: theme.text.size.md, fontWeight: '800' },
   success: { backgroundColor: theme.color.surface.primaryTint, borderRadius: theme.radius.control, color: theme.color.brand.primary, fontSize: theme.text.size.sm, fontWeight: '800', padding: theme.space.base },
+  statusRegion: { justifyContent: 'center', minHeight: 48 },
   summaryDelta: { color: theme.color.brand.primary, fontSize: 34, fontWeight: '900' },
   summaryDeltaNegative: { color: theme.color.brand.secondary },
   summaryEyebrow: { color: theme.color.brand.primary, fontSize: theme.text.size.xs, fontWeight: '900', letterSpacing: 0.8 },
@@ -939,6 +974,11 @@ const styles = StyleSheet.create({
   summaryTitle: { color: theme.color.text.primary, fontSize: theme.text.size.xl, fontWeight: '900' },
   summaryValue: { color: theme.color.text.primary, flexShrink: 1, fontSize: theme.text.size.sm, fontWeight: '800', textAlign: 'right' },
   validationText: { color: theme.color.brand.secondary, fontSize: theme.text.size.xs, fontWeight: '700' },
+  walletForm: { flex: 1, gap: theme.space.base, minWidth: 0 },
+  walletSummary: { alignSelf: 'flex-start', backgroundColor: theme.color.surface.muted, borderColor: theme.color.border.default, borderRadius: theme.radius.card, borderWidth: 1, gap: theme.space.base, padding: theme.space.lg, width: 310 },
+  walletSummaryCompact: { alignSelf: 'stretch', width: '100%' },
+  walletWorkbench: { alignItems: 'flex-start', flexDirection: 'row', gap: theme.space.lg, minWidth: 0 },
+  walletWorkbenchCompact: { flexDirection: 'column' },
   workspace: { gap: theme.space.base, minWidth: 0 },
   workspaceCompact: { width: '100%' },
 });
