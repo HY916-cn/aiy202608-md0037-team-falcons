@@ -358,7 +358,7 @@ create or replace function public.resolve_class_score_appeal(
   idempotency_key text,
   target_appeal_id uuid,
   accept boolean,
-  resolution_note text
+  p_resolution_note text
 )
 returns public.class_score_appeals
 language plpgsql
@@ -380,7 +380,7 @@ begin
   if idempotency_key is null or char_length(btrim(idempotency_key)) not between 16 and 128 then
     raise exception 'INVALID_IDEMPOTENCY_KEY' using errcode = 'P0001';
   end if;
-  if resolution_note is not null and char_length(btrim(resolution_note)) not between 1 and 500 then
+  if p_resolution_note is not null and char_length(btrim(p_resolution_note)) not between 1 and 500 then
     raise exception 'INVALID_RESOLUTION_NOTE' using errcode = 'P0001';
   end if;
 
@@ -408,7 +408,7 @@ begin
   canonical_payload := jsonb_build_object(
     'appeal_id', target_appeal_id,
     'accept', accept,
-    'note', coalesce(btrim(resolution_note), '')
+    'note', coalesce(btrim(p_resolution_note), '')
   );
 
   select * into op
@@ -491,7 +491,7 @@ begin
     set
       status = case when accept then 'accepted'::public.class_score_appeal_status else 'rejected'::public.class_score_appeal_status end,
       resolver_id = auth.uid(),
-      resolution_note = nullif(btrim(resolution_note), ''),
+      resolution_note = nullif(btrim(p_resolution_note), ''),
       resolve_operation_id = op.operation_id,
       reversal_operation_id = reversal_op_id,
       resolved_at = now()

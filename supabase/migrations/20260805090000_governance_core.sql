@@ -616,3 +616,6 @@ revoke all on function public._governance_can_view_student_governance(uuid) from
 revoke all on function public._governance_can_manage_class_score(uuid) from public;
 revoke all on function public._governance_can_view_class_score(uuid) from public;
 revoke all on function public._governance_can_view_wallet(uuid) from public;
+grant execute on function public._governance_canonicalize_jsonb(jsonb) to authenticated;
+grant execute on function public._governance_fingerprint(public.governance_operation_kind, jsonb) to authenticated;
+grant execute on function public._governance_try_lock_key(text) to authenticated;

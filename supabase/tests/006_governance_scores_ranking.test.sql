@@ -428,15 +428,20 @@ select throws_ok(
 
 -- Class terminal can create an appeal for their own class.
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000011', true);
+select set_config(
+  'app.test.class_score_entry_id',
+  (
+    select id::text from public.class_score_entries
+    where operation_id = (select id from public.operations where idempotency_key = 'cs-council-ok-0001')
+  ),
+  true
+);
 select is(
   (
     select cs.status::text
     from public.create_class_score_appeal(
       'appeal-terminal-0001',
-      (
-        select id from public.class_score_entries
-        where operation_id = (select id from public.operations where idempotency_key = 'cs-council-ok-0001')
-      ),
+      current_setting('app.test.class_score_entry_id')::uuid,
       '希望复核清洁评比结果'
     ) as cs
   ),
@@ -454,10 +459,7 @@ select throws_ok(
       '家庭无权申诉班级分'
     )
   $f$,
-    (
-      select id::text from public.class_score_entries
-      where operation_id = (select id from public.operations where idempotency_key = 'cs-council-ok-0001')
-    )
+    current_setting('app.test.class_score_entry_id')
   ),
   'P0001',
   'FORBIDDEN',
@@ -474,10 +476,7 @@ select throws_ok(
       '重复申诉'
     )
   $f$,
-    (
-      select id::text from public.class_score_entries
-      where operation_id = (select id from public.operations where idempotency_key = 'cs-council-ok-0001')
-    )
+    current_setting('app.test.class_score_entry_id')
   ),
   'P0001',
   'APPEAL_ALREADY_PENDING',
@@ -518,10 +517,7 @@ select throws_ok(
       '试图对已撤销条目申诉'
     )
   $f$,
-    (
-      select id::text from public.class_score_entries
-      where operation_id = (select id from public.operations where idempotency_key = 'cs-council-ok-0001')
-    )
+    current_setting('app.test.class_score_entry_id')
   ),
   'P0001',
   'ENTRY_NOT_APPEALABLE',

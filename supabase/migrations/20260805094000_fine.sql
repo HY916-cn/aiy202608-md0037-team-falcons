@@ -80,11 +80,11 @@ create index idx_fine_order_events__order_created
 create or replace function public.manage_fine_rule(
   idempotency_key text,
   target_school_id uuid,
-  slug text,
-  display_name text,
+  p_slug text,
+  p_display_name text,
   default_amount numeric,
-  description text,
-  is_active boolean
+  p_description text,
+  p_is_active boolean
 )
 returns public.fine_rules
 language plpgsql
@@ -101,16 +101,16 @@ begin
   if idempotency_key is null or char_length(btrim(idempotency_key)) not between 16 and 128 then
     raise exception 'INVALID_IDEMPOTENCY_KEY' using errcode = 'P0001';
   end if;
-  if slug is null or slug !~ '^[a-z][a-z0-9_]{1,39}$' then
+  if p_slug is null or p_slug !~ '^[a-z][a-z0-9_]{1,39}$' then
     raise exception 'INVALID_SLUG' using errcode = 'P0001';
   end if;
-  if display_name is null or char_length(btrim(display_name)) not between 1 and 60 then
+  if p_display_name is null or char_length(btrim(p_display_name)) not between 1 and 60 then
     raise exception 'INVALID_DISPLAY_NAME' using errcode = 'P0001';
   end if;
   if default_amount is null or default_amount <> trunc(default_amount) or default_amount <= 0 or default_amount > 1000000 then
     raise exception 'INVALID_AMOUNT' using errcode = 'P0001';
   end if;
-  if description is null or char_length(description) > 300 then
+  if p_description is null or char_length(p_description) > 300 then
     raise exception 'INVALID_DESCRIPTION' using errcode = 'P0001';
   end if;
 
@@ -126,11 +126,11 @@ begin
 
   canonical_payload := jsonb_build_object(
     'school_id', target_school_id,
-    'slug', slug,
-    'display_name', btrim(display_name),
+    'slug', p_slug,
+    'display_name', btrim(p_display_name),
     'default_amount', default_amount,
-    'description', description,
-    'is_active', is_active
+    'description', p_description,
+    'is_active', p_is_active
   );
 
   select * into op
@@ -155,13 +155,13 @@ begin
   end if;
   if op.is_replay then
     select * into rule from public.fine_rules
-    where school_id = target_school_id and slug = manage_fine_rule.slug;
+    where school_id = target_school_id and slug = p_slug;
     return rule;
   end if;
 
   begin
     insert into public.fine_rules (school_id, slug, display_name, default_amount, description, is_active)
-    values (target_school_id, slug, btrim(display_name), default_amount, description, is_active)
+    values (target_school_id, p_slug, btrim(p_display_name), default_amount, p_description, p_is_active)
     on conflict (school_id, slug) do update set
       display_name = excluded.display_name,
       default_amount = excluded.default_amount,
