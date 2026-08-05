@@ -29,7 +29,7 @@ const NOW = '2026-08-04T04:00:00Z' as Timestamp;
 const LATER = '2026-08-04T04:05:00Z' as Timestamp;
 
 const origCommand: AuthorizedOperationCommand = {
-  kind: 'student_score_adjust',
+  kind: 'student_score_apply',
   actorId: ACTOR_ID,
   actorRole: 'teacher',
   idempotencyKey: 'test-idempotency-reversal-orig' as IdempotencyKey,
@@ -73,7 +73,7 @@ describe('previewReversal', () => {
       reason: '撤销值日',
       now: LATER,
     });
-    expect(preview.originalOperation.status).toBe('applied');
+    expect(preview.originalOperation.status).toBe('succeeded');
     expect(preview.plannedReverseEntries).toHaveLength(1);
     const [planned] = preview.plannedReverseEntries;
     expect(planned?.direction).toBe('debit');
@@ -166,7 +166,7 @@ describe('previewReversal', () => {
 });
 
 describe('buildReversal preconditions', () => {
-  it('rejects reversing a non-applied (pending) operation with E_OPERATION_NOT_APPLIED', () => {
+  it('rejects reversing a non-succeeded (pending) operation with E_OPERATION_NOT_APPLIED', () => {
     const pending = createPendingOperation({
       id: ORIG_OP_ID,
       command: origCommand,
@@ -257,7 +257,7 @@ describe('buildReversal preconditions', () => {
   it('rejects reversing a reversal (E_INVALID_REVOKE_TARGET)', () => {
     const pending = createPendingOperation({
       id: ORIG_OP_ID,
-      command: { ...origCommand, kind: 'reversal', targetType: 'operation' },
+      command: { ...origCommand, kind: 'reversal_apply', targetType: 'operation' },
       now: NOW,
     });
     const applied = markOperationApplied(pending, NOW);
@@ -284,7 +284,7 @@ describe('buildReversal preconditions', () => {
 });
 
 describe('buildReversal happy path and idempotency of intent', () => {
-  it('produces reversed original, applied reversal op, link and reverse entries', () => {
+  it('produces reversed original, succeeded reversal op, link and reverse entries', () => {
     const { operation, entry } = seedAppliedWithEntry();
     const result = buildReversal({
       original: operation,
@@ -308,8 +308,8 @@ describe('buildReversal happy path and idempotency of intent', () => {
     expect(entry.amount).toBe(2);
     expect(entry.reverseOfEntryId).toBeNull();
 
-    expect(result.reversalOperation.status).toBe('applied');
-    expect(result.reversalOperation.kind).toBe('reversal');
+    expect(result.reversalOperation.status).toBe('succeeded');
+    expect(result.reversalOperation.kind).toBe('reversal_apply');
     expect(result.reversalOperation.actorId).toBe(REV_ACTOR_ID);
     expect(result.reversalOperation.targetType).toBe('operation');
     expect(result.reversalOperation.targetId).toBe(operation.id);

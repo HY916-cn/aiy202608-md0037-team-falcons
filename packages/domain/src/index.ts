@@ -9,19 +9,26 @@ export type Timestamp = Brand<string, 'Timestamp'>;
 export type IdempotencyKey = Brand<string, 'IdempotencyKey'>;
 
 export const OPERATION_KINDS = [
-  'student_score_adjust',
-  'class_score_adjust',
-  'coin_grant',
-  'coin_deduct',
-  'fine_issue',
+  'student_score_category_manage',
+  'student_score_apply',
+  'student_score_apply_batch',
+  'class_score_apply',
+  'class_score_appeal_create',
+  'class_score_appeal_resolve',
+  'dolphin_grant',
+  'dolphin_deduct',
+  'dolphin_adjust',
+  'fine_create',
   'fine_settle',
-  'reversal',
+  'fine_cancel',
+  'fine_rule_manage',
+  'reversal_apply',
 ] as const;
 export type OperationKind = (typeof OPERATION_KINDS)[number];
 
 export const OPERATION_STATUSES = [
   'pending',
-  'applied',
+  'succeeded',
   'reversed',
   'failed',
 ] as const;
@@ -29,8 +36,12 @@ export type OperationStatus = (typeof OPERATION_STATUSES)[number];
 
 export const OPERATION_TARGET_TYPES = [
   'student',
+  'student_score_category',
   'class',
+  'household',
+  'wallet',
   'fine_order',
+  'fine_rule',
   'operation',
 ] as const;
 export type OperationTargetType = (typeof OPERATION_TARGET_TYPES)[number];
@@ -49,7 +60,11 @@ export type LedgerKind = (typeof LEDGER_KINDS)[number];
 export const RANKING_WINDOWS = ['weekly', 'monthly', 'all_time'] as const;
 export type RankingWindow = (typeof RANKING_WINDOWS)[number];
 
-export const FINE_STATUSES = ['pending', 'settled', 'cancelled'] as const;
+export const STUDENT_SCORE_CATEGORY_KINDS = ['positive', 'negative'] as const;
+export type StudentScoreCategoryKind =
+  (typeof STUDENT_SCORE_CATEGORY_KINDS)[number];
+
+export const FINE_STATUSES = ['pending', 'settled', 'cancelled', 'reversed'] as const;
 export type FineStatus = (typeof FINE_STATUSES)[number];
 
 export const ROLE_CODES_FOR_AUTHZ = [
@@ -97,6 +112,12 @@ export function isLedgerKind(value: string): value is LedgerKind {
 
 export function isRankingWindow(value: string): value is RankingWindow {
   return RANKING_WINDOWS.some((window) => window === value);
+}
+
+export function isStudentScoreCategoryKind(
+  value: string,
+): value is StudentScoreCategoryKind {
+  return STUDENT_SCORE_CATEGORY_KINDS.some((kind) => kind === value);
 }
 
 export function isFineStatus(value: string): value is FineStatus {

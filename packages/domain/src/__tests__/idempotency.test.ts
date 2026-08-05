@@ -23,7 +23,7 @@ const NOW = '2026-08-04T02:00:00Z' as Timestamp;
 const LATER = '2026-08-04T02:05:00Z' as Timestamp;
 
 const command: AuthorizedOperationCommand = {
-  kind: 'student_score_adjust',
+  kind: 'student_score_apply',
   actorId: ACTOR_ID,
   actorRole: 'teacher',
   idempotencyKey: KEY_A,
@@ -43,14 +43,14 @@ function makeReservationRecord(
 describe('fingerprintCommand', () => {
   it('produces a stable string from kind/actor/target/payload regardless of object key order', () => {
     const a = fingerprintCommand({
-      kind: 'student_score_adjust',
+      kind: 'student_score_apply',
       actorId: ACTOR_ID,
       targetType: 'student',
       targetId: TARGET_ID,
       payload: { delta: 2, reason: '值日' },
     });
     const b = fingerprintCommand({
-      kind: 'student_score_adjust',
+      kind: 'student_score_apply',
       actorId: ACTOR_ID,
       targetType: 'student',
       targetId: TARGET_ID,
@@ -61,14 +61,14 @@ describe('fingerprintCommand', () => {
 
   it('recursively sorts nested object keys but preserves array order', () => {
     const a = fingerprintCommand({
-      kind: 'student_score_adjust',
+      kind: 'student_score_apply',
       actorId: ACTOR_ID,
       targetType: 'student',
       targetId: TARGET_ID,
       payload: { nested: { z: 1, a: 2, m: [3, 1, 2] } },
     });
     const b = fingerprintCommand({
-      kind: 'student_score_adjust',
+      kind: 'student_score_apply',
       actorId: ACTOR_ID,
       targetType: 'student',
       targetId: TARGET_ID,
@@ -77,7 +77,7 @@ describe('fingerprintCommand', () => {
     expect(a).toBe(b);
 
     const arrReordered = fingerprintCommand({
-      kind: 'student_score_adjust',
+      kind: 'student_score_apply',
       actorId: ACTOR_ID,
       targetType: 'student',
       targetId: TARGET_ID,
@@ -89,14 +89,14 @@ describe('fingerprintCommand', () => {
 
   it('differs when the payload value differs (1 vs "1" must not collide)', () => {
     const a = fingerprintCommand({
-      kind: 'student_score_adjust',
+      kind: 'student_score_apply',
       actorId: ACTOR_ID,
       targetType: 'student',
       targetId: TARGET_ID,
       payload: { value: 1 },
     });
     const b = fingerprintCommand({
-      kind: 'student_score_adjust',
+      kind: 'student_score_apply',
       actorId: ACTOR_ID,
       targetType: 'student',
       targetId: TARGET_ID,
@@ -107,21 +107,21 @@ describe('fingerprintCommand', () => {
 
   it('distinguishes boolean, null and numeric zero', () => {
     const asBool = fingerprintCommand({
-      kind: 'student_score_adjust',
+      kind: 'student_score_apply',
       actorId: ACTOR_ID,
       targetType: 'student',
       targetId: TARGET_ID,
       payload: { v: false },
     });
     const asNumber = fingerprintCommand({
-      kind: 'student_score_adjust',
+      kind: 'student_score_apply',
       actorId: ACTOR_ID,
       targetType: 'student',
       targetId: TARGET_ID,
       payload: { v: 0 },
     });
     const asNull = fingerprintCommand({
-      kind: 'student_score_adjust',
+      kind: 'student_score_apply',
       actorId: ACTOR_ID,
       targetType: 'student',
       targetId: TARGET_ID,
@@ -136,7 +136,7 @@ describe('fingerprintCommand', () => {
     let caught: DomainError | undefined;
     try {
       fingerprintCommand({
-        kind: 'student_score_adjust',
+        kind: 'student_score_apply',
         actorId: ACTOR_ID,
         targetType: 'student',
         targetId: TARGET_ID,

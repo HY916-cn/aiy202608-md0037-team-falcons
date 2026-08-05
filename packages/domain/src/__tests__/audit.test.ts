@@ -18,7 +18,7 @@ const NOW = '2026-08-04T01:00:00Z' as Timestamp;
 const LATER = '2026-08-04T01:05:00Z' as Timestamp;
 
 const command: AuthorizedOperationCommand = {
-  kind: 'coin_grant',
+  kind: 'dolphin_grant',
   actorId: ACTOR_ID,
   actorRole: 'bank_operator',
   idempotencyKey: 'test-idempotency-audit-fixture' as IdempotencyKey,
@@ -34,7 +34,7 @@ describe('buildAuditEvent', () => {
     const applied = markOperationApplied(pending, LATER);
     const event = buildAuditEvent({
       id: AUDIT_ID,
-      action: 'operation.applied',
+      action: 'operation.succeeded',
       result: 'success',
       operation: applied,
       now: LATER,
@@ -43,7 +43,7 @@ describe('buildAuditEvent', () => {
     expect(event.id).toBe(AUDIT_ID);
     expect(event.actorId).toBe(ACTOR_ID);
     expect(event.actorRole).toBe('bank_operator');
-    expect(event.action).toBe('operation.applied');
+    expect(event.action).toBe('operation.succeeded');
     expect(event.result).toBe('success');
     expect(event.resourceType).toBe('student');
     expect(event.resourceId).toBe(TARGET_ID);
