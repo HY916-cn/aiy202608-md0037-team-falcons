@@ -8,7 +8,7 @@
 - 🔢 **团队编号：** MD0037
 - 🌐 **正式交付：** Web
 
-![海豚云 AI 中心](./docs/assets/product-ai-center.jpg)
+![海豚云登录页](./docs/assets/product-login.png)
 
 ## 👥 团队分工
 
