@@ -6,8 +6,8 @@
 
 | 要求 | 当前状态 | 说明 |
 | --- | --- | --- |
-| 仓库位于队员账号且为 Public | 完成 | 托管于 `HY916-cn`；公开前已确认 main 的 Secret scan 通过 |
-| 仓库名符合统一格式 | 完成 | `aiy202608-md0037-team-falcons` |
+| 仓库位于队员账号且为 Public | 待完成 | 已托管于 `HY916-cn`；当前仍为 Private，改为 Public 前需再确认无密钥与隐私数据 |
+| 仓库名符合统一格式 | 待完成 | 当前名称为 `dolphin-cloud`，应改为 `aiy202608-md0037-team-falcons` |
 | README 按模板填全 | 完成 | 包含简介、赛道、团队分工、功能、演示、技术、运行方式、计划和版权 |
 | MIT LICENSE 与真实署名 | 完成 | 2026，Haoyu Huang、Lilun Yan、Qiteng Jiang |
 | Topic `aiy-hackathon-202608` | 完成 | 同时保留产品技术标签 |
@@ -15,8 +15,9 @@
 
 ## 提交前还需确认
 
-- [ ] 三位成员均已接受 Collaborator 邀请。
-- [ ] 三位署名成员均使用各自 GitHub 账号完成至少一次真实贡献提交。
+- [ ] 将仓库重命名为 `aiy202608-md0037-team-falcons`，并将可见性改为 Public。
+- [x] 三位成员均已接受 Collaborator 邀请。
+- [x] 三位署名成员均使用各自 GitHub 账号完成了真实贡献提交。
 - [ ] 公网 HTTPS Web 地址可直接访问，并补充到 README 的“演示”部分和仓库 Website。
 - [ ] 最终截图与公开版本一致，不包含真实账号、密码、学生隐私或内部地址。
 - [ ] 把最终仓库地址登记给组委会，并由三位成员共同留存。
