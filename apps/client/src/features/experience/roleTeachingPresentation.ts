@@ -71,3 +71,44 @@ export function countStudentsForClass(
 ): number {
   return snapshot.students.filter((student) => student.classId === classId).length;
 }
+
+export function filterTeachingSnapshotForClass(
+  snapshot: TeachingDemoSnapshot,
+  classId: string | null,
+): TeachingDemoSnapshot {
+  if (classId === null) {
+    return {
+      assignments: [],
+      classes: snapshot.classes,
+      courseware: [],
+      grades: [],
+      students: [],
+    };
+  }
+
+  const students = snapshot.students.filter(
+    (student) => student.classId === classId,
+  );
+  const studentIds = new Set(students.map((student) => student.id));
+
+  return {
+    assignments: snapshot.assignments.filter(
+      (assignment) => assignment.classId === classId,
+    ),
+    classes: snapshot.classes,
+    courseware: snapshot.courseware.filter(
+      (courseware) => courseware.classId === classId,
+    ),
+    grades: snapshot.grades.filter((grade) => studentIds.has(grade.studentId)),
+    students,
+  };
+}
+
+export function resolvePreferredTeachingClassId(
+  classes: TeachingDemoSnapshot['classes'],
+  preferredClassId: string | null,
+): string | null {
+  return classes.some((item) => item.id === preferredClassId)
+    ? preferredClassId
+    : (classes[0]?.id ?? null);
+}
