@@ -283,17 +283,17 @@ $$;
 
 -- Begins an operation, handling idempotency and creating a pending record.
 create or replace function public._governance_begin_operation(
-  idempotency_key text,
-  kind public.governance_operation_kind,
-  payload jsonb,
-  actor_role public.app_role,
-  actor_scope_type public.app_scope_type,
-  actor_scope_id uuid,
-  school_id uuid,
-  target_type public.governance_target_type,
-  target_id uuid,
-  reason text,
-  is_reversal boolean
+  p_idempotency_key text,
+  p_kind public.governance_operation_kind,
+  p_payload jsonb,
+  p_actor_role public.app_role,
+  p_actor_scope_type public.app_scope_type,
+  p_actor_scope_id uuid,
+  p_school_id uuid,
+  p_target_type public.governance_target_type,
+  p_target_id uuid,
+  p_reason text,
+  p_is_reversal boolean
 )
 returns table (
   operation_id uuid,
@@ -313,18 +313,18 @@ declare
   new_op_id uuid;
   canonical_payload jsonb;
 begin
-  if not public._governance_try_lock_key(idempotency_key) then
+  if not public._governance_try_lock_key(p_idempotency_key) then
     return query select null::uuid, false, false, true, null::jsonb;
     return;
   end if;
 
-  canonical_payload := public._governance_canonicalize_jsonb(payload);
-  new_fingerprint := public._governance_fingerprint(kind, canonical_payload);
+  canonical_payload := public._governance_canonicalize_jsonb(p_payload);
+  new_fingerprint := public._governance_fingerprint(p_kind, canonical_payload);
 
   select ik.key, ik.fingerprint, ik.operation_id, ik.status, ik.response_snapshot
   into existing
   from public.idempotency_keys as ik
-  where ik.key = idempotency_key;
+  where ik.key = p_idempotency_key;
 
   if found then
     if existing.fingerprint is distinct from new_fingerprint then
@@ -340,7 +340,7 @@ begin
     if existing.status = 'failed' then
       -- Allow retry by deleting the old failed key and operation
       delete from public.operations where id = existing.operation_id;
-      delete from public.idempotency_keys where key = idempotency_key;
+      delete from public.idempotency_keys where key = p_idempotency_key;
     else -- 'reserved', another process is likely busy
       return query select existing.operation_id, false, false, true, null::jsonb;
       return;
@@ -352,20 +352,20 @@ begin
     id, kind, status, is_reversal, actor_id, actor_role, scope_type, scope_id,
     school_id, target_type, target_id, idempotency_key, fingerprint, payload, reason
   ) values (
-    gen_random_uuid(), kind, 'pending', is_reversal, auth.uid(), actor_role, actor_scope_type, actor_scope_id,
-    school_id, target_type, target_id, idempotency_key, new_fingerprint, canonical_payload, reason
+    gen_random_uuid(), p_kind, 'pending', p_is_reversal, auth.uid(), p_actor_role, p_actor_scope_type, p_actor_scope_id,
+    p_school_id, p_target_type, p_target_id, p_idempotency_key, new_fingerprint, canonical_payload, p_reason
   ) returning id into new_op_id;
 
   insert into public.idempotency_keys (key, fingerprint, operation_id, status)
-  values (idempotency_key, new_fingerprint, new_op_id, 'reserved');
+  values (p_idempotency_key, new_fingerprint, new_op_id, 'reserved');
 
   return query select new_op_id, false, false, false, null::jsonb;
 end;
 $$;
 
 create or replace function public._governance_succeed_operation(
-  op_id uuid,
-  response_snapshot jsonb
+  p_op_id uuid,
+  p_response_snapshot jsonb
 )
 returns void
 language plpgsql
@@ -376,22 +376,22 @@ as $$
 declare
   op_key text;
 begin
-  update public.operations
-  set status = 'succeeded', response = response_snapshot, updated_at = now()
-  where id = op_id
+  update public.operations as op
+  set status = 'succeeded', response = p_response_snapshot, updated_at = now()
+  where op.id = p_op_id
   returning idempotency_key into op_key;
 
   if op_key is not null then
-    update public.idempotency_keys
-    set status = 'succeeded', response_snapshot = response_snapshot, completed_at = now()
-    where key = op_key;
+    update public.idempotency_keys as ik
+    set status = 'succeeded', response_snapshot = p_response_snapshot, completed_at = now()
+    where ik.key = op_key;
   end if;
 end;
 $$;
 
 create or replace function public._governance_fail_operation(
-  op_id uuid,
-  error_details jsonb
+  p_op_id uuid,
+  p_error_details jsonb
 )
 returns void
 language plpgsql
@@ -402,20 +402,198 @@ as $$
 declare
   op_key text;
 begin
-  if op_id is not null then
-    update public.operations
-    set status = 'failed', response = error_details, updated_at = now()
-    where id = op_id
+  if p_op_id is not null then
+    update public.operations as op
+    set status = 'failed', response = p_error_details, updated_at = now()
+    where op.id = p_op_id
     returning idempotency_key into op_key;
 
     if op_key is not null then
-        -- Mark the key as failed so it can potentially be retried
-        update public.idempotency_keys
-        set status = 'failed', response_snapshot = error_details, completed_at = now()
-        where key = op_key;
+        update public.idempotency_keys as ik
+        set status = 'failed', response_snapshot = p_error_details, completed_at = now()
+        where ik.key = op_key;
     end if;
   end if;
 end;
+$$;
+
+create or replace function public._governance_can_manage_student_score(
+  p_student_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+    from public.students as student
+    where student.id = p_student_id
+      and (
+        exists (
+          select 1
+          from public.teacher_class_assignments as assignment
+          where assignment.teacher_id = auth.uid()
+            and assignment.class_id = student.class_id
+        )
+        or public.has_role('class_terminal', 'class', student.class_id)
+      )
+  );
+$$;
+
+create or replace function public._governance_can_view_student_governance(
+  p_student_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select public._governance_can_manage_student_score(p_student_id)
+    or exists (
+      select 1
+      from public.role_assignments as assignment
+      join public.household_students as household_student
+        on household_student.household_id = assignment.scope_id
+      where assignment.user_id = auth.uid()
+        and assignment.role = 'family'
+        and assignment.scope_type = 'household'
+        and household_student.student_id = p_student_id
+    );
+$$;
+
+create or replace function public._governance_can_manage_class_score(
+  p_class_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+    from public.classes as class
+    where class.id = p_class_id
+      and public.has_role('council', 'school', class.school_id)
+  );
+$$;
+
+create or replace function public._governance_can_view_class_score(
+  p_class_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+    from public.classes as class
+    where class.id = p_class_id
+      and (
+        exists (
+          select 1
+          from public.teacher_class_assignments as assignment
+          where assignment.teacher_id = auth.uid()
+            and assignment.class_id = class.id
+        )
+        or public.has_role('class_terminal', 'class', class.id)
+        or public.has_role('council', 'school', class.school_id)
+      )
+  );
+$$;
+
+create or replace function public._governance_can_view_wallet(
+  p_student_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+    from public.students as student
+    join public.classes as class on class.id = student.class_id
+    where student.id = p_student_id
+      and (
+        public._governance_can_manage_student_score(student.id)
+        or public.has_role('bank_operator', 'school', class.school_id)
+        or exists (
+          select 1
+          from public.role_assignments as assignment
+          join public.household_students as household_student
+            on household_student.household_id = assignment.scope_id
+          where assignment.user_id = auth.uid()
+            and assignment.role = 'family'
+            and assignment.scope_type = 'household'
+            and household_student.student_id = student.id
+        )
+      )
+  );
+$$;
+
+create or replace function public._governance_can_view_fine_order(
+  p_order_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+    from public.fine_orders as fine_order
+    join public.operations as create_op on create_op.id = fine_order.create_operation_id
+    where fine_order.id = p_order_id
+      and (
+        public.has_role('bank_operator', 'school', fine_order.school_id)
+        or create_op.actor_id = auth.uid()
+        or exists (
+          select 1
+          from public.role_assignments as assignment
+          join public.household_students as household_student
+            on household_student.household_id = assignment.scope_id
+          where assignment.user_id = auth.uid()
+            and assignment.role = 'family'
+            and assignment.scope_type = 'household'
+            and household_student.student_id = fine_order.student_id
+        )
+      )
+  );
+$$;
+
+create or replace function public._governance_can_view_operation(
+  p_target_type public.governance_target_type,
+  p_target_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select case
+    when p_target_type = 'student' then public._governance_can_view_student_governance(p_target_id)
+    when p_target_type = 'class' then public._governance_can_view_class_score(p_target_id)
+    when p_target_type = 'household' then public.can_access_household(p_target_id)
+    when p_target_type = 'wallet' then public._governance_can_view_wallet(p_target_id)
+    when p_target_type = 'fine_order' then public._governance_can_view_fine_order(p_target_id)
+    when p_target_type = 'fine_rule' then public.has_role('bank_operator', 'school', p_target_id)
+    when p_target_type = 'operation' then exists (
+      select 1
+      from public.operations as op
+      where op.id = p_target_id
+        and public._governance_can_view_operation(op.target_type, op.target_id)
+    )
+    else false
+  end;
 $$;
 
 
@@ -441,3 +619,10 @@ revoke all on function public._governance_write_audit(uuid, uuid, public.app_rol
 revoke all on function public._governance_begin_operation(text, public.governance_operation_kind, jsonb, public.app_role, public.app_scope_type, uuid, uuid, public.governance_target_type, uuid, text, boolean) from public;
 revoke all on function public._governance_succeed_operation(uuid, jsonb) from public;
 revoke all on function public._governance_fail_operation(uuid, jsonb) from public;
+revoke all on function public._governance_can_manage_student_score(uuid) from public;
+revoke all on function public._governance_can_view_student_governance(uuid) from public;
+revoke all on function public._governance_can_manage_class_score(uuid) from public;
+revoke all on function public._governance_can_view_class_score(uuid) from public;
+revoke all on function public._governance_can_view_wallet(uuid) from public;
+revoke all on function public._governance_can_view_fine_order(uuid) from public;
+revoke all on function public._governance_can_view_operation(public.governance_target_type, uuid) from public;

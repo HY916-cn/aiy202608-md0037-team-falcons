@@ -143,21 +143,21 @@ describe('score delta schema', () => {
 describe('operation request schema (external DTO)', () => {
   it('accepts a well-formed request using adjust naming', () => {
     const request = parseWithDomainError(operationRequestSchema, {
-      kind: 'student_score_adjust',
+      kind: 'student_score_apply',
       idempotencyKey: VALID_IDEMPOTENCY_KEY,
       reason: '值日出勤',
     });
-    expect(request.kind).toBe('student_score_adjust');
+    expect(request.kind).toBe('student_score_apply');
     expect(request.idempotencyKey).toBe(VALID_IDEMPOTENCY_KEY);
   });
 
-  it('accepts negative-intent kind via _adjust naming', () => {
+  it('accepts class score apply kind', () => {
     const request = parseWithDomainError(operationRequestSchema, {
-      kind: 'class_score_adjust',
+      kind: 'class_score_apply',
       idempotencyKey: VALID_IDEMPOTENCY_KEY,
       reason: '晚归扣分',
     });
-    expect(request.kind).toBe('class_score_adjust');
+    expect(request.kind).toBe('class_score_apply');
   });
 
   it('rejects the old grant naming as unknown operation kind', () => {
@@ -188,7 +188,7 @@ describe('operation request schema (external DTO)', () => {
     expectDomainErrorCode(
       () =>
         parseWithDomainError(operationRequestSchema, {
-          kind: 'coin_grant',
+          kind: 'dolphin_grant',
           idempotencyKey: VALID_IDEMPOTENCY_KEY,
           reason: '奖励',
           actorId: VALID_UUID,
@@ -201,7 +201,7 @@ describe('operation request schema (external DTO)', () => {
     expectDomainErrorCode(
       () =>
         parseWithDomainError(operationRequestSchema, {
-          kind: 'coin_grant',
+          kind: 'dolphin_grant',
           idempotencyKey: VALID_IDEMPOTENCY_KEY,
           reason: '奖励',
           role: 'teacher',
@@ -211,7 +211,7 @@ describe('operation request schema (external DTO)', () => {
     expectDomainErrorCode(
       () =>
         parseWithDomainError(operationRequestSchema, {
-          kind: 'coin_grant',
+          kind: 'dolphin_grant',
           idempotencyKey: VALID_IDEMPOTENCY_KEY,
           reason: '奖励',
           scope: 'class:123',

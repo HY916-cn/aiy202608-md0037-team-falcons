@@ -10,7 +10,7 @@ select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000001
 -- 1. Fresh idempotency keys succeed through the public RPC surface.
 select is(
   (select entry_delta.delta from public.apply_student_score(
-    'idem-op-test-fresh-0001',
+    'test-idem-op-fresh-0001',
     '50000000-0000-0000-0000-000000000003',
     '90000000-0000-0000-0000-000000000001',
     2,
@@ -20,13 +20,13 @@ select is(
   '公开 RPC 对全新 key 首次执行成功'
 );
 select is(
-  (select count(*) from public.operations where idempotency_key = 'idem-op-test-fresh-0001'),
+  (select count(*) from public.operations where idempotency_key = 'test-idem-op-fresh-0001'),
   1::bigint,
   '公开 RPC 首次执行只创建一条 operation'
 );
 select is(
   (select entry_delta.delta from public.apply_student_score(
-    'idem-op-test-fresh-0001b',
+    'test-idem-op-fresh-0001b',
     '50000000-0000-0000-0000-000000000004',
     '90000000-0000-0000-0000-000000000001',
     1,
@@ -61,12 +61,12 @@ select is(
 );
 
 -- 4. Advisory lock is non-blocking (true, then true again within same tx via reentrant lock).
-select is(public._governance_try_lock_key('idem-op-test-lock-0001'), true, '同一事务内相同 key 可重入');
+select is(public._governance_try_lock_key('test-idem-op-lock-0001'), true, '同一事务内相同 key 可重入');
 
 -- 5. Apply a real student score, then replay: same operation returned, no duplicate insert.
 select is(
   (select entry_delta.delta from public.apply_student_score(
-    'idem-student-score-0001',
+    'test-idem-student-score-0001',
     '50000000-0000-0000-0000-000000000001',
     '90000000-0000-0000-0000-000000000001',
     5,
@@ -76,7 +76,7 @@ select is(
   '学生分 RPC 首次调用成功'
 );
 select is(
-  (select count(*) from public.operations where idempotency_key = 'idem-student-score-0001'),
+  (select count(*) from public.operations where idempotency_key = 'test-idem-student-score-0001'),
   1::bigint,
   '首次调用后 operations 只有一条'
 );
@@ -87,7 +87,7 @@ select is(
 );
 select is(
   (select entry_delta.delta from public.apply_student_score(
-    'idem-student-score-0001',
+    'test-idem-student-score-0001',
     '50000000-0000-0000-0000-000000000001',
     '90000000-0000-0000-0000-000000000001',
     5,
@@ -97,7 +97,7 @@ select is(
   '相同 key + payload 幂等重放返回原结果'
 );
 select is(
-  (select count(*) from public.operations where idempotency_key = 'idem-student-score-0001'),
+  (select count(*) from public.operations where idempotency_key = 'test-idem-student-score-0001'),
   1::bigint,
   '幂等重放不产生新 operations'
 );
@@ -111,7 +111,7 @@ select is(
 select throws_ok(
   $$
     select public.apply_student_score(
-      'idem-student-score-0001',
+      'test-idem-student-score-0001',
       '50000000-0000-0000-0000-000000000002',
       '90000000-0000-0000-0000-000000000001',
       7,
@@ -143,7 +143,7 @@ select throws_ok(
 select throws_ok(
   $$
     select public.apply_student_score(
-      'idem-invalid-delta-0001',
+      'test-idem-invalid-delta-0001',
       '50000000-0000-0000-0000-000000000001',
       '90000000-0000-0000-0000-000000000001',
       0,
@@ -159,7 +159,7 @@ select throws_ok(
 select throws_ok(
   $$
     select public.apply_student_score(
-      'idem-invalid-reason-0001',
+      'test-idem-invalid-reason-0001',
       '50000000-0000-0000-0000-000000000001',
       '90000000-0000-0000-0000-000000000001',
       3,
@@ -176,7 +176,7 @@ select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000041
 select throws_ok(
   $$
     select public.apply_student_score(
-      'idem-unknown-cat-0001',
+      'test-idem-unknown-cat-0001',
       '50000000-0000-0000-0000-000000000001',
       '99999999-9999-9999-9999-999999999999',
       3,
@@ -193,7 +193,7 @@ select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000021
 select throws_ok(
   $$
     select public.apply_student_score(
-      'idem-family-forbidden-0001',
+      'test-idem-family-forbidden-0001',
       '50000000-0000-0000-0000-000000000001',
       '90000000-0000-0000-0000-000000000001',
       3,
@@ -205,21 +205,46 @@ select throws_ok(
   '家庭端不能应用学生分'
 );
 
--- 12. class_terminal cannot apply student score.
+-- 12. class_terminal can apply student score for its own class.
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000011', true);
+select is(
+  (select entry_delta.delta from public.apply_student_score(
+    'test-idem-terminal-apply-0001',
+    '50000000-0000-0000-0000-000000000001',
+    '90000000-0000-0000-0000-000000000001',
+    3,
+    '班级端可加分'
+  ) as entry_delta),
+  3::numeric(9, 2),
+  '班级端可对本班学生应用学生分'
+);
+select is(
+  (select count(*) from public.apply_student_score_batch(
+    'test-idem-terminal-batch-0001',
+    jsonb_build_array(
+      jsonb_build_object('student_id', '50000000-0000-0000-0000-000000000001', 'category_id', '90000000-0000-0000-0000-000000000001', 'delta', 1),
+      jsonb_build_object('student_id', '50000000-0000-0000-0000-000000000002', 'category_id', '90000000-0000-0000-0000-000000000001', 'delta', -1)
+    ),
+    '班级端批量加减分'
+  )),
+  2::bigint,
+  '班级端可对本班学生批量应用学生分'
+);
+
+-- 12b. Too-long idempotency key rejected.
 select throws_ok(
-  $$
+  format($f$
     select public.apply_student_score(
-      'idem-terminal-forbidden-0001',
+      %L,
       '50000000-0000-0000-0000-000000000001',
       '90000000-0000-0000-0000-000000000001',
       3,
-      '班级端不能加分'
+      '过长 key'
     )
-  $$,
+  $f$, repeat('k', 129)),
   'P0001',
-  'FORBIDDEN',
-  '班级端不能应用学生分'
+  'INVALID_IDEMPOTENCY_KEY',
+  '过长的 idempotency key 会被拒绝'
 );
 
 -- 13. Direct DML on operations denied.
@@ -235,7 +260,7 @@ select throws_ok(
       '10000000-0000-0000-0000-000000000001',
       '10000000-0000-0000-0000-000000000001',
       'student', '50000000-0000-0000-0000-000000000001',
-      'idem-direct-op-0001', decode('00', 'hex'), '{}'::jsonb
+      'test-idem-direct-op-0001', decode('00', 'hex'), '{}'::jsonb
     )
   $$,
   '42501',
@@ -247,7 +272,7 @@ select throws_ok(
 select throws_ok(
   $$
     insert into public.idempotency_keys (key, fingerprint)
-    values ('direct-key-0001', decode('00', 'hex'))
+    values ('test-idem-direct-key-0001', decode('00', 'hex'))
   $$,
   '42501',
   'permission denied for table idempotency_keys',
@@ -295,26 +320,42 @@ select ok(
   '管理员可读 audit_events 且至少含一条'
 );
 
--- 17. operations readable by actor.
+-- 17. operations readable within target authorization.
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000001', true);
 select ok(
-  (select count(*) from public.operations where actor_id = auth.uid()) >= 1,
-  '教师可读取自己的 operations'
+  (
+    select count(*)
+    from public.operations
+    where target_type = 'student'
+      and target_id = '50000000-0000-0000-0000-000000000001'
+  ) >= 1,
+  '教师可读取其授权学生目标的 operations'
 );
 
 -- 18. operations not readable by unrelated bank_operator.
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000031', true);
 select is(
-  (select count(*) from public.operations where actor_id = '30000000-0000-0000-0000-000000000001'),
+  (
+    select count(*)
+    from public.operations
+    where target_type = 'student'
+      and target_id = '50000000-0000-0000-0000-000000000001'
+  ),
   0::bigint,
-  '银行操作员不能读其他人 operations'
+  '银行操作员不能读学生分相关 operations'
 );
 
--- 19. admin can read all school operations.
+-- 19. admin no longer reads operations by admin override.
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000051', true);
-select ok(
-  (select count(*) from public.operations) >= 1,
-  '管理员可读本校所有 operations'
+select is(
+  (
+    select count(*)
+    from public.operations
+    where target_type = 'student'
+      and target_id = '50000000-0000-0000-0000-000000000001'
+  ),
+  0::bigint,
+  '管理员不通过 admin override 读取学生目标 operations'
 );
 
 select * from finish();

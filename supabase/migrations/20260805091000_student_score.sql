@@ -22,7 +22,12 @@ create table public.student_score_entries (
   operation_id uuid not null references public.operations (id) on delete cascade,
   student_id uuid not null references public.students (id),
   category_id uuid not null references public.student_score_categories (id),
-  delta numeric(9, 2) not null check (delta <> 0 and delta >= -1000 and delta <= 1000),
+  delta numeric(9, 2) not null check (
+    delta = trunc(delta)
+    and delta <> 0
+    and delta >= -1000
+    and delta <= 1000
+  ),
   reason text not null check (char_length(btrim(reason)) between 1 and 200),
   applied_at timestamptz not null default now(),
   is_reversed boolean not null default false,
@@ -49,7 +54,7 @@ select
   student.id as student_id,
   student.class_id,
   class.school_id,
-  coalesce(sum(entry.delta) filter (where not entry.is_reversed), 0)::numeric(12, 2) as total_score
+  coalesce(sum(entry.delta), 0)::numeric(12, 2) as total_score
 from public.students as student
 join public.classes as class on class.id = student.class_id
 left join public.student_score_entries as entry on entry.student_id = student.id
@@ -62,7 +67,7 @@ select
   student.class_id,
   class.school_id,
   date_trunc('week', entry.applied_at) as period_start,
-  coalesce(sum(entry.delta) filter (where not entry.is_reversed), 0)::numeric(12, 2) as period_score
+  coalesce(sum(entry.delta), 0)::numeric(12, 2) as period_score
 from public.students as student
 join public.classes as class on class.id = student.class_id
 left join public.student_score_entries as entry on entry.student_id = student.id
@@ -75,14 +80,14 @@ select
   student.class_id,
   class.school_id,
   date_trunc('month', entry.applied_at) as period_start,
-  coalesce(sum(entry.delta) filter (where not entry.is_reversed), 0)::numeric(12, 2) as period_score
+  coalesce(sum(entry.delta), 0)::numeric(12, 2) as period_score
 from public.students as student
 join public.classes as class on class.id = student.class_id
 left join public.student_score_entries as entry on entry.student_id = student.id
 group by student.id, student.class_id, class.school_id, date_trunc('month', entry.applied_at);
 
 -- Ranking function with tie support (rank() window).
-create type public.student_ranking_scope as enum ('weekly', 'monthly', 'total');
+create type public.student_ranking_scope as enum ('weekly', 'monthly', 'all_time');
 
 create or replace function public.compute_student_ranking(
   target_class_id uuid,
@@ -103,7 +108,15 @@ security definer
 set search_path = ''
 as $$
 begin
-  if not public.can_access_class(target_class_id) then
+  if not (
+    public._governance_can_view_class_score(target_class_id)
+    or exists (
+      select 1
+      from public.students as student
+      where student.class_id = target_class_id
+        and public.can_access_student(student.id)
+    )
+  ) then
     raise exception 'FORBIDDEN' using errcode = 'P0001';
   end if;
 
@@ -111,18 +124,19 @@ begin
     return query
       select
         student.id,
-        student.display_name,
+        case
+          when public._governance_can_view_class_score(target_class_id) then student.display_name
+          else null::text
+        end,
         student.class_id,
         date_trunc('week', reference_time),
         coalesce(sum(entry.delta) filter (
-          where not entry.is_reversed
-            and entry.applied_at >= date_trunc('week', reference_time)
+          where entry.applied_at >= date_trunc('week', reference_time)
             and entry.applied_at < date_trunc('week', reference_time) + interval '1 week'
         ), 0)::numeric(12, 2) as score,
         rank() over (
           order by coalesce(sum(entry.delta) filter (
-            where not entry.is_reversed
-              and entry.applied_at >= date_trunc('week', reference_time)
+            where entry.applied_at >= date_trunc('week', reference_time)
               and entry.applied_at < date_trunc('week', reference_time) + interval '1 week'
           ), 0) desc
         )
@@ -130,23 +144,26 @@ begin
       left join public.student_score_entries as entry on entry.student_id = student.id
       where student.class_id = target_class_id
       group by student.id, student.display_name, student.class_id
+      having public._governance_can_view_class_score(target_class_id)
+        or public.can_access_student(student.id)
       order by rank_position, student.id;
   elsif ranking_scope = 'monthly' then
     return query
       select
         student.id,
-        student.display_name,
+        case
+          when public._governance_can_view_class_score(target_class_id) then student.display_name
+          else null::text
+        end,
         student.class_id,
         date_trunc('month', reference_time),
         coalesce(sum(entry.delta) filter (
-          where not entry.is_reversed
-            and entry.applied_at >= date_trunc('month', reference_time)
+          where entry.applied_at >= date_trunc('month', reference_time)
             and entry.applied_at < date_trunc('month', reference_time) + interval '1 month'
         ), 0)::numeric(12, 2) as score,
         rank() over (
           order by coalesce(sum(entry.delta) filter (
-            where not entry.is_reversed
-              and entry.applied_at >= date_trunc('month', reference_time)
+            where entry.applied_at >= date_trunc('month', reference_time)
               and entry.applied_at < date_trunc('month', reference_time) + interval '1 month'
           ), 0) desc
         )
@@ -154,22 +171,29 @@ begin
       left join public.student_score_entries as entry on entry.student_id = student.id
       where student.class_id = target_class_id
       group by student.id, student.display_name, student.class_id
+      having public._governance_can_view_class_score(target_class_id)
+        or public.can_access_student(student.id)
       order by rank_position, student.id;
   else
     return query
       select
         student.id,
-        student.display_name,
+        case
+          when public._governance_can_view_class_score(target_class_id) then student.display_name
+          else null::text
+        end,
         student.class_id,
         null::timestamptz,
-        coalesce(sum(entry.delta) filter (where not entry.is_reversed), 0)::numeric(12, 2) as score,
+        coalesce(sum(entry.delta), 0)::numeric(12, 2) as score,
         rank() over (
-          order by coalesce(sum(entry.delta) filter (where not entry.is_reversed), 0) desc
+          order by coalesce(sum(entry.delta), 0) desc
         )
       from public.students as student
       left join public.student_score_entries as entry on entry.student_id = student.id
       where student.class_id = target_class_id
       group by student.id, student.display_name, student.class_id
+      having public._governance_can_view_class_score(target_class_id)
+        or public.can_access_student(student.id)
       order by rank_position, student.id;
   end if;
 end;
@@ -177,11 +201,11 @@ $$;
 
 -- Internal writer used by both single-entry RPC and batch RPC.
 create or replace function public._governance_write_student_score_entry(
-  operation_id uuid,
-  target_student_id uuid,
-  target_category_id uuid,
-  delta numeric,
-  reason text
+  p_operation_id uuid,
+  p_target_student_id uuid,
+  p_target_category_id uuid,
+  p_delta numeric,
+  p_reason text
 )
 returns public.student_score_entries
 language plpgsql
@@ -200,11 +224,11 @@ begin
     reason
   )
   values (
-    operation_id,
-    target_student_id,
-    target_category_id,
-    delta,
-    reason
+    p_operation_id,
+    p_target_student_id,
+    p_target_category_id,
+    p_delta,
+    p_reason
   )
   returning * into entry;
   return entry;
@@ -233,10 +257,10 @@ declare
   entry public.student_score_entries;
   canonical_payload jsonb;
 begin
-  if idempotency_key is null or char_length(btrim(idempotency_key)) not between 8 and 120 then
+  if idempotency_key is null or char_length(btrim(idempotency_key)) not between 16 and 128 then
     raise exception 'INVALID_IDEMPOTENCY_KEY' using errcode = 'P0001';
   end if;
-  if delta is null or delta = 0 or delta < -1000 or delta > 1000 then
+  if delta is null or delta <> trunc(delta) or delta = 0 or delta < -1000 or delta > 1000 then
     raise exception 'INVALID_DELTA' using errcode = 'P0001';
   end if;
   if reason is null or char_length(btrim(reason)) not between 1 and 200 then
@@ -263,10 +287,13 @@ begin
   select ctx.actor_role, ctx.scope_type, ctx.scope_id
   into actor
   from public._governance_actor_context(target_school_id) as ctx
-  where ctx.actor_role = 'teacher'
+  where (
+    ctx.actor_role = 'teacher'
+    or (ctx.actor_role = 'class_terminal' and ctx.scope_type = 'class' and ctx.scope_id = target_class_id)
+  )
   limit 1;
   if actor.actor_role is null
-    or not public.can_access_student(target_student_id) then
+    or not public._governance_can_manage_student_score(target_student_id) then
     raise exception 'FORBIDDEN' using errcode = 'P0001';
   end if;
 
@@ -372,7 +399,7 @@ declare
   response_ids jsonb := '[]'::jsonb;
   entry_count int;
 begin
-  if idempotency_key is null or char_length(btrim(idempotency_key)) not between 8 and 120 then
+  if idempotency_key is null or char_length(btrim(idempotency_key)) not between 16 and 128 then
     raise exception 'INVALID_IDEMPOTENCY_KEY' using errcode = 'P0001';
   end if;
   if batch_reason is null or char_length(btrim(batch_reason)) not between 1 and 200 then
@@ -402,7 +429,7 @@ begin
     if target_category_id is null then
       raise exception 'INVALID_ENTRY_CATEGORY' using errcode = 'P0001';
     end if;
-    if delta_value is null or delta_value = 0 or delta_value < -1000 or delta_value > 1000 then
+    if delta_value is null or delta_value <> trunc(delta_value) or delta_value = 0 or delta_value < -1000 or delta_value > 1000 then
       raise exception 'INVALID_ENTRY_DELTA' using errcode = 'P0001';
     end if;
     if char_length(btrim(entry_reason)) not between 1 and 200 then
@@ -431,7 +458,7 @@ begin
       raise exception 'CATEGORY_NOT_FOUND' using errcode = 'P0001';
     end if;
 
-    if not public.can_access_student(target_student_id) then
+    if not public._governance_can_manage_student_score(target_student_id) then
       raise exception 'FORBIDDEN' using errcode = 'P0001';
     end if;
 
@@ -446,7 +473,18 @@ begin
   select ctx.actor_role, ctx.scope_type, ctx.scope_id
   into actor
   from public._governance_actor_context(actor_school) as ctx
-  where ctx.actor_role = 'teacher'
+  where (
+    ctx.actor_role = 'teacher'
+    or (
+      ctx.actor_role = 'class_terminal'
+      and ctx.scope_type = 'class'
+      and ctx.scope_id = (
+        select student.class_id
+        from public.students as student
+        where student.id = (canonical_entries -> 0 ->> 'student_id')::uuid
+      )
+    )
+  )
   limit 1;
   if actor.actor_role is null then
     raise exception 'FORBIDDEN' using errcode = 'P0001';

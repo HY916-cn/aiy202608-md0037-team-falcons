@@ -1,10 +1,12 @@
 -- Targeted reversal RPC + preview.
 -- Rules:
---   * Only admin of the same school may perform targeted reversals.
+--   * Student score reversals are allowed for the same teacher/class_terminal scope.
+--   * Class score reversals are allowed for council in the same school.
+--   * Wallet reversals are allowed for bank_operator in the same school.
 --   * Cannot reverse an operation that is already reversed.
 --   * Cannot reverse a reversal_apply operation itself.
 --   * Reversal is scoped to student_score / class_score / dolphin_wallet operations.
---   * A settled fine cannot be reversed here (must be cancelled via fine RPC before settle).
+--   * Fine reversal goes through public.reverse_fine_order().
 --   * The reversal itself creates a new operation with kind=reversal_apply,
 --     is_reversal=true, linked via public.reversal_links.
 
@@ -37,13 +39,6 @@ begin
   if op.id is null then
     raise exception 'OPERATION_NOT_FOUND' using errcode = 'P0001';
   end if;
-  if not public.can_access_school(op.school_id) then
-    raise exception 'FORBIDDEN' using errcode = 'P0001';
-  end if;
-  if not public.is_school_admin(op.school_id) then
-    raise exception 'FORBIDDEN' using errcode = 'P0001';
-  end if;
-
   reversible := true;
   code := 'ok';
   delta := null;
@@ -55,6 +50,9 @@ begin
     reversible := false;
     code := 'ALREADY_REVERSED';
   elsif op.kind = 'student_score_apply' then
+    if not public._governance_can_manage_student_score(op.target_id) then
+      raise exception 'FORBIDDEN' using errcode = 'P0001';
+    end if;
     select * into score_entry from public.student_score_entries where operation_id = op.id;
     if score_entry.id is null then
       reversible := false;
@@ -63,10 +61,30 @@ begin
       delta := -score_entry.delta;
     end if;
   elsif op.kind = 'student_score_apply_batch' then
-    select coalesce(sum(-delta), 0) into delta
-    from public.student_score_entries where operation_id = op.id;
-  elsif op.kind = 'class_score_apply' then
-    select * into class_entry from public.class_score_entries where operation_id = op.id;
+    if not public._governance_can_manage_student_score(op.target_id) then
+      raise exception 'FORBIDDEN' using errcode = 'P0001';
+    end if;
+    select sum(-delta) into delta
+    from public.student_score_entries
+    where operation_id = op.id;
+    if delta is null then
+      reversible := false;
+      code := 'ENTRY_NOT_FOUND';
+    end if;
+  elsif op.kind in ('class_score_apply', 'class_score_appeal_resolve') then
+    if not public._governance_can_manage_class_score(op.target_id) then
+      raise exception 'FORBIDDEN' using errcode = 'P0001';
+    end if;
+    if op.kind = 'class_score_apply' then
+      select * into class_entry from public.class_score_entries where operation_id = op.id;
+    else
+      select reversal_entry.*
+      into class_entry
+      from public.class_score_appeals as appeal
+      join public.class_score_entries as reversal_entry
+        on reversal_entry.operation_id = appeal.reversal_operation_id
+      where appeal.resolve_operation_id = op.id;
+    end if;
     if class_entry.id is null then
       reversible := false;
       code := 'ENTRY_NOT_FOUND';
@@ -74,6 +92,9 @@ begin
       delta := -class_entry.delta;
     end if;
   elsif op.kind in ('dolphin_grant', 'dolphin_deduct', 'dolphin_adjust') then
+    if not public.has_role('bank_operator', 'school', op.school_id) then
+      raise exception 'FORBIDDEN' using errcode = 'P0001';
+    end if;
     select * into tx from public.dolphin_transactions where operation_id = op.id;
     if tx.id is null then
       reversible := false;
@@ -115,7 +136,7 @@ declare
   reversal_entry_id uuid;
   reversal_tx_id uuid;
 begin
-  if idempotency_key is null or char_length(btrim(idempotency_key)) not between 8 and 120 then
+  if idempotency_key is null or char_length(btrim(idempotency_key)) not between 16 and 128 then
     raise exception 'INVALID_IDEMPOTENCY_KEY' using errcode = 'P0001';
   end if;
   if reversal_reason is null or char_length(btrim(reversal_reason)) not between 5 and 500 then
@@ -133,10 +154,45 @@ begin
     raise exception 'ALREADY_REVERSED' using errcode = 'P0001';
   end if;
 
-  select ctx.actor_role, ctx.scope_type, ctx.scope_id into actor
-  from public._governance_actor_context(original.school_id) as ctx;
-  if actor.actor_role is null or actor.actor_role <> 'admin' then
-    raise exception 'FORBIDDEN' using errcode = 'P0001';
+  if exists (
+    select 1
+    from public.reversal_links as link
+    where link.original_operation_id = original.id
+  ) then
+    raise exception 'ALREADY_REVERSED' using errcode = 'P0001';
+  end if;
+
+  if original.kind in ('student_score_apply', 'student_score_apply_batch') then
+    select ctx.actor_role, ctx.scope_type, ctx.scope_id into actor
+    from public._governance_actor_context(original.school_id) as ctx
+    where ctx.actor_role = 'teacher'
+       or (ctx.actor_role = 'class_terminal' and ctx.scope_type = 'class')
+    limit 1;
+    if actor.actor_role is null or not public._governance_can_manage_student_score(original.target_id) then
+      raise exception 'FORBIDDEN' using errcode = 'P0001';
+    end if;
+  elsif original.kind in ('class_score_apply', 'class_score_appeal_resolve') then
+    select ctx.actor_role, ctx.scope_type, ctx.scope_id into actor
+    from public._governance_actor_context(original.school_id) as ctx
+    where ctx.actor_role = 'council'
+      and ctx.scope_type = 'school'
+      and ctx.scope_id = original.school_id
+    limit 1;
+    if actor.actor_role is null then
+      raise exception 'FORBIDDEN' using errcode = 'P0001';
+    end if;
+  elsif original.kind in ('dolphin_grant', 'dolphin_deduct', 'dolphin_adjust') then
+    select ctx.actor_role, ctx.scope_type, ctx.scope_id into actor
+    from public._governance_actor_context(original.school_id) as ctx
+    where ctx.actor_role = 'bank_operator'
+      and ctx.scope_type = 'school'
+      and ctx.scope_id = original.school_id
+    limit 1;
+    if actor.actor_role is null then
+      raise exception 'FORBIDDEN' using errcode = 'P0001';
+    end if;
+  else
+    raise exception 'KIND_NOT_REVERSIBLE' using errcode = 'P0001';
   end if;
 
   canonical_payload := jsonb_build_object(
@@ -183,10 +239,12 @@ begin
         'reversal:' || original.id::text, true, score_entry.id
       )
       returning id into reversal_entry_id;
-      update public.student_score_entries
-      set is_reversed = true, reversed_by_operation_id = op.operation_id
-      where id = score_entry.id;
     elsif original.kind = 'student_score_apply_batch' then
+      if not exists (
+        select 1 from public.student_score_entries where operation_id = original.id
+      ) then
+        raise exception 'ENTRY_NOT_FOUND' using errcode = 'P0001';
+      end if;
       for score_entry in
         select * from public.student_score_entries where operation_id = original.id
       loop
@@ -197,12 +255,18 @@ begin
           op.operation_id, score_entry.student_id, score_entry.category_id, -score_entry.delta,
           'reversal:' || original.id::text, true, score_entry.id
         );
-        update public.student_score_entries
-        set is_reversed = true, reversed_by_operation_id = op.operation_id
-        where id = score_entry.id;
       end loop;
-    elsif original.kind = 'class_score_apply' then
-      select * into class_entry from public.class_score_entries where operation_id = original.id;
+    elsif original.kind in ('class_score_apply', 'class_score_appeal_resolve') then
+      if original.kind = 'class_score_apply' then
+        select * into class_entry from public.class_score_entries where operation_id = original.id;
+      else
+        select reversal_entry.*
+        into class_entry
+        from public.class_score_appeals as appeal
+        join public.class_score_entries as reversal_entry
+          on reversal_entry.operation_id = appeal.reversal_operation_id
+        where appeal.resolve_operation_id = original.id;
+      end if;
       if class_entry.id is null then
         raise exception 'ENTRY_NOT_FOUND' using errcode = 'P0001';
       end if;
@@ -213,9 +277,6 @@ begin
         op.operation_id, class_entry.class_id, class_entry.category_id, -class_entry.delta,
         'reversal:' || original.id::text, true, class_entry.id
       );
-      update public.class_score_entries
-      set is_reversed = true, reversed_by_operation_id = op.operation_id
-      where id = class_entry.id;
     elsif original.kind in ('dolphin_grant', 'dolphin_deduct', 'dolphin_adjust') then
       select * into tx from public.dolphin_transactions where operation_id = original.id;
       if tx.id is null then
@@ -233,9 +294,6 @@ begin
         op.operation_id, account.id, 'reversal', -tx.delta, new_balance,
         'reversal:' || original.id::text, original.id
       )).id;
-      update public.dolphin_transactions
-      set is_reversed = true, reversed_by_operation_id = op.operation_id
-      where id = tx.id;
     else
       raise exception 'KIND_NOT_REVERSIBLE' using errcode = 'P0001';
     end if;

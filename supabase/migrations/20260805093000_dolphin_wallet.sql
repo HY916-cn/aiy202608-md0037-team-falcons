@@ -6,7 +6,7 @@ create table public.dolphin_accounts (
   id uuid primary key default gen_random_uuid(),
   student_id uuid not null unique references public.students (id) on delete restrict,
   school_id uuid not null references public.schools (id) on delete restrict,
-  balance numeric(12, 2) not null default 0 check (balance >= 0),
+  balance numeric(12, 2) not null default 0 check (balance >= 0 and balance = trunc(balance)),
   version bigint not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -32,8 +32,8 @@ create table public.dolphin_transactions (
   operation_id uuid not null unique references public.operations (id),
   account_id uuid not null references public.dolphin_accounts (id),
   kind public.dolphin_transaction_kind not null,
-  delta numeric(12, 2) not null check (delta <> 0),
-  balance_after numeric(12, 2) not null check (balance_after >= 0),
+  delta numeric(12, 2) not null check (delta <> 0 and delta = trunc(delta) and delta >= -1000000 and delta <= 1000000),
+  balance_after numeric(12, 2) not null check (balance_after >= 0 and balance_after = trunc(balance_after)),
   reason text not null check (char_length(btrim(reason)) between 1 and 200),
   reference_operation_id uuid references public.operations (id),
   is_reversed boolean not null default false,
@@ -48,8 +48,8 @@ create index idx_dolphin_transactions__reference
   where reference_operation_id is not null;
 
 create or replace function public._governance_get_or_create_account(
-  target_student_id uuid,
-  target_school_id uuid
+  p_target_student_id uuid,
+  p_target_school_id uuid
 )
 returns public.dolphin_accounts
 language plpgsql
@@ -60,10 +60,10 @@ as $$
 declare
   account public.dolphin_accounts;
 begin
-  select * into account from public.dolphin_accounts where student_id = target_student_id for update;
+  select * into account from public.dolphin_accounts where student_id = p_target_student_id for update;
   if account.id is null then
     insert into public.dolphin_accounts (student_id, school_id)
-    values (target_student_id, target_school_id)
+    values (p_target_student_id, p_target_school_id)
     returning * into account;
     select * into account from public.dolphin_accounts where id = account.id for update;
   end if;
@@ -72,13 +72,13 @@ end;
 $$;
 
 create or replace function public._governance_write_dolphin_transaction(
-  operation_id uuid,
-  account_id uuid,
-  kind public.dolphin_transaction_kind,
-  delta numeric,
-  balance_after numeric,
-  reason text,
-  reference_operation_id uuid
+  p_operation_id uuid,
+  p_account_id uuid,
+  p_kind public.dolphin_transaction_kind,
+  p_delta numeric,
+  p_balance_after numeric,
+  p_reason text,
+  p_reference_operation_id uuid
 )
 returns public.dolphin_transactions
 language plpgsql
@@ -93,7 +93,7 @@ begin
     operation_id, account_id, kind, delta, balance_after, reason, reference_operation_id
   )
   values (
-    operation_id, account_id, kind, delta, balance_after, reason, reference_operation_id
+    p_operation_id, p_account_id, p_kind, p_delta, p_balance_after, p_reason, p_reference_operation_id
   )
   returning * into tx;
   return tx;
@@ -125,10 +125,10 @@ declare
   tx public.dolphin_transactions;
   canonical_payload jsonb;
 begin
-  if idempotency_key is null or char_length(btrim(idempotency_key)) not between 8 and 120 then
+  if idempotency_key is null or char_length(btrim(idempotency_key)) not between 16 and 128 then
     raise exception 'INVALID_IDEMPOTENCY_KEY' using errcode = 'P0001';
   end if;
-  if delta is null or delta = 0 then
+  if delta is null or delta <> trunc(delta) or delta = 0 or delta < -1000000 or delta > 1000000 then
     raise exception 'INVALID_DELTA' using errcode = 'P0001';
   end if;
   if reason is null or char_length(btrim(reason)) not between 1 and 200 then
@@ -144,7 +144,13 @@ begin
   end if;
 
   select ctx.actor_role, ctx.scope_type, ctx.scope_id into actor
-  from public._governance_actor_context(target_school_id) as ctx;
+  from public._governance_actor_context(target_school_id) as ctx
+  where ctx.actor_role = required_role
+    and (
+      ctx.scope_type = 'school'
+      and ctx.scope_id = target_school_id
+    )
+  limit 1;
   if actor.actor_role is null or actor.actor_role <> required_role then
     raise exception 'FORBIDDEN' using errcode = 'P0001';
   end if;
@@ -230,7 +236,7 @@ security definer
 set search_path = ''
 as $$
 begin
-  if amount is null or amount <= 0 or amount > 100000 then
+  if amount is null or amount <> trunc(amount) or amount <= 0 or amount > 1000000 then
     raise exception 'INVALID_AMOUNT' using errcode = 'P0001';
   end if;
   return public._governance_apply_dolphin_delta(
@@ -259,7 +265,7 @@ security definer
 set search_path = ''
 as $$
 begin
-  if amount is null or amount <= 0 or amount > 100000 then
+  if amount is null or amount <> trunc(amount) or amount <= 0 or amount > 1000000 then
     raise exception 'INVALID_AMOUNT' using errcode = 'P0001';
   end if;
   return public._governance_apply_dolphin_delta(
@@ -288,14 +294,14 @@ security definer
 set search_path = ''
 as $$
 begin
-  if delta is null or delta = 0 or delta < -100000 or delta > 100000 then
+  if delta is null or delta <> trunc(delta) or delta = 0 or delta < -1000000 or delta > 1000000 then
     raise exception 'INVALID_DELTA' using errcode = 'P0001';
   end if;
   return public._governance_apply_dolphin_delta(
     'dolphin_adjust',
     'adjust',
     'dolphin.adjust',
-    'admin',
+    'bank_operator',
     idempotency_key,
     target_student_id,
     delta,

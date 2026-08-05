@@ -21,7 +21,7 @@ const NOW = '2026-08-04T00:00:00Z' as Timestamp;
 const LATER = '2026-08-04T00:05:00Z' as Timestamp;
 
 const command: AuthorizedOperationCommand = {
-  kind: 'student_score_adjust',
+  kind: 'student_score_apply',
   actorId: ACTOR_ID,
   actorRole: 'teacher',
   idempotencyKey: 'test-idempotency-operation-fixture' as IdempotencyKey,
@@ -32,28 +32,28 @@ const command: AuthorizedOperationCommand = {
 };
 
 describe('operation state machine', () => {
-  it('allows pending -> applied and pending -> failed', () => {
-    expect(canTransitionOperation('pending', 'applied')).toBe(true);
+  it('allows pending -> succeeded and pending -> failed', () => {
+    expect(canTransitionOperation('pending', 'succeeded')).toBe(true);
     expect(canTransitionOperation('pending', 'failed')).toBe(true);
   });
 
-  it('allows applied -> reversed only', () => {
-    expect(canTransitionOperation('applied', 'reversed')).toBe(true);
-    expect(canTransitionOperation('applied', 'failed')).toBe(false);
-    expect(canTransitionOperation('applied', 'pending')).toBe(false);
+  it('allows succeeded -> reversed only', () => {
+    expect(canTransitionOperation('succeeded', 'reversed')).toBe(true);
+    expect(canTransitionOperation('succeeded', 'failed')).toBe(false);
+    expect(canTransitionOperation('succeeded', 'pending')).toBe(false);
   });
 
   it('forbids any transition out of reversed or failed', () => {
-    expect(canTransitionOperation('reversed', 'applied')).toBe(false);
+    expect(canTransitionOperation('reversed', 'succeeded')).toBe(false);
     expect(canTransitionOperation('reversed', 'pending')).toBe(false);
-    expect(canTransitionOperation('failed', 'applied')).toBe(false);
+    expect(canTransitionOperation('failed', 'succeeded')).toBe(false);
     expect(canTransitionOperation('failed', 'reversed')).toBe(false);
   });
 
   it('assertOperationTransition throws E_INVALID_STATE_TRANSITION for illegal moves', () => {
     let caught: DomainError | undefined;
     try {
-      assertOperationTransition('reversed', 'applied');
+      assertOperationTransition('reversed', 'succeeded');
     } catch (error) {
       caught = error as DomainError;
     }
@@ -66,7 +66,7 @@ describe('operation record builders', () => {
     const record = createPendingOperation({ id: OP_ID, command, now: NOW });
     expect(record.id).toBe(OP_ID);
     expect(record.status).toBe('pending');
-    expect(record.kind).toBe('student_score_adjust');
+    expect(record.kind).toBe('student_score_apply');
     expect(record.actorId).toBe(ACTOR_ID);
     expect(record.actorRole).toBe('teacher');
     expect(record.targetType).toBe('student');
@@ -79,10 +79,10 @@ describe('operation record builders', () => {
     expect(record.metadata).toEqual({});
   });
 
-  it('markOperationApplied transitions pending to applied and stamps appliedAt', () => {
+  it('markOperationApplied transitions pending to succeeded and stamps appliedAt', () => {
     const pending = createPendingOperation({ id: OP_ID, command, now: NOW });
     const applied = markOperationApplied(pending, LATER);
-    expect(applied.status).toBe('applied');
+    expect(applied.status).toBe('succeeded');
     expect(applied.appliedAt).toBe(LATER);
     // original stays immutable
     expect(pending.status).toBe('pending');
@@ -94,7 +94,7 @@ describe('operation record builders', () => {
     expect(failed.status).toBe('failed');
   });
 
-  it('markOperationReversed requires applied state; rejects double reversal', () => {
+  it('markOperationReversed requires succeeded state; rejects double reversal', () => {
     const pending = createPendingOperation({ id: OP_ID, command, now: NOW });
     const applied = markOperationApplied(pending, LATER);
     const reversed = markOperationReversed(applied, LATER);
@@ -110,7 +110,7 @@ describe('operation record builders', () => {
     expect(caught?.code).toBe('E_INVALID_STATE_TRANSITION');
   });
 
-  it('markOperationApplied on already-applied throws', () => {
+  it('markOperationApplied on already-succeeded throws', () => {
     const pending = createPendingOperation({ id: OP_ID, command, now: NOW });
     const applied = markOperationApplied(pending, LATER);
     let caught: DomainError | undefined;

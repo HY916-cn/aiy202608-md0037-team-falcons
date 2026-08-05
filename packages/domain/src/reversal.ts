@@ -42,7 +42,7 @@ export interface PreviewReversalInput {
 
 /**
  * 计算反向影响并返回预览，不改变任何状态。
- *  - 原操作必须处于 applied 状态。
+ *  - 原操作必须处于 succeeded 状态。
  *  - 原操作不能已经被标记 reversed。
  *  - 所有原流水必须与原操作 operationId 匹配。
  */
@@ -97,7 +97,7 @@ export interface BuildReversalResult {
 
 /**
  * 构造完整反向操作的纯值结果：
- *  - 新增 reversal OperationRecord (kind='reversal', status='applied')
+ *  - 新增 reversal OperationRecord (kind='reversal_apply', status='succeeded')
  *  - 新增 ReversalLink
  *  - 新增反向 LedgerEntry 列表
  *  - 原 OperationRecord 状态推进到 reversed
@@ -108,7 +108,7 @@ export function buildReversal(input: BuildReversalInput): BuildReversalResult {
   assertPlannedEntryIds(input.plannedEntryIds, input.originalEntries.length);
 
   const command: AuthorizedOperationCommand = {
-    kind: 'reversal',
+    kind: 'reversal_apply',
     actorId: input.actorId,
     actorRole: input.actorRole,
     idempotencyKey: input.idempotencyKey,
@@ -167,7 +167,7 @@ function assertReversalPreconditions(
   original: OperationRecord,
   entries: readonly LedgerEntry[],
 ): void {
-  if (original.kind === 'reversal') {
+  if (original.kind === 'reversal_apply') {
     throw new DomainError(
       'E_INVALID_REVOKE_TARGET',
       'reversal operations cannot be reversed directly; reverse the original operation instead',
@@ -179,10 +179,10 @@ function assertReversalPreconditions(
       `operation ${original.id} has already been reversed`,
     );
   }
-  if (original.status !== 'applied') {
+  if (original.status !== 'succeeded') {
     throw new DomainError(
       'E_OPERATION_NOT_APPLIED',
-      `only applied operations can be reversed; current status is ${original.status}`,
+      `only succeeded operations can be reversed; current status is ${original.status}`,
     );
   }
   if (entries.length === 0) {

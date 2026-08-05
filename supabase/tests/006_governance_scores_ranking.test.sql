@@ -132,7 +132,7 @@ select ok(
     select rank_position, count(*) as c
     from public.compute_student_ranking(
       '20000000-0000-0000-0000-000000000001'::uuid,
-      'total'::public.student_ranking_scope,
+      'all_time'::public.student_ranking_scope,
       now()
     )
     group by rank_position
@@ -359,18 +359,18 @@ select is(
   '班级端不能读取其他班级分条目'
 );
 
--- Ranking respects RLS (family only sees ranking for their student's class).
+-- Ranking respects privacy: family only sees their bound student rows.
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000021', true);
-select ok(
-  (select count(*) from public.compute_student_ranking('20000000-0000-0000-0000-000000000001', 'total', now())) >= 1,
-  '家庭端可查询绑定学生班级排行'
+select is(
+  (select count(*) from public.compute_student_ranking('20000000-0000-0000-0000-000000000001', 'all_time', now())),
+  1::bigint,
+  '家庭端排行 RPC 仅返回绑定学生本人'
 );
-
 -- Ranking for unauthorized class raises FORBIDDEN.
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000021', true);
 select throws_ok(
   $$
-    select public.compute_student_ranking('20000000-0000-0000-0000-000000000003', 'total', now())
+    select public.compute_student_ranking('20000000-0000-0000-0000-000000000003', 'all_time', now())
   $$,
   'P0001',
   'FORBIDDEN',
@@ -391,7 +391,7 @@ select ok(
 );
 
 -- Total ranking excludes reversed entries.
--- Add and reverse an entry, ensure ranking reflects removal.
+-- Add and reverse an entry, ensure net score returns to zero through immutable offset entries.
 select is(
   (select r.delta from public.apply_student_score(
     'ss-reversible-0001',
@@ -403,7 +403,7 @@ select is(
   50::numeric(9, 2),
   '为撤销测试加 50 分'
 );
-select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000051', true);
+select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000001', true);
 select is(
   (
     select r.kind::text from public.apply_targeted_reversal(
@@ -413,13 +413,16 @@ select is(
     ) as r
   ),
   'reversal_apply',
-  '管理员撤销学生分成功'
+  '教师撤销学生分成功'
 );
 select is(
-  (select is_reversed from public.student_score_entries
-   where operation_id = (select id from public.operations where idempotency_key = 'ss-reversible-0001')),
-  true,
-  '被撤销的学生分明细被标记 is_reversed'
+  (
+    select coalesce(sum(delta), 0)
+    from public.student_score_entries
+    where student_id = '50000000-0000-0000-0000-000000000008'
+  ),
+  0::numeric(12, 2),
+  '撤销后通过反向流水抵消为零'
 );
 
 select * from finish();

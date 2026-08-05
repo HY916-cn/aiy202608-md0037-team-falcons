@@ -8,7 +8,7 @@ create table public.fine_rules (
   school_id uuid not null references public.schools (id) on delete restrict,
   slug text not null check (slug ~ '^[a-z][a-z0-9_]{1,39}$'),
   display_name text not null check (char_length(btrim(display_name)) between 1 and 60),
-  default_amount numeric(10, 2) not null check (default_amount > 0 and default_amount <= 100000),
+  default_amount numeric(10, 2) not null check (default_amount > 0 and default_amount <= 1000000 and default_amount = trunc(default_amount)),
   description text not null default '' check (char_length(description) <= 300),
   is_active boolean not null default true,
   created_at timestamptz not null default now(),
@@ -24,7 +24,8 @@ for each row execute function public.set_updated_at();
 create type public.fine_order_status as enum (
   'pending',
   'settled',
-  'cancelled'
+  'cancelled',
+  'reversed'
 );
 
 create table public.fine_orders (
@@ -32,23 +33,27 @@ create table public.fine_orders (
   create_operation_id uuid not null unique references public.operations (id),
   settle_operation_id uuid unique references public.operations (id),
   cancel_operation_id uuid unique references public.operations (id),
+  reversal_operation_id uuid unique references public.operations (id),
   school_id uuid not null references public.schools (id),
   student_id uuid not null references public.students (id),
   rule_id uuid not null references public.fine_rules (id),
-  amount numeric(10, 2) not null check (amount > 0),
+  amount numeric(10, 2) not null check (amount > 0 and amount <= 1000000 and amount = trunc(amount)),
   reason text not null check (char_length(btrim(reason)) between 1 and 200),
   status public.fine_order_status not null default 'pending',
   settlement_transaction_id uuid references public.dolphin_transactions (id),
+  reversal_transaction_id uuid references public.dolphin_transactions (id),
   cancellation_note text check (cancellation_note is null or char_length(btrim(cancellation_note)) between 1 and 200),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   settled_at timestamptz,
   cancelled_at timestamptz,
+  reversed_at timestamptz,
   constraint chk_fine_orders__terminal
     check (
-      (status = 'pending' and settled_at is null and cancelled_at is null and settle_operation_id is null and cancel_operation_id is null)
-      or (status = 'settled' and settled_at is not null and cancel_operation_id is null and settle_operation_id is not null)
-      or (status = 'cancelled' and cancelled_at is not null and settle_operation_id is null and cancel_operation_id is not null)
+      (status = 'pending' and settled_at is null and cancelled_at is null and reversed_at is null and settle_operation_id is null and cancel_operation_id is null and reversal_operation_id is null)
+      or (status = 'settled' and settled_at is not null and cancel_operation_id is null and settle_operation_id is not null and reversed_at is null and reversal_operation_id is null)
+      or (status = 'cancelled' and cancelled_at is not null and settle_operation_id is null and cancel_operation_id is not null and reversed_at is null and reversal_operation_id is null)
+      or (status = 'reversed' and settled_at is not null and settle_operation_id is not null and reversed_at is not null and reversal_operation_id is not null)
     )
 );
 
@@ -93,7 +98,7 @@ declare
   rule public.fine_rules;
   canonical_payload jsonb;
 begin
-  if idempotency_key is null or char_length(btrim(idempotency_key)) not between 8 and 120 then
+  if idempotency_key is null or char_length(btrim(idempotency_key)) not between 16 and 128 then
     raise exception 'INVALID_IDEMPOTENCY_KEY' using errcode = 'P0001';
   end if;
   if slug is null or slug !~ '^[a-z][a-z0-9_]{1,39}$' then
@@ -102,7 +107,7 @@ begin
   if display_name is null or char_length(btrim(display_name)) not between 1 and 60 then
     raise exception 'INVALID_DISPLAY_NAME' using errcode = 'P0001';
   end if;
-  if default_amount is null or default_amount <= 0 or default_amount > 100000 then
+  if default_amount is null or default_amount <> trunc(default_amount) or default_amount <= 0 or default_amount > 1000000 then
     raise exception 'INVALID_AMOUNT' using errcode = 'P0001';
   end if;
   if description is null or char_length(description) > 300 then
@@ -110,8 +115,12 @@ begin
   end if;
 
   select ctx.actor_role, ctx.scope_type, ctx.scope_id into actor
-  from public._governance_actor_context(target_school_id) as ctx;
-  if actor.actor_role is null or actor.actor_role <> 'admin' then
+  from public._governance_actor_context(target_school_id) as ctx
+  where ctx.actor_role = 'bank_operator'
+    and ctx.scope_type = 'school'
+    and ctx.scope_id = target_school_id
+  limit 1;
+  if actor.actor_role is null then
     raise exception 'FORBIDDEN' using errcode = 'P0001';
   end if;
 
@@ -199,10 +208,10 @@ declare
   order_row public.fine_orders;
   canonical_payload jsonb;
 begin
-  if idempotency_key is null or char_length(btrim(idempotency_key)) not between 8 and 120 then
+  if idempotency_key is null or char_length(btrim(idempotency_key)) not between 16 and 128 then
     raise exception 'INVALID_IDEMPOTENCY_KEY' using errcode = 'P0001';
   end if;
-  if amount is null or amount <= 0 or amount > 100000 then
+  if amount is null or amount <> trunc(amount) or amount <= 0 or amount > 1000000 then
     raise exception 'INVALID_AMOUNT' using errcode = 'P0001';
   end if;
   if reason is null or char_length(btrim(reason)) not between 1 and 200 then
@@ -223,8 +232,10 @@ begin
   end if;
 
   select ctx.actor_role, ctx.scope_type, ctx.scope_id into actor
-  from public._governance_actor_context(target_school_id) as ctx;
-  if actor.actor_role is null or actor.actor_role <> 'bank_operator' then
+  from public._governance_actor_context(target_school_id) as ctx
+  where ctx.actor_role = 'teacher'
+  limit 1;
+  if actor.actor_role is null or not public._governance_can_manage_student_score(target_student_id) then
     raise exception 'FORBIDDEN' using errcode = 'P0001';
   end if;
 
@@ -244,7 +255,7 @@ begin
     actor.scope_type,
     actor.scope_id,
     target_school_id,
-    'fine_order',
+    'student',
     target_student_id,
     null,
     false
@@ -308,7 +319,7 @@ declare
   tx public.dolphin_transactions;
   canonical_payload jsonb;
 begin
-  if idempotency_key is null or char_length(btrim(idempotency_key)) not between 8 and 120 then
+  if idempotency_key is null or char_length(btrim(idempotency_key)) not between 16 and 128 then
     raise exception 'INVALID_IDEMPOTENCY_KEY' using errcode = 'P0001';
   end if;
 
@@ -323,8 +334,12 @@ begin
   target_school_id := order_row.school_id;
 
   select ctx.actor_role, ctx.scope_type, ctx.scope_id into actor
-  from public._governance_actor_context(target_school_id) as ctx;
-  if actor.actor_role is null or actor.actor_role <> 'bank_operator' then
+  from public._governance_actor_context(target_school_id) as ctx
+  where ctx.actor_role = 'bank_operator'
+    and ctx.scope_type = 'school'
+    and ctx.scope_id = target_school_id
+  limit 1;
+  if actor.actor_role is null then
     raise exception 'FORBIDDEN' using errcode = 'P0001';
   end if;
 
@@ -424,7 +439,7 @@ declare
   target_school_id uuid;
   canonical_payload jsonb;
 begin
-  if idempotency_key is null or char_length(btrim(idempotency_key)) not between 8 and 120 then
+  if idempotency_key is null or char_length(btrim(idempotency_key)) not between 16 and 128 then
     raise exception 'INVALID_IDEMPOTENCY_KEY' using errcode = 'P0001';
   end if;
   if cancellation_note is null or char_length(btrim(cancellation_note)) not between 1 and 200 then
@@ -442,8 +457,12 @@ begin
   target_school_id := order_row.school_id;
 
   select ctx.actor_role, ctx.scope_type, ctx.scope_id into actor
-  from public._governance_actor_context(target_school_id) as ctx;
-  if actor.actor_role is null or actor.actor_role not in ('bank_operator', 'admin') then
+  from public._governance_actor_context(target_school_id) as ctx
+  where ctx.actor_role = 'bank_operator'
+    and ctx.scope_type = 'school'
+    and ctx.scope_id = target_school_id
+  limit 1;
+  if actor.actor_role is null then
     raise exception 'FORBIDDEN' using errcode = 'P0001';
   end if;
 
@@ -508,6 +527,150 @@ begin
 end;
 $$;
 
+create or replace function public.reverse_fine_order(
+  idempotency_key text,
+  target_order_id uuid,
+  reversal_reason text
+)
+returns public.fine_orders
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  op record;
+  actor record;
+  order_row public.fine_orders;
+  account public.dolphin_accounts;
+  new_balance numeric(12, 2);
+  tx public.dolphin_transactions;
+  canonical_payload jsonb;
+begin
+  if idempotency_key is null or char_length(btrim(idempotency_key)) not between 16 and 128 then
+    raise exception 'INVALID_IDEMPOTENCY_KEY' using errcode = 'P0001';
+  end if;
+  if reversal_reason is null or char_length(btrim(reversal_reason)) not between 5 and 200 then
+    raise exception 'INVALID_REASON' using errcode = 'P0001';
+  end if;
+
+  select * into order_row
+  from public.fine_orders
+  where id = target_order_id
+  for update;
+  if order_row.id is null then
+    raise exception 'ORDER_NOT_FOUND' using errcode = 'P0001';
+  end if;
+  if order_row.status <> 'settled' then
+    raise exception 'ORDER_NOT_SETTLED' using errcode = 'P0001';
+  end if;
+
+  select ctx.actor_role, ctx.scope_type, ctx.scope_id into actor
+  from public._governance_actor_context(order_row.school_id) as ctx
+  where ctx.actor_role = 'bank_operator'
+    and ctx.scope_type = 'school'
+    and ctx.scope_id = order_row.school_id
+  limit 1;
+  if actor.actor_role is null then
+    raise exception 'FORBIDDEN' using errcode = 'P0001';
+  end if;
+
+  canonical_payload := jsonb_build_object(
+    'order_id', target_order_id,
+    'reason', btrim(reversal_reason)
+  );
+
+  select * into op
+  from public._governance_begin_operation(
+    idempotency_key,
+    'reversal_apply',
+    canonical_payload,
+    actor.actor_role,
+    actor.scope_type,
+    actor.scope_id,
+    order_row.school_id,
+    'fine_order',
+    target_order_id,
+    btrim(reversal_reason),
+    true
+  );
+  if op.is_conflict then
+    raise exception 'IDEMPOTENCY_FINGERPRINT_MISMATCH' using errcode = 'P0001';
+  end if;
+  if op.is_pending then
+    raise exception 'IDEMPOTENCY_IN_PROGRESS' using errcode = 'P0001';
+  end if;
+  if op.is_replay then
+    select * into order_row from public.fine_orders where reversal_operation_id = op.operation_id;
+    return order_row;
+  end if;
+
+  begin
+    account := public._governance_get_or_create_account(order_row.student_id, order_row.school_id);
+    new_balance := account.balance + order_row.amount;
+
+    update public.dolphin_accounts
+    set balance = new_balance, version = version + 1
+    where id = account.id;
+
+    tx := public._governance_write_dolphin_transaction(
+      op.operation_id,
+      account.id,
+      'reversal',
+      order_row.amount,
+      new_balance,
+      'fine_reversal:' || order_row.id::text,
+      order_row.settle_operation_id
+    );
+
+    update public.fine_orders
+    set
+      status = 'reversed',
+      reversal_operation_id = op.operation_id,
+      reversal_transaction_id = tx.id,
+      reversed_at = now()
+    where id = target_order_id
+    returning * into order_row;
+
+    insert into public.fine_order_events (order_id, operation_id, from_status, to_status, detail)
+    values (
+      order_row.id,
+      op.operation_id,
+      'settled',
+      'reversed',
+      jsonb_build_object('transaction_id', tx.id, 'balance_after', new_balance)
+    );
+
+    insert into public.reversal_links (original_operation_id, reversal_operation_id)
+    values (order_row.settle_operation_id, op.operation_id);
+
+    update public.operations
+    set status = 'reversed', reversed_at = now(), reversed_by = op.operation_id
+    where id = order_row.settle_operation_id;
+
+    perform public._governance_succeed_operation(
+      op.operation_id,
+      jsonb_build_object(
+        'order_id', order_row.id,
+        'operation_id', op.operation_id,
+        'transaction_id', tx.id,
+        'balance_after', new_balance
+      )
+    );
+
+    perform public._governance_write_audit(
+      op.operation_id, order_row.school_id, actor.actor_role, 'fine.reverse', 'fine_order', order_row.id, 'success', canonical_payload
+    );
+
+    return order_row;
+  exception
+    when others then
+      perform public._governance_fail_operation(op.operation_id, jsonb_build_object('error', SQLERRM));
+      raise;
+  end;
+end;
+$$;
+
 alter table public.fine_rules enable row level security;
 alter table public.fine_orders enable row level security;
 alter table public.fine_order_events enable row level security;
@@ -524,8 +687,10 @@ revoke all on function public.manage_fine_rule(text, uuid, text, text, numeric, 
 revoke all on function public.create_fine_order(text, uuid, uuid, numeric, text) from public;
 revoke all on function public.settle_fine_order(text, uuid) from public;
 revoke all on function public.cancel_fine_order(text, uuid, text) from public;
+revoke all on function public.reverse_fine_order(text, uuid, text) from public;
 
 grant execute on function public.manage_fine_rule(text, uuid, text, text, numeric, text, boolean) to authenticated;
 grant execute on function public.create_fine_order(text, uuid, uuid, numeric, text) to authenticated;
 grant execute on function public.settle_fine_order(text, uuid) to authenticated;
 grant execute on function public.cancel_fine_order(text, uuid, text) to authenticated;
+grant execute on function public.reverse_fine_order(text, uuid, text) to authenticated;

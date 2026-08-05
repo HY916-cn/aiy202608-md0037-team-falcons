@@ -19,7 +19,12 @@ create table public.class_score_entries (
   operation_id uuid not null unique references public.operations (id),
   class_id uuid not null references public.classes (id),
   category_id uuid not null references public.class_score_categories (id),
-  delta numeric(9, 2) not null check (delta <> 0 and delta >= -1000 and delta <= 1000),
+  delta numeric(9, 2) not null check (
+    delta = trunc(delta)
+    and delta <> 0
+    and delta >= -1000
+    and delta <= 1000
+  ),
   reason text not null check (char_length(btrim(reason)) between 1 and 200),
   applied_at timestamptz not null default now(),
   is_reversed boolean not null default false,
@@ -67,17 +72,17 @@ with (security_invoker = true) as
 select
   class.id as class_id,
   class.school_id,
-  coalesce(sum(entry.delta) filter (where not entry.is_reversed), 0)::numeric(12, 2) as total_score
+  coalesce(sum(entry.delta), 0)::numeric(12, 2) as total_score
 from public.classes as class
 left join public.class_score_entries as entry on entry.class_id = class.id
 group by class.id, class.school_id;
 
 create or replace function public._governance_write_class_score_entry(
-  operation_id uuid,
-  target_class_id uuid,
-  target_category_id uuid,
-  delta numeric,
-  reason text
+  p_operation_id uuid,
+  p_target_class_id uuid,
+  p_target_category_id uuid,
+  p_delta numeric,
+  p_reason text
 )
 returns public.class_score_entries
 language plpgsql
@@ -96,11 +101,11 @@ begin
     reason
   )
   values (
-    operation_id,
-    target_class_id,
-    target_category_id,
-    delta,
-    reason
+    p_operation_id,
+    p_target_class_id,
+    p_target_category_id,
+    p_delta,
+    p_reason
   )
   returning * into entry;
   return entry;
@@ -128,10 +133,10 @@ declare
   entry public.class_score_entries;
   canonical_payload jsonb;
 begin
-  if idempotency_key is null or char_length(btrim(idempotency_key)) not between 8 and 120 then
+  if idempotency_key is null or char_length(btrim(idempotency_key)) not between 16 and 128 then
     raise exception 'INVALID_IDEMPOTENCY_KEY' using errcode = 'P0001';
   end if;
-  if delta is null or delta = 0 or delta < -1000 or delta > 1000 then
+  if delta is null or delta <> trunc(delta) or delta = 0 or delta < -1000 or delta > 1000 then
     raise exception 'INVALID_DELTA' using errcode = 'P0001';
   end if;
   if reason is null or char_length(btrim(reason)) not between 1 and 200 then
@@ -152,8 +157,12 @@ begin
   end if;
 
   select ctx.actor_role, ctx.scope_type, ctx.scope_id into actor
-  from public._governance_actor_context(target_school_id) as ctx;
-  if actor.actor_role is null or actor.actor_role <> 'council' then
+  from public._governance_actor_context(target_school_id) as ctx
+  where ctx.actor_role = 'council'
+    and ctx.scope_type = 'school'
+    and ctx.scope_id = target_school_id
+  limit 1;
+  if actor.actor_role is null or not public._governance_can_manage_class_score(target_class_id) then
     raise exception 'FORBIDDEN' using errcode = 'P0001';
   end if;
 
@@ -235,7 +244,7 @@ declare
   appeal public.class_score_appeals;
   canonical_payload jsonb;
 begin
-  if idempotency_key is null or char_length(btrim(idempotency_key)) not between 8 and 120 then
+  if idempotency_key is null or char_length(btrim(idempotency_key)) not between 16 and 128 then
     raise exception 'INVALID_IDEMPOTENCY_KEY' using errcode = 'P0001';
   end if;
   if appeal_reason is null or char_length(btrim(appeal_reason)) not between 5 and 500 then
@@ -253,8 +262,31 @@ begin
   select school_id into target_school_id from public.classes where id = entry.class_id;
 
   select ctx.actor_role, ctx.scope_type, ctx.scope_id into actor
-  from public._governance_actor_context(target_school_id) as ctx;
-  if actor.actor_role is null or actor.actor_role <> 'class_terminal' or actor.scope_id <> entry.class_id then
+  from public._governance_actor_context(target_school_id) as ctx
+  where (
+    ctx.actor_role = 'teacher'
+    or (ctx.actor_role = 'class_terminal' and ctx.scope_type = 'class' and ctx.scope_id = entry.class_id)
+  )
+  limit 1;
+  if actor.actor_role is null
+    or not (
+      public._governance_can_manage_student_score(
+        (
+          select student.id
+          from public.students as student
+          where student.class_id = entry.class_id
+          order by student.id
+          limit 1
+        )
+      )
+      or exists (
+        select 1
+        from public.teacher_class_assignments as assignment
+        where assignment.teacher_id = auth.uid()
+          and assignment.class_id = entry.class_id
+      )
+      or public.has_role('class_terminal', 'class', entry.class_id)
+    ) then
     raise exception 'FORBIDDEN' using errcode = 'P0001';
   end if;
 
@@ -345,7 +377,7 @@ declare
   reversal_payload jsonb;
   canonical_payload jsonb;
 begin
-  if idempotency_key is null or char_length(btrim(idempotency_key)) not between 8 and 120 then
+  if idempotency_key is null or char_length(btrim(idempotency_key)) not between 16 and 128 then
     raise exception 'INVALID_IDEMPOTENCY_KEY' using errcode = 'P0001';
   end if;
   if resolution_note is not null and char_length(btrim(resolution_note)) not between 1 and 500 then
@@ -364,8 +396,12 @@ begin
   select school_id into target_school_id from public.classes where id = entry.class_id;
 
   select ctx.actor_role, ctx.scope_type, ctx.scope_id into actor
-  from public._governance_actor_context(target_school_id) as ctx;
-  if actor.actor_role is null or actor.actor_role not in ('council', 'admin') then
+  from public._governance_actor_context(target_school_id) as ctx
+  where ctx.actor_role = 'council'
+    and ctx.scope_type = 'school'
+    and ctx.scope_id = target_school_id
+  limit 1;
+  if actor.actor_role is null then
     raise exception 'FORBIDDEN' using errcode = 'P0001';
   end if;
 
