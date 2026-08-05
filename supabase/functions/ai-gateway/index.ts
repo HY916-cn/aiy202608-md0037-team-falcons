@@ -15313,6 +15313,7 @@ var COURSEWARE_BUCKET = "courseware-private";
 var COURSEWARE_MAX_FILE_BYTES = 50 * 1024 * 1024;
 var COURSEWARE_SIGNED_URL_TTL_SECONDS = 5 * 60;
 var COURSEWARE_FILE_RULES = {
+  csv: ["text/csv", "application/vnd.ms-excel"],
   doc: ["application/msword"],
   docx: [
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -15325,7 +15326,12 @@ var COURSEWARE_FILE_RULES = {
   pptx: [
     "application/vnd.openxmlformats-officedocument.presentationml.presentation"
   ],
+  txt: ["text/plain"],
   webp: ["image/webp"],
+  xls: ["application/vnd.ms-excel"],
+  xlsx: [
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  ],
   zip: ["application/zip", "application/x-zip-compressed"]
 };
 
@@ -15860,7 +15866,27 @@ var SupabaseTeachingDemoAdapter = class {
         throw new ApiClientError("FORBIDDEN");
       }
       const classQuery = this.client.from("classes").select("id, name");
-      classResult = await (roleScope.type === "class" ? classQuery.eq("id", roleScope.id) : classQuery.eq("school_id", roleScope.id)).order("name");
+      if (roleScope.type === "class") {
+        classResult = await classQuery.eq("id", roleScope.id).order("name");
+      } else {
+        const {
+          data: { user },
+          error: userError
+        } = await this.client.auth.getUser();
+        if (userError !== null || user === null) {
+          throw new ApiClientError("UNAUTHENTICATED", { cause: userError });
+        }
+        const assignmentResult = await this.client.from("teacher_class_assignments").select("class_id").eq("teacher_id", user.id);
+        if (assignmentResult.error !== null) {
+          throw new ApiClientError("FORBIDDEN", {
+            cause: assignmentResult.error
+          });
+        }
+        const assignedClassIds = (assignmentResult.data ?? []).map(
+          (row) => row.class_id
+        );
+        classResult = assignedClassIds.length === 0 ? { data: [], error: null } : await classQuery.in("id", assignedClassIds).order("name");
+      }
       const classIds = (classResult.data ?? []).map((row) => row.id);
       studentResult = classIds.length === 0 ? { data: [], error: null } : await this.client.from("students").select("id, class_id, display_name").in("class_id", classIds).order("display_name");
     }
