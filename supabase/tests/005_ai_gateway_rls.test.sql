@@ -288,11 +288,17 @@ select lives_ok(
   )) from generate_series(1, 8)$$,
   '允许最多十个活动会话'
 );
-select throws_ok(
+select lives_ok(
   $$select public.create_ai_session((
     select id from public.role_assignments where user_id = auth.uid() and role = 'teacher'
   ))$$,
-  'P0001', 'SESSION_LIMIT', '超过活动会话上限被拒绝'
+  '超过十个活动会话后仍可继续创建'
+);
+select cmp_ok(
+  (select count(*) from public.ai_sessions
+   where user_id = auth.uid() and status = 'active'),
+  '>', 10::bigint,
+  'AI 会话历史不设置数量上限'
 );
 
 reset role;
