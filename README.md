@@ -4,7 +4,7 @@
 
 海豚云是一套面向校园日常协作的 AI 平台。我们把课件、作业、成绩、成长评价、班级治理和校园激励放进同一套系统，让教师、学生、家庭和校园管理者基于同一份数据协作，同时保持清晰的权限边界。
 
-本项目由 Team Falcons（MD0037）开发，赛事正式交付版本为 Web 端。
+本项目由 Team Falcons（MD0037）开发。
 
 ![海豚云登录页](./docs/assets/product-login.png)
 
@@ -27,9 +27,9 @@
 
 AI 负责理解意图、整理信息和生成回复，不直接访问数据库，也不能绕过用户确认执行写操作。即使 AI 服务暂时不可用，课件、作业、成绩和校园治理等基础功能仍然可以正常使用。
 
-## 演示路径
+## 使用场景
 
-建议按下面的顺序体验主要流程：
+一条典型的使用流程如下：
 
 1. 在教师端切换授权班级，发送课件、发布作业与成绩单，并记录学生分。
 2. 在班级端查看课件、作业、学生分排行和班级表现。
@@ -37,27 +37,26 @@ AI 负责理解意图、整理信息和生成回复，不直接访问数据库�
 4. 在自治会端查看班级分，在银行端处理罚款并撤销指定记录。
 5. 在 AI 中心查询当前权限范围内的信息，并体验“生成草稿—人工确认—执行操作”的流程。
 
-仓库不包含真实学生数据、演示账号密码或服务端密钥。
-
-路演与提交材料：
-
-- [10 分钟路演讲稿](./docs/十分钟路演讲稿.md)
-- [3–4 分钟实机演示路径与专家问答](./docs/实机演示路径与专家问答.md)
-- [断网、AI 离线与服务器故障备用方案](./docs/故障备用方案.md)
-- [AIY 赛事提交自查](./docs/10-AIY赛事提交自查.md)
-
 ## 技术栈
 
 | 模块 | 技术 |
 | --- | --- |
-| Web 客户端 | React Native、Expo Router、TypeScript |
+| 客户端 | React Native、Expo Router、TypeScript |
 | 身份与数据 | Supabase Auth、PostgreSQL、RLS、RPC、Storage |
 | AI 运行时 | DeepSeek、海豚云服务端 AI Gateway |
-| AI 方案验证 | Coze 对话、Agent、Skill、Workflow |
 | 质量保障 | Vitest、pgTAP、ESLint、GitHub Actions、Gitleaks |
-| 协作开发 | Git、GitHub、Codex |
 
-开发过程中，团队使用 Coze 拆解校园场景，并验证 Agent、Skill 和 Workflow 方案，重点打磨“自然语言意图—操作草稿—人工确认”的交互流程。产品运行时通过海豚云服务端 AI Gateway 调用 DeepSeek，Coze 不参与线上请求。
+在方案设计阶段，我们使用 Coze 的 Agent、Skill 和 Workflow 能力拆解校园场景，重点验证了“自然语言意图—操作草稿—人工确认”这条交互链路。产品运行时通过海豚云服务端 AI Gateway 调用 DeepSeek。
+
+## 项目结构
+
+```text
+apps/client/    Expo 客户端与六类角色工作台
+packages/       公共类型、业务逻辑和数据库测试
+supabase/       数据库迁移与 Edge Functions
+docs/           架构、权限和产品规范
+scripts/        测试、构建与发布脚本
+```
 
 ## 本地运行
 
@@ -71,7 +70,7 @@ pnpm web
 
 浏览器打开终端输出的本地地址即可。连接自己的 Supabase 项目前，需要在 `apps/client/.env` 中配置公共地址和匿名密钥。`DEEPSEEK_API_KEY` 等服务端密钥只能保存在部署平台的 Secret 中，不能写入仓库或客户端环境变量。
 
-提交前可运行完整的 Web 质量检查：
+完整质量检查：
 
 ```bash
 pnpm verify:deps
@@ -83,7 +82,7 @@ pnpm database:test
 pnpm smoke:web
 ```
 
-工程入口见 [START_HERE.md](./START_HERE.md)，架构、权限和协作规范位于 [docs](./docs)。
+架构、权限和产品规范位于 [docs](./docs)。
 
 ## 安全与隐私
 
@@ -99,7 +98,7 @@ pnpm smoke:web
 
 | 成员 | GitHub | 负责内容 |
 | --- | --- | --- |
-| Haoyu Huang | [@HY916-cn](https://github.com/HY916-cn) | 产品设计、架构协调、代码审查、测试构建与路演 |
+| Haoyu Huang | [@HY916-cn](https://github.com/HY916-cn) | 产品设计、架构协调、代码审查与质量保障 |
 | Lilun Yan | [@Simen111216](https://github.com/Simen111216) | Supabase、治理账本、权限安全与发布工程 |
 | Qiteng Jiang | [@cskunkuncskk](https://github.com/cskunkuncskk) | Web 前端、六角色工作台、教学与成绩体验 |
 
