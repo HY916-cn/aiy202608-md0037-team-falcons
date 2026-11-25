@@ -1,8 +1,29 @@
-# 海豚云 DolphinCloud
+<div align="center">
+
+# 海豚云 · DolphinCloud
+
+**连接教师、学生、家庭与校园管理者的 AI 协作平台**
+
+[![Expo](https://img.shields.io/badge/Expo-57-000020?logo=expo&logoColor=white)](https://expo.dev/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Supabase](https://img.shields.io/badge/Supabase-Auth%20%2B%20RLS-3FCF8E?logo=supabase&logoColor=white)](https://supabase.com/)
+[![License](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
+
+[![Stars](https://img.shields.io/github/stars/HY916-cn/aiy202608-md0037-team-falcons?logo=github&label=Stars)](https://github.com/HY916-cn/aiy202608-md0037-team-falcons/stargazers)
+[![Forks](https://img.shields.io/github/forks/HY916-cn/aiy202608-md0037-team-falcons?logo=github&label=Forks)](https://github.com/HY916-cn/aiy202608-md0037-team-falcons/network/members)
+[![Last Commit](https://img.shields.io/github/last-commit/HY916-cn/aiy202608-md0037-team-falcons?logo=git&logoColor=white)](https://github.com/HY916-cn/aiy202608-md0037-team-falcons/commits/main)
+[![Repo Size](https://img.shields.io/github/repo-size/HY916-cn/aiy202608-md0037-team-falcons)](https://github.com/HY916-cn/aiy202608-md0037-team-falcons)
+[![Issues](https://img.shields.io/github/issues/HY916-cn/aiy202608-md0037-team-falcons?logo=github&label=Issues)](https://github.com/HY916-cn/aiy202608-md0037-team-falcons/issues)
 
 **AIY 黑客松 2026 深圳站 · Coze AI 赛道金奖 · 全场 TOP 2**
 
-海豚云是一套面向校园日常协作的 AI 平台。我们把课件、作业、成绩、成长评价、班级治理和校园激励放进同一套系统，让教师、学生、家庭和校园管理者基于同一份数据协作，同时保持清晰的权限边界。
+将课件、作业、成绩、成长评价、班级治理与校园激励纳入同一套系统，<br/>
+让六类角色在清晰的权限边界内基于同一份数据协作。
+
+</div>
+
+---
 
 本项目由 Team Falcons（MD0037）开发。
 
